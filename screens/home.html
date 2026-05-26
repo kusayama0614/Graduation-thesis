@@ -4,324 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ホーム - 教師管理システム</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        /* ヘッダー */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: white;
-            padding: 20px 30px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .header h1 {
-            font-size: 28px;
-            color: #333;
-            margin: 0;
-        }
-
-        .header-info {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .teacher-info {
-            text-align: right;
-            color: #666;
-        }
-
-        .teacher-info p {
-            margin: 5px 0;
-            font-size: 14px;
-        }
-
-        .teacher-info .name {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .logout-button {
-            padding: 10px 20px;
-            background: #ff6b6b;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: background 0.3s;
-        }
-
-        .logout-button:hover {
-            background: #ff5252;
-        }
-
-        /* メインコンテンツ */
-        .main-content {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            margin-bottom: 30px;
-        }
-
-        /* カード */
-        .card {
-            background: white;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        }
-
-        .card-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .card h2 {
-            font-size: 20px;
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .card p {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 20px;
-            flex-grow: 1;
-            line-height: 1.6;
-        }
-
-        .card-button {
-            padding: 12px 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .card-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .card-button:active {
-            transform: translateY(0);
-        }
-
-        /* 特色ボックス */
-        .feature-box {
-            background: white;
-            border-radius: 10px;
-            padding: 25px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .feature-box h2 {
-            font-size: 22px;
-            color: #333;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
-        }
-
-        .feature-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-        }
-
-        .feature-item {
-            padding: 15px;
-            background: #f9f9f9;
-            border-left: 4px solid #667eea;
-            border-radius: 5px;
-        }
-
-        .feature-item h3 {
-            font-size: 16px;
-            color: #333;
-            margin-bottom: 8px;
-        }
-
-        .feature-item p {
-            font-size: 13px;
-            color: #666;
-            line-height: 1.5;
-        }
-
-        /* フッター */
-        .footer {
-            text-align: center;
-            color: white;
-            padding: 20px;
-            font-size: 13px;
-        }
-
-        /* ステータスバー */
-        .status-bar {
-            background: white;
-            border-radius: 10px;
-            padding: 15px 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .status-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .status-item .number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .status-item .label {
-            font-size: 12px;
-            color: #666;
-            margin-top: 5px;
-        }
-
-        /* レスポンシブ */
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                text-align: center;
-                gap: 15px;
-            }
-
-            .header-info {
-                flex-direction: column;
-                width: 100%;
-            }
-
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-
-            .header h1 {
-                font-size: 24px;
-            }
-        }
-
-        /* モーダル */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .modal.show {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 10px;
-            padding: 30px;
-            max-width: 500px;
-            width: 100%;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        .modal-header {
-            font-size: 22px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 15px;
-        }
-
-        .modal-body {
-            color: #666;
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 25px;
-        }
-
-        .modal-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-        }
-
-        .modal-button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: background 0.3s;
-        }
-
-        .modal-button.cancel {
-            background: #e0e0e0;
-            color: #333;
-        }
-
-        .modal-button.cancel:hover {
-            background: #d0d0d0;
-        }
-
-        .modal-button.confirm {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .modal-button.confirm:hover {
-            background: linear-gradient(135deg, #5568d3 0%, #6a3f99 100%);
-        }
-    </style>
+    <link rel="stylesheet" href="home.css">
 </head>
 <body>
     <div class="container">
@@ -334,26 +17,6 @@
                     <p id="teacherId">ID: teacher001</p>
                 </div>
                 <button class="logout-button" onclick="logout()">ログアウト</button>
-            </div>
-        </div>
-
-        <!-- ステータスバー -->
-        <div class="status-bar">
-            <div class="status-item">
-                <div class="number">15</div>
-                <div class="label">学習データ</div>
-            </div>
-            <div class="status-item">
-                <div class="number">8</div>
-                <div class="label">処理中のデータ</div>
-            </div>
-            <div class="status-item">
-                <div class="number">23</div>
-                <div class="label">完了した分析</div>
-            </div>
-            <div class="status-item">
-                <div class="number">12</div>
-                <div class="label">待機中の解答</div>
             </div>
         </div>
 
@@ -396,7 +59,7 @@
             <div class="feature-list">
                 <div class="feature-item">
                     <h3>📚 学習データ管理</h3>
-                    <p>複数の学習データを一元管理し、生徒の学習進捗を可視化します。</p>
+                    <p>複数の学習データを一元管理し、生徒の理解状況を可視化します。</p>
                 </div>
                 <div class="feature-item">
                     <h3>🔍 自動採点機能</h3>
@@ -404,7 +67,7 @@
                 </div>
                 <div class="feature-item">
                     <h3>📈 レポート生成</h3>
-                    <p>分析結果をレポートとして出力し、指導改善に役立てます。</p>
+                    <p>分析結果を個別適応的な解答解説として出力し、指導改善に役立てます。</p>
                 </div>
                 <div class="feature-item">
                     <h3>💾 データ保管</h3>
@@ -416,62 +79,22 @@
 
     <!-- フッター -->
     <div class="footer">
-        <p>© 2026 教師管理システム - All rights reserved</p>
+        <p>© 2026 教師管理システム </p>
     </div>
 
-    <!-- ナビゲーション用モーダル -->
-    <div class="modal" id="navigationModal">
-        <div class="modal-content">
-            <div class="modal-header" id="modalTitle">画面遷移</div>
-            <div class="modal-body" id="modalMessage">この機能は現在開発中です。</div>
-            <div class="modal-buttons">
-                <button class="modal-button cancel" onclick="closeModal()">キャンセル</button>
-                <button class="modal-button confirm" onclick="goToPage()">進む</button>
-            </div>
-        </div>
-    </div>
+
 
     <script>
-        let currentNavigationPage = null;
-
         // ページナビゲーション
         function navigateTo(page) {
-            const pageInfo = {
-                'upload-learning-data': {
-                    title: '学習データアップロード',
-                    message: '学習データをアップロード画面に移動します。',
-                    file: 'upload-learning-data.html'
-                },
-                'upload-answer-sheet': {
-                    title: '解答用紙アップロード',
-                    message: '解答用紙のアップロード画面に移動します。',
-                    file: 'upload-answer-sheet.html'
-                },
-                'view-answer-data': {
-                    title: '解答データ確認',
-                    message: '解答データの確認画面に移動します。',
-                    file: 'view-answer-data.html'
-                }
+            const pageMap = {
+                'upload-learning-data': 'upload-learning-data.html',
+                'upload-answer-sheet': 'upload-answer-sheet.html',
+                'view-answer-data': 'view-answer-data.html'
             };
 
-            if (pageInfo[page]) {
-                currentNavigationPage = pageInfo[page];
-                document.getElementById('modalTitle').textContent = pageInfo[page].title;
-                document.getElementById('modalMessage').textContent = pageInfo[page].message;
-                document.getElementById('navigationModal').classList.add('show');
-            }
-        }
-
-        // モーダルを閉じる
-        function closeModal() {
-            document.getElementById('navigationModal').classList.remove('show');
-            currentNavigationPage = null;
-        }
-
-        // ページに移動
-        function goToPage() {
-            if (currentNavigationPage) {
-                window.location.href = currentNavigationPage.file;
+            if (pageMap[page]) {
+                window.location.href = pageMap[page];
             }
         }
 

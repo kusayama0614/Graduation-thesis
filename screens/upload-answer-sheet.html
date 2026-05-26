@@ -4,375 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>解答用紙アップロード - 教師管理システム</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .header {
-            background: white;
-            padding: 20px 30px;
-            border-radius: 10px 10px 0 0;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            font-size: 24px;
-            color: #333;
-        }
-
-        .back-button {
-            padding: 10px 20px;
-            background: #e0e0e0;
-            color: #333;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background 0.3s;
-        }
-
-        .back-button:hover {
-            background: #d0d0d0;
-        }
-
-        .content {
-            background: white;
-            padding: 40px;
-            border-radius: 0 0 10px 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .breadcrumb {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 20px;
-        }
-
-        .breadcrumb a {
-            color: #667eea;
-            cursor: pointer;
-            text-decoration: none;
-        }
-
-        .breadcrumb a:hover {
-            text-decoration: underline;
-        }
-
-        .section {
-            margin-bottom: 40px;
-        }
-
-        .section h2 {
-            font-size: 20px;
-            color: #333;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
-        }
-
-        .section p {
-            color: #666;
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 15px;
-        }
-
-        /* ドラッグ&ドロップエリア */
-        .upload-area {
-            border: 2px dashed #667eea;
-            border-radius: 8px;
-            padding: 40px;
-            text-align: center;
-            background: #f9f9f9;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 20px;
-        }
-
-        .upload-area:hover {
-            border-color: #764ba2;
-            background: #f0f0f0;
-        }
-
-        .upload-area.dragover {
-            border-color: #764ba2;
-            background: #ede7f6;
-        }
-
-        .upload-area-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-
-        .upload-area h3 {
-            font-size: 18px;
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .upload-area p {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 5px;
-        }
-
-        .upload-area .file-input {
-            display: none;
-        }
-
-        /* ファイル選択ボタン */
-        .file-select-button {
-            display: inline-block;
-            padding: 12px 30px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 600;
-            margin-top: 10px;
-            transition: transform 0.2s;
-        }
-
-        .file-select-button:hover {
-            transform: translateY(-2px);
-        }
-
-        /* ファイルリスト */
-        .file-list {
-            background: #f9f9f9;
-            border-radius: 8px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-
-        .file-list h3 {
-            font-size: 16px;
-            color: #333;
-            margin-bottom: 15px;
-        }
-
-        .file-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            background: white;
-            border-radius: 5px;
-            margin-bottom: 10px;
-            border-left: 4px solid #667eea;
-        }
-
-        .file-item-info {
-            flex: 1;
-        }
-
-        .file-item-name {
-            font-weight: 600;
-            color: #333;
-            font-size: 14px;
-        }
-
-        .file-item-size {
-            color: #999;
-            font-size: 12px;
-            margin-top: 3px;
-        }
-
-        .file-item-remove {
-            background: #ff6b6b;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: background 0.3s;
-        }
-
-        .file-item-remove:hover {
-            background: #ff5252;
-        }
-
-        /* フォーム */
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-            font-family: inherit;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 5px rgba(102, 126, 234, 0.2);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        /* ボタン */
-        .button-group {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 30px;
-        }
-
-        .button {
-            padding: 12px 30px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .button-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .button-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .button-secondary {
-            background: #e0e0e0;
-            color: #333;
-        }
-
-        .button-secondary:hover {
-            background: #d0d0d0;
-        }
-
-        /* メッセージ */
-        .alert {
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            display: none;
-        }
-
-        .alert.show {
-            display: block;
-        }
-
-        .alert.success {
-            background: #e8f5e9;
-            color: #2e7d32;
-            border-left: 4px solid #2e7d32;
-        }
-
-        .alert.error {
-            background: #ffebee;
-            color: #d32f2f;
-            border-left: 4px solid #d32f2f;
-        }
-
-        .alert.info {
-            background: #e3f2fd;
-            color: #1976d2;
-            border-left: 4px solid #1976d2;
-        }
-
-        /* サポートされるフォーマット */
-        .supported-formats {
-            background: #f0f0f0;
-            border-radius: 5px;
-            padding: 15px;
-            margin-top: 15px;
-        }
-
-        .supported-formats h4 {
-            font-size: 13px;
-            color: #333;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .supported-formats ul {
-            list-style: none;
-            font-size: 13px;
-            color: #666;
-        }
-
-        .supported-formats li {
-            padding: 3px 0;
-        }
-
-        .supported-formats li::before {
-            content: "✓ ";
-            color: #667eea;
-            font-weight: bold;
-            margin-right: 5px;
-        }
-
-        .checkbox-group {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-        }
-
-        .checkbox-item input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            margin-right: 10px;
-            cursor: pointer;
-        }
-
-        .checkbox-item label {
-            margin: 0;
-            cursor: pointer;
-            font-weight: 400;
-        }
-    </style>
+    <link rel="stylesheet" href="upload-answer-sheet.css">
 </head>
 <body>
     <div class="container">
@@ -395,7 +27,39 @@
                 <strong>📌 注意:</strong> PDF、JPEG、PNG形式のスキャン画像をアップロードできます。最大ファイルサイズは50MBです。
             </div>
 
-            <!-- セクション1: アップロード -->
+            <!-- セクション1: 生徒情報 -->
+            <div class="section">
+                <h2>生徒情報</h2>
+                <p>解答用紙に対応する生徒を特定してください。</p>
+
+                <div class="form-group">
+                    <label for="studentGrade">学年 <span style="color: #d32f2f;">*</span></label>
+                    <select id="studentGrade" required>
+                        <option value="">選択してください</option>
+                        <option value="1">1年生</option>
+                        <option value="2">2年生</option>
+                        <option value="3">3年生</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="studentClass">クラス <span style="color: #d32f2f;">*</span></label>
+                    <select id="studentClass" required>
+                        <option value="">選択してください</option>
+                        <option value="A">A組</option>
+                        <option value="B">B組</option>
+                        <option value="C">C組</option>
+                        <option value="D">D組</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="studentId">生徒ID <span style="color: #d32f2f;">*</span></label>
+                    <input type="text" id="studentId" placeholder="例: S001" required>
+                </div>
+            </div>
+
+            <!-- セクション2: アップロード -->
             <div class="section">
                 <h2>解答用紙ファイルの選択</h2>
                 <p>生徒の解答用紙をスキャンしたPDFまたは画像ファイルをアップロードしてください。システムが自動的に解答内容を解析します。</p>
@@ -428,7 +92,7 @@
                 </div>
             </div>
 
-            <!-- セクション2: メタデータ -->
+            <!-- セクション3: メタデータ -->
             <div class="section">
                 <h2>解答用紙の情報</h2>
 
@@ -438,43 +102,12 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="subject">教科</label>
-                    <select id="subject" required>
-                        <option value="">選択してください</option>
-                        <option value="math">数学</option>
-                        <option value="english">英語</option>
-                        <option value="japanese">国語</option>
-                        <option value="science">理科</option>
-                        <option value="social">社会</option>
-                        <option value="other">その他</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
                     <label for="examDate">試験日</label>
                     <input type="date" id="examDate" required>
                 </div>
 
                 <div class="form-group">
-                    <label>処理オプション</label>
-                    <div class="checkbox-group">
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="autoScore" checked>
-                            <label for="autoScore">自動採点を実行</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="ocrProcess" checked>
-                            <label for="ocrProcess">OCR処理を実行（テキスト抽出）</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="generateReport">
-                            <label for="generateReport">分析レポートを自動生成</label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="notes">備考（オプション）</label>
+                    <label for="notes">備考</label>
                     <textarea id="notes" placeholder="特記事項や注意点があれば入力してください..."></textarea>
                 </div>
             </div>
@@ -560,17 +193,29 @@
                 return;
             }
 
+            const studentGrade = document.getElementById('studentGrade').value;
+            const studentClass = document.getElementById('studentClass').value;
+            const studentId = document.getElementById('studentId').value.trim();
             const testName = document.getElementById('testName').value.trim();
-            const subject = document.getElementById('subject').value;
             const examDate = document.getElementById('examDate').value;
 
-            if (!testName) {
-                showAlert('テスト名を入力してください', 'error');
+            if (!studentGrade) {
+                showAlert('学年を選択してください', 'error');
                 return;
             }
 
-            if (!subject) {
-                showAlert('教科を選択してください', 'error');
+            if (!studentClass) {
+                showAlert('クラスを選択してください', 'error');
+                return;
+            }
+
+            if (!studentId) {
+                showAlert('生徒IDを入力してください', 'error');
+                return;
+            }
+
+            if (!testName) {
+                showAlert('テスト名を入力してください', 'error');
                 return;
             }
 
@@ -585,13 +230,15 @@
             setTimeout(function() {
                 // 実際の実装ではサーバーに送信します
                 console.log('送信データ:', {
+                    student: {
+                        grade: studentGrade,
+                        class: studentClass,
+                        id: studentId
+                    },
                     files: selectedFiles.map(f => f.name),
                     testName: testName,
-                    subject: subject,
+                    subject: 'math',
                     examDate: examDate,
-                    autoScore: document.getElementById('autoScore').checked,
-                    ocrProcess: document.getElementById('ocrProcess').checked,
-                    generateReport: document.getElementById('generateReport').checked,
                     notes: document.getElementById('notes').value
                 });
 

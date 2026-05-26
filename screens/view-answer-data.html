@@ -4,443 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>解答データ確認 - 教師管理システム</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .header {
-            background: white;
-            padding: 20px 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-
-        .header h1 {
-            font-size: 24px;
-            color: #333;
-        }
-
-        .back-button {
-            padding: 10px 20px;
-            background: #e0e0e0;
-            color: #333;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background 0.3s;
-        }
-
-        .back-button:hover {
-            background: #d0d0d0;
-        }
-
-        /* フィルターセクション */
-        .filter-section {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .filter-section h2 {
-            font-size: 18px;
-            color: #333;
-            margin-bottom: 20px;
-        }
-
-        .filter-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .filter-item label {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 13px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .filter-item input,
-        .filter-item select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 13px;
-        }
-
-        .filter-item input:focus,
-        .filter-item select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 5px rgba(102, 126, 234, 0.2);
-        }
-
-        .filter-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .filter-btn {
-            padding: 10px 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            transition: transform 0.2s;
-        }
-
-        .filter-btn:hover {
-            transform: translateY(-2px);
-        }
-
-        .reset-btn {
-            background: #e0e0e0;
-            color: #333;
-        }
-
-        .reset-btn:hover {
-            background: #d0d0d0;
-        }
-
-        /* ステータスカード */
-        .status-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .status-card {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            border-top: 4px solid #667eea;
-            text-align: center;
-        }
-
-        .status-card .value {
-            font-size: 32px;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 5px;
-        }
-
-        .status-card .label {
-            font-size: 13px;
-            color: #666;
-        }
-
-        /* テーブル */
-        .table-section {
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .table-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px 25px;
-            font-weight: 600;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .table-header h3 {
-            font-size: 16px;
-            margin: 0;
-        }
-
-        .export-button {
-            padding: 8px 16px;
-            background: white;
-            color: #667eea;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            transition: background 0.3s;
-        }
-
-        .export-button:hover {
-            background: #f0f0f0;
-        }
-
-        .table-content {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        thead tr {
-            background: #f9f9f9;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        th {
-            padding: 15px;
-            text-align: left;
-            font-weight: 600;
-            color: #333;
-            font-size: 13px;
-        }
-
-        td {
-            padding: 15px;
-            border-bottom: 1px solid #e0e0e0;
-            color: #666;
-            font-size: 13px;
-        }
-
-        tr:hover {
-            background: #f9f9f9;
-        }
-
-        /* ステータスバッジ */
-        .badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .badge.pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .badge.processing {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .badge.completed {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .badge.failed {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        /* アクションボタン */
-        .action-buttons {
-            display: flex;
-            gap: 5px;
-        }
-
-        .action-btn {
-            padding: 6px 12px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-            font-weight: 600;
-            transition: background 0.3s;
-        }
-
-        .action-btn:hover {
-            background: #5568d3;
-        }
-
-        .action-btn.danger {
-            background: #ff6b6b;
-        }
-
-        .action-btn.danger:hover {
-            background: #ff5252;
-        }
-
-        /* スコア表示 */
-        .score-cell {
-            font-weight: 600;
-            color: #667eea;
-            font-size: 14px;
-        }
-
-        /* 空の状態 */
-        .empty-state {
-            padding: 50px 25px;
-            text-align: center;
-            color: #999;
-        }
-
-        .empty-state-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-
-        .empty-state h3 {
-            font-size: 18px;
-            color: #666;
-            margin-bottom: 10px;
-        }
-
-        /* ページネーション */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            gap: 5px;
-            padding: 20px;
-            background: #f9f9f9;
-            border-top: 1px solid #e0e0e0;
-        }
-
-        .pagination button {
-            padding: 8px 12px;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.3s;
-        }
-
-        .pagination button:hover {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        .pagination button.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        /* モーダル */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .modal.show {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 10px;
-            padding: 30px;
-            max-width: 600px;
-            width: 100%;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        .modal-header {
-            font-size: 20px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #999;
-        }
-
-        .modal-body {
-            color: #666;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .detail-row:last-child {
-            border-bottom: none;
-        }
-
-        .detail-label {
-            font-weight: 600;
-            color: #333;
-        }
-
-        .detail-value {
-            text-align: right;
-        }
-
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                gap: 15px;
-                text-align: center;
-            }
-
-            .filter-group {
-                grid-template-columns: 1fr;
-            }
-
-            table {
-                font-size: 12px;
-            }
-
-            th, td {
-                padding: 10px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="view-answer-data.css">
 </head>
 <body>
     <div class="container">
@@ -459,25 +23,8 @@
                     <input type="text" id="testNameFilter" placeholder="テスト名で検索...">
                 </div>
                 <div class="filter-item">
-                    <label>教科</label>
-                    <select id="subjectFilter">
-                        <option value="">すべて</option>
-                        <option value="math">数学</option>
-                        <option value="english">英語</option>
-                        <option value="japanese">国語</option>
-                        <option value="science">理科</option>
-                        <option value="social">社会</option>
-                    </select>
-                </div>
-                <div class="filter-item">
-                    <label>ステータス</label>
-                    <select id="statusFilter">
-                        <option value="">すべて</option>
-                        <option value="pending">待機中</option>
-                        <option value="processing">処理中</option>
-                        <option value="completed">完了</option>
-                        <option value="failed">失敗</option>
-                    </select>
+                    <label>生徒ID</label>
+                    <input type="text" id="studentIdFilter" placeholder="生徒IDで検索...">
                 </div>
                 <div class="filter-item">
                     <label>期間</label>
@@ -487,26 +34,6 @@
             <div class="filter-buttons">
                 <button class="filter-btn" onclick="applyFilters()">フィルター適用</button>
                 <button class="filter-btn reset-btn" onclick="resetFilters()">リセット</button>
-            </div>
-        </div>
-
-        <!-- ステータスカード -->
-        <div class="status-cards">
-            <div class="status-card">
-                <div class="value" id="totalCount">0</div>
-                <div class="label">総データ数</div>
-            </div>
-            <div class="status-card">
-                <div class="value" id="completedCount">0</div>
-                <div class="label">完了</div>
-            </div>
-            <div class="status-card">
-                <div class="value" id="processingCount">0</div>
-                <div class="label">処理中</div>
-            </div>
-            <div class="status-card">
-                <div class="value" id="averageScore">0%</div>
-                <div class="label">平均スコア</div>
             </div>
         </div>
 
@@ -522,10 +49,8 @@
                         <tr>
                             <th>No.</th>
                             <th>テスト名</th>
-                            <th>教科</th>
-                            <th>生徒</th>
+                            <th>生徒ID</th>
                             <th>スコア</th>
-                            <th>ステータス</th>
                             <th>アップロード日</th>
                             <th>アクション</th>
                         </tr>
@@ -561,7 +86,7 @@
                 id: 1,
                 testName: '2026年5月 中間テスト',
                 subject: '数学',
-                studentName: '山田太郎',
+                studentId: 'S001',
                 score: 85,
                 status: 'completed',
                 uploadDate: '2026-05-24',
@@ -573,7 +98,7 @@
                 id: 2,
                 testName: '2026年5月 中間テスト',
                 subject: '英語',
-                studentName: '佐藤花子',
+                studentId: 'S002',
                 score: 92,
                 status: 'completed',
                 uploadDate: '2026-05-24',
@@ -585,7 +110,7 @@
                 id: 3,
                 testName: '2026年5月 確認テスト',
                 subject: '数学',
-                studentName: '田中次郎',
+                studentId: 'S003',
                 score: null,
                 status: 'processing',
                 uploadDate: '2026-05-24',
@@ -597,7 +122,7 @@
                 id: 4,
                 testName: '2026年4月 実力テスト',
                 subject: '国語',
-                studentName: '鈴木美咲',
+                studentId: 'S004',
                 score: 78,
                 status: 'completed',
                 uploadDate: '2026-05-23',
@@ -609,7 +134,7 @@
                 id: 5,
                 testName: '2026年5月 中間テスト',
                 subject: '理科',
-                studentName: '伊藤健太',
+                studentId: 'S005',
                 score: null,
                 status: 'pending',
                 uploadDate: '2026-05-24',
@@ -621,7 +146,7 @@
                 id: 6,
                 testName: '2026年4月 実力テスト',
                 subject: '数学',
-                studentName: '木村大樹',
+                studentId: 'S006',
                 score: 88,
                 status: 'completed',
                 uploadDate: '2026-05-22',
@@ -648,25 +173,8 @@
 
         // データを読み込む
         function loadData() {
-            updateStats();
             renderTable();
             renderPagination();
-        }
-
-        // 統計情報を更新
-        function updateStats() {
-            const total = currentData.length;
-            const completed = currentData.filter(d => d.status === 'completed').length;
-            const processing = currentData.filter(d => d.status === 'processing').length;
-            const avgScore = currentData.length > 0 
-                ? Math.round(currentData.filter(d => d.score).reduce((a, b) => a + b.score, 0) / 
-                  currentData.filter(d => d.score).length)
-                : 0;
-
-            document.getElementById('totalCount').textContent = total;
-            document.getElementById('completedCount').textContent = completed;
-            document.getElementById('processingCount').textContent = processing;
-            document.getElementById('averageScore').textContent = avgScore + '%';
         }
 
         // テーブルをレンダリング
@@ -691,17 +199,14 @@
 
             pageData.forEach((item, index) => {
                 const scoreDisplay = item.score !== null ? `${item.score}%` : '---';
-                const statusBadge = getStatusBadge(item.status);
                 const rowNum = start + index + 1;
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${rowNum}</td>
                     <td>${item.testName}</td>
-                    <td>${item.subject}</td>
-                    <td>${item.studentName}</td>
+                    <td>${item.studentId}</td>
                     <td><span class="score-cell">${scoreDisplay}</span></td>
-                    <td>${statusBadge}</td>
                     <td>${item.uploadDate}</td>
                     <td>
                         <div class="action-buttons">
@@ -732,7 +237,6 @@
 
             const detailContent = document.getElementById('detailContent');
             const scoreDisplay = item.score !== null ? `${item.score}%` : '未処理';
-            const statusDisplay = getStatusBadge(item.status);
 
             detailContent.innerHTML = `
                 <div class="detail-row">
@@ -740,16 +244,8 @@
                     <div class="detail-value">${item.testName}</div>
                 </div>
                 <div class="detail-row">
-                    <div class="detail-label">教科:</div>
-                    <div class="detail-value">${item.subject}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">生徒名:</div>
-                    <div class="detail-value">${item.studentName}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">ステータス:</div>
-                    <div class="detail-value">${statusDisplay}</div>
+                    <div class="detail-label">生徒ID:</div>
+                    <div class="detail-value">${item.studentId}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">スコア:</div>
@@ -781,19 +277,17 @@
         function downloadData(id) {
             const item = dummyData.find(d => d.id === id);
             if (!item) return;
-            alert(`${item.testName} (${item.studentName}) のデータをダウンロードします`);
+            alert(`${item.testName} (${item.studentId}) の解答解説をダウンロードします`);
         }
 
         // フィルターを適用
         function applyFilters() {
             const testName = document.getElementById('testNameFilter').value.toLowerCase();
-            const subject = document.getElementById('subjectFilter').value;
-            const status = document.getElementById('statusFilter').value;
+            const studentId = document.getElementById('studentIdFilter').value.toLowerCase();
 
             currentData = dummyData.filter(item => {
                 return (testName === '' || item.testName.toLowerCase().includes(testName)) &&
-                       (subject === '' || item.subject === subject) &&
-                       (status === '' || item.status === status);
+                       (studentId === '' || item.studentId.toLowerCase().includes(studentId));
             });
 
             currentPage = 1;
@@ -803,8 +297,7 @@
         // フィルターをリセット
         function resetFilters() {
             document.getElementById('testNameFilter').value = '';
-            document.getElementById('subjectFilter').value = '';
-            document.getElementById('statusFilter').value = '';
+            document.getElementById('studentIdFilter').value = '';
             currentData = dummyData;
             currentPage = 1;
             loadData();

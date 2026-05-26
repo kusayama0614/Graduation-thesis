@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学習データアップロード - 教師管理システム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px 10px 0 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #333;
+        }
+
+        .back-button {
+            padding: 10px 20px;
+            background: #e0e0e0;
+            color: #333;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .back-button:hover {
+            background: #d0d0d0;
+        }
+
+        .content {
+            background: white;
+            padding: 40px;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .breadcrumb {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .breadcrumb a {
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .section p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        /* ドラッグ&ドロップエリア */
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: #f9f9f9;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f0f0;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #ede7f6;
+        }
+
+        .upload-area-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .upload-area h3 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .upload-area p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .upload-area .file-input {
+            display: none;
+        }
+
+        /* ファイル選択ボタン */
+        .file-select-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: transform 0.2s;
+        }
+
+        .file-select-button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* ファイルリスト */
+        .file-list {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .file-list h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .file-item-info {
+            flex: 1;
+        }
+
+        .file-item-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .file-item-size {
+            color: #999;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        .file-item-remove {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s;
+        }
+
+        .file-item-remove:hover {
+            background: #ff5252;
+        }
+
+        /* フォーム */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 5px rgba(102, 126, 234, 0.2);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* ボタン */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .button-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .button-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .button-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .button-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        /* メッセージ */
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #2e7d32;
+        }
+
+        .alert.error {
+            background: #ffebee;
+            color: #d32f2f;
+            border-left: 4px solid #d32f2f;
+        }
+
+        .alert.info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border-left: 4px solid #1976d2;
+        }
+
+        /* サポートされるフォーマット */
+        .supported-formats {
+            background: #f0f0f0;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .supported-formats h4 {
+            font-size: 13px;
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .supported-formats ul {
+            list-style: none;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .supported-formats li {
+            padding: 3px 0;
+        }
+
+        .supported-formats li::before {
+            content: "✓ ";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ヘッダー -->
+        <div class="header">
+            <h1>📊 学習データアップロード</h1>
+            <button class="back-button" onclick="goHome()">← ホームに戻る</button>
+        </div>
+
+        <!-- コンテンツ -->
+        <div class="content">
+            <!-- パンくず -->
+            <div class="breadcrumb">
+                <span onclick="goHome()" style="cursor: pointer; color: #667eea;">ホーム</span> 
+                &gt; 学習データアップロード
+            </div>
+
+            <!-- メッセージ -->
+            <div class="alert alert-info show" style="margin-bottom: 30px;">
+                <strong>📌 注意:</strong> CSV、Excel、JSON形式のファイルをアップロードできます。最大ファイルサイズは100MBです。
+            </div>
+
+            <!-- セクション1: アップロード -->
+            <div class="section">
+                <h2>ファイルの選択</h2>
+                <p>下記のエリアにファイルをドラッグ&ドロップするか、クリックしてファイルを選択してください。</p>
+
+                <!-- ドラッグ&ドロップエリア -->
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-area-icon">📁</div>
+                    <h3>ファイルをドラッグ&ドロップ</h3>
+                    <p>または以下をクリック</p>
+                    <button class="file-select-button" onclick="document.getElementById('fileInput').click()">
+                        ファイルを選択する
+                    </button>
+                    <input type="file" id="fileInput" class="file-input" multiple accept=".csv,.xlsx,.xls,.json">
+                </div>
+
+                <!-- サポートされるフォーマット -->
+                <div class="supported-formats">
+                    <h4>📋 サポートされるファイル形式</h4>
+                    <ul>
+                        <li>CSV (.csv) - カンマ区切り値</li>
+                        <li>Excel (.xlsx, .xls) - Excelスプレッドシート</li>
+                        <li>JSON (.json) - JSON形式</li>
+                    </ul>
+                </div>
+
+                <!-- ファイルリスト -->
+                <div class="file-list" id="fileList" style="display: none;">
+                    <h3>📂 選択されたファイル</h3>
+                    <div id="fileItems"></div>
+                </div>
+            </div>
+
+            <!-- セクション2: メタデータ -->
+            <div class="section">
+                <h2>データの説明</h2>
+
+                <div class="form-group">
+                    <label for="dataTitle">データタイトル</label>
+                    <input type="text" id="dataTitle" placeholder="例: 2026年5月 中間テスト成績" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="dataCategory">カテゴリー</label>
+                    <select id="dataCategory" required>
+                        <option value="">選択してください</option>
+                        <option value="test">テスト成績</option>
+                        <option value="attendance">出席状況</option>
+                        <option value="assignment">課題提出</option>
+                        <option value="other">その他</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="dataDescription">説明（オプション）</label>
+                    <textarea id="dataDescription" placeholder="このデータについて説明を入力してください..."></textarea>
+                </div>
+            </div>
+
+            <!-- ボタン -->
+            <div class="button-group">
+                <button class="button button-secondary" onclick="goHome()">キャンセル</button>
+                <button class="button button-primary" onclick="submitData()">アップロードする</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+
+        // ファイル入力の変更
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            handleFiles(e.target.files);
+        });
+
+        // ドラッグ&ドロップ
+        const uploadArea = document.getElementById('uploadArea');
+
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', function() {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        // ファイルハンドリング
+        function handleFiles(files) {
+            selectedFiles = Array.from(files);
+            updateFileList();
+        }
+
+        // ファイルリストを更新
+        function updateFileList() {
+            const fileList = document.getElementById('fileList');
+            const fileItems = document.getElementById('fileItems');
+
+            if (selectedFiles.length === 0) {
+                fileList.style.display = 'none';
+                return;
+            }
+
+            fileList.style.display = 'block';
+            fileItems.innerHTML = '';
+
+            selectedFiles.forEach((file, index) => {
+                const fileSize = (file.size / 1024 / 1024).toFixed(2);
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <div class="file-item-info">
+                        <div class="file-item-name">📄 ${file.name}</div>
+                        <div class="file-item-size">${fileSize} MB</div>
+                    </div>
+                    <button class="file-item-remove" onclick="removeFile(${index})">削除</button>
+                `;
+                fileItems.appendChild(fileItem);
+            });
+        }
+
+        // ファイルを削除
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updateFileList();
+        }
+
+        // データを送信
+        function submitData() {
+            if (selectedFiles.length === 0) {
+                showAlert('ファイルを選択してください', 'error');
+                return;
+            }
+
+            const dataTitle = document.getElementById('dataTitle').value.trim();
+            const dataCategory = document.getElementById('dataCategory').value;
+
+            if (!dataTitle) {
+                showAlert('データタイトルを入力してください', 'error');
+                return;
+            }
+
+            if (!dataCategory) {
+                showAlert('カテゴリーを選択してください', 'error');
+                return;
+            }
+
+            // データ送信処理（デモ用）
+            showAlert(`✓ ${selectedFiles.length}個のファイルがアップロードされました！`, 'success');
+
+            setTimeout(function() {
+                // 実際の実装ではサーバーに送信します
+                console.log('送信データ:', {
+                    files: selectedFiles.map(f => f.name),
+                    title: dataTitle,
+                    category: dataCategory,
+                    description: document.getElementById('dataDescription').value
+                });
+
+                setTimeout(() => {
+                    goHome();
+                }, 1500);
+            }, 1500);
+        }
+
+        // ホームに戻る
+        function goHome() {
+            window.location.href = 'home.html';
+        }
+
+        // メッセージを表示
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert ${type} show`;
+            alertDiv.innerHTML = message;
+            
+            const content = document.querySelector('.content');
+            content.insertBefore(alertDiv, content.firstChild);
+
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+
+        // ページ読み込み時の処理
+        document.addEventListener('DOMContentLoaded', function() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            if (!isLoggedIn) {
+                window.location.href = 'login.html';
+            }
+        });
+    </script>
+</body>
+</html>

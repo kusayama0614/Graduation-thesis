@@ -1,0 +1,7 @@
+{
+  "python.terminal.useEnvFile": true,
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/bin/python",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.formatting.provider": "black"
+}

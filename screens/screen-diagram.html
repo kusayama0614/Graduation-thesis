@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画面遷移図 - 教師管理システム</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .diagram-section {
+            margin-bottom: 40px;
+        }
+
+        .diagram-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .legend {
+            margin-top: 30px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+
+        .legend h3 {
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .legend-item {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+            padding-left: 10px;
+        }
+
+        .notes {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #856404;
+        }
+
+        .notes h4 {
+            margin-bottom: 10px;
+            color: #856404;
+        }
+
+        .notes ul {
+            margin-left: 20px;
+        }
+
+        .notes li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 教師管理システム - 画面遷移図</h1>
+        <p class="subtitle">システム全体のページ遷移と機能フロー</p>
+
+        <!-- ログイン流れ -->
+        <div class="diagram-section">
+            <div class="diagram-title">1. ログイン・認証フロー</div>
+            <div class="mermaid">
+                graph TD
+                    A["ログイン画面<br/>教師ID入力<br/>パスワード入力"] -->|認証成功| B["ダッシュボード"]
+                    A -->|認証失敗| C["エラーメッセージ表示"]
+                    C -->|リトライ| A
+                    B -->|ログアウト| A
+            </div>
+        </div>
+
+        <!-- メイン画面遷移 -->
+        <div class="diagram-section">
+            <div class="diagram-title">2. メイン画面遷移図</div>
+            <div class="mermaid">
+                graph TD
+                    A["ダッシュボード<br/>ホーム"] --> B["生徒管理"]
+                    A --> C["教材管理"]
+                    A --> D["成績管理"]
+                    A --> E["レポート"]
+                    A --> F["設定"]
+                    
+                    B --> B1["生徒一覧"]
+                    B --> B2["生徒追加"]
+                    B1 --> B3["生徒詳細"]
+                    B3 --> B4["編集画面"]
+                    
+                    C --> C1["教材一覧"]
+                    C --> C2["教材アップロード"]
+                    
+                    D --> D1["成績入力"]
+                    D --> D2["成績表示"]
+                    
+                    E --> E1["PDF生成"]
+                    
+                    F --> F1["プロフィール"]
+                    F --> F2["パスワード変更"]
+            </div>
+        </div>
+
+        <!-- 詳細フロー -->
+        <div class="diagram-section">
+            <div class="diagram-title">3. 生徒管理フロー（詳細）</div>
+            <div class="mermaid">
+                graph LR
+                    A["生徒一覧"] --> B{アクション選択}
+                    B -->|詳細表示| C["生徒詳細画面"]
+                    B -->|編集| D["編集画面"]
+                    B -->|削除| E["削除確認ダイアログ"]
+                    B -->|新規追加| F["生徒追加画面"]
+                    
+                    C --> G["一覧に戻る"]
+                    D --> H{変更を保存?}
+                    H -->|保存| G
+                    H -->|キャンセル| G
+                    E --> I{削除を実行?}
+                    I -->|確認| G
+                    I -->|キャンセル| A
+                    F --> J{追加を保存?}
+                    J -->|保存| G
+                    J -->|キャンセル| A
+            </div>
+        </div>
+
+        <!-- ステート管理 -->
+        <div class="diagram-section">
+            <div class="diagram-title">4. ユーザーステート管理</div>
+            <div class="mermaid">
+                stateDiagram-v2
+                    [*] --> NotAuthenticated
+                    NotAuthenticated --> LoginScreen: ページ読み込み
+                    LoginScreen --> Authenticating: ログインボタンクリック
+                    Authenticating --> Authenticated: 認証成功
+                    Authenticating --> LoginScreen: 認証失敗
+                    Authenticated --> Dashboard: リダイレクト
+                    Dashboard --> Dashboard: ナビゲーション
+                    Dashboard --> LoginScreen: ログアウト
+                    LoginScreen --> [*]
+            </div>
+        </div>
+
+        <div class="legend">
+            <h3>📌 記号説明</h3>
+            <div class="legend-item">• 四角形 = ページ・画面</div>
+            <div class="legend-item">• ダイアモンド = 条件分岐</div>
+            <div class="legend-item">• 矢印 = 画面遷移</div>
+            <div class="legend-item">• ラベル = 遷移条件・アクション</div>
+        </div>
+
+        <div class="notes">
+            <h4>📝 実装予定の機能</h4>
+            <ul>
+                <li>✅ ログイン画面（教師ID・パスワード認証）- 作成済み</li>
+                <li>⏳ ダッシュボード（メインページ）</li>
+                <li>⏳ 生徒管理（一覧・追加・編集・削除）</li>
+                <li>⏳ 教材管理（アップロード・ダウンロード）</li>
+                <li>⏳ 成績管理（入力・表示・計算）</li>
+                <li>⏳ レポート生成（PDF出力）</li>
+                <li>⏳ ユーザー設定（プロフィール・パスワード変更）</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Mermaidの初期化
+        mermaid.contentLoaded();
+    </script>
+</body>
+</html>

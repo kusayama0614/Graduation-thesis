@@ -1,0 +1,15 @@
+theme: jekyll-theme-primer
+
+# Exclude directories from Jekyll processing
+exclude:
+  - backend
+  - .devcontainer
+  - .venv
+  - .git
+  - docker-compose.yml
+  - SETUP_COMPLETE.md
+  - README.md
+
+# GitHub Pages settings
+title: 教師管理システム
+description: 学習データと解答用紙を一元管理するシステム

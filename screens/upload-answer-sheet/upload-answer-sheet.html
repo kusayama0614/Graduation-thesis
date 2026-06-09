@@ -121,6 +121,7 @@
     </div>
 
     <script>
+        const API_BASE_URL = 'http://127.0.0.1:5000/api';
         let selectedFiles = [];
 
         // ファイル入力の変更
@@ -187,7 +188,7 @@
         }
 
         // データを送信
-        function submitData() {
+        async function submitData() {
             if (selectedFiles.length === 0) {
                 showAlert('ファイルを選択してください', 'error');
                 return;
@@ -224,33 +225,48 @@
                 return;
             }
 
-            // データ送信処理（デモ用）
-            showAlert(`✓ ${selectedFiles.length}個のファイルがアップロードされました！処理を開始します...`, 'success');
+            const formData = new FormData();
+            selectedFiles.forEach((file) => {
+                formData.append('files', file);
+            });
+            formData.append('teacher_id', localStorage.getItem('teacherId') || 'guest');
+            formData.append('student_grade', studentGrade);
+            formData.append('student_class', studentClass);
+            formData.append('student_id', studentId);
+            formData.append('test_name', testName);
+            formData.append('subject', 'math');
+            formData.append('exam_date', examDate);
+            formData.append('notes', document.getElementById('notes').value);
+            formData.append('auto_score', 'true');
+            formData.append('ocr_process', 'true');
+            formData.append('generate_report', 'false');
 
-            setTimeout(function() {
-                // 実際の実装ではサーバーに送信します
-                console.log('送信データ:', {
-                    student: {
-                        grade: studentGrade,
-                        class: studentClass,
-                        id: studentId
-                    },
-                    files: selectedFiles.map(f => f.name),
-                    testName: testName,
-                    subject: 'math',
-                    examDate: examDate,
-                    notes: document.getElementById('notes').value
+            try {
+                const response = await fetch(`${API_BASE_URL}/upload/answer-sheet`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
                 });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'アップロードに失敗しました');
+                }
+
+                showAlert(`✓ ${result.message}`, 'success');
 
                 setTimeout(() => {
                     goHome();
                 }, 2000);
-            }, 1500);
+            } catch (error) {
+                showAlert(error.message || 'アップロードに失敗しました', 'error');
+            }
         }
 
         // ホームに戻る
         function goHome() {
-            window.location.href = 'home.html';
+            window.location.href = '../home/home.html';
         }
 
         // メッセージを表示
@@ -268,10 +284,20 @@
         }
 
         // ページ読み込み時の処理
-        document.addEventListener('DOMContentLoaded', function() {
-            const isLoggedIn = localStorage.getItem('isLoggedIn');
-            if (!isLoggedIn) {
-                window.location.href = 'login.html';
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/session`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (!result.authenticated) {
+                    window.location.href = '../login/login.html';
+                    return;
+                }
+            } catch (error) {
+                window.location.href = '../login/login.html';
+                return;
             }
 
             // 今日の日付をデフォルトに設定

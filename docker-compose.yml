@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     image: mcr.microsoft.com/devcontainers/python:3.11
@@ -7,3 +5,23 @@ services:
       - .:/workspace
     working_dir: /workspace
     tty: true
+  backend:
+    image: mcr.microsoft.com/devcontainers/python:3.11
+    volumes:
+      - ./backend:/workspace/backend
+      - ./backend/venv:/workspace/backend/venv
+    working_dir: /workspace/backend
+    ports:
+      - "5001:5000"
+    environment:
+      - FLASK_APP=run.py
+    command: bash -lc "/workspace/backend/venv/bin/python -m flask run --host=0.0.0.0 --port=5000"
+
+  static:
+    image: python:3.11-slim
+    volumes:
+      - .:/srv/app:ro
+    working_dir: /srv/app
+    ports:
+      - "8000:8000"
+    command: python3 -m http.server 8000 --directory /srv/app

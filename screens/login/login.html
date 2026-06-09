@@ -49,8 +49,25 @@
     </div>
 
     <script>
+        const API_BASE_URL = 'http://127.0.0.1:5000/api';
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/session`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (result.authenticated) {
+                    window.location.href = '../home/home.html';
+                }
+            } catch (error) {
+                console.warn('Session check failed:', error);
+            }
+        });
+
         // ログインフォームの処理
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
             const teacherId = document.getElementById('teacherId').value.trim();
@@ -73,20 +90,35 @@
                 return;
             }
 
-            // デモ用のログイン処理
-            // 本来はサーバー側で認証を行う必要があります
-            if (teacherId === 't01' && password === '1234') {
-                showSuccess('ログインに成功しました！');
-                // ログイン情報をローカルストレージに保存
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        teacher_id: teacherId,
+                        password: password
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    showError(result.error || '教師IDまたはパスワードが正しくありません');
+                    return;
+                }
+
                 localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('teacherId', teacherId);
-                
-                // ホーム画面にリダイレクト（正しい相対パス）
+                localStorage.setItem('teacherId', result.teacher_id || teacherId);
+                showSuccess('ログインに成功しました！');
+
                 setTimeout(function() {
                     window.location.href = '../home/home.html';
-                }, 1500);
-            } else {
-                showError('教師IDまたはパスワードが正しくありません');
+                }, 1000);
+            } catch (error) {
+                showError('ログイン処理に失敗しました');
             }
         });
 

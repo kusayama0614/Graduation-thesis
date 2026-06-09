@@ -51,7 +51,8 @@ def create_app():
         supports_credentials=True,
         origins=[
             'http://127.0.0.1:8000',
-            'http://localhost:8000'
+            'http://localhost:8000',
+            'http://10.1.55.211:8000'
         ]
     )
     Session(app)

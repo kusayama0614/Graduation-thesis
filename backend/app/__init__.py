@@ -32,6 +32,8 @@ def create_app():
     app.config['PERMANENT_SESSION_LIFETIME'] = int(
         os.getenv('PERMANENT_SESSION_LIFETIME', 3600)
     )
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
     
     # ファイルアップロード設定
     app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', 'uploads')
@@ -44,7 +46,14 @@ def create_app():
     
     # ==================== 拡張機能の初期化 ====================
     db.init_app(app)
-    CORS(app)
+    CORS(
+        app,
+        supports_credentials=True,
+        origins=[
+            'http://127.0.0.1:8000',
+            'http://localhost:8000'
+        ]
+    )
     Session(app)
     
     # ==================== データベーステーブル作成 ====================

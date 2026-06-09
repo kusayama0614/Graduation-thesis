@@ -85,6 +85,8 @@
 
 
     <script>
+        const API_BASE_URL = 'http://127.0.0.1:5000/api';
+
         // ページナビゲーション
         function navigateTo(page) {
             const pageMap = {
@@ -99,8 +101,17 @@
         }
 
         // ログアウト
-        function logout() {
+        async function logout() {
             if (confirm('ログアウトしますか？')) {
+                try {
+                    await fetch(`${API_BASE_URL}/auth/logout`, {
+                        method: 'POST',
+                        credentials: 'include'
+                    });
+                } catch (error) {
+                    console.warn('Logout request failed:', error);
+                }
+
                 localStorage.removeItem('isLoggedIn');
                 localStorage.removeItem('teacherId');
                 window.location.href = '../login/login.html';
@@ -108,20 +119,27 @@
         }
 
         // ページ読み込み時の処理
-        document.addEventListener('DOMContentLoaded', function() {
-            // ログイン状態の確認
-            const isLoggedIn = localStorage.getItem('isLoggedIn');
-            const teacherId = localStorage.getItem('teacherId');
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/session`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
 
-            if (!isLoggedIn) {
+                if (!result.authenticated) {
+                    window.location.href = '../login/login.html';
+                    return;
+                }
+
+                const teacherId = result.teacher_id || localStorage.getItem('teacherId');
+                if (teacherId) {
+                    document.getElementById('teacherId').textContent = 'ID: ' + teacherId;
+                    document.getElementById('teacherName').textContent = teacherId + '様へようこそ';
+                    localStorage.setItem('isLoggedIn', 'true');
+                    localStorage.setItem('teacherId', teacherId);
+                }
+            } catch (error) {
                 window.location.href = '../login/login.html';
-                return;
-            }
-
-            // 教師情報を表示
-            if (teacherId) {
-                document.getElementById('teacherId').textContent = 'ID: ' + teacherId;
-                document.getElementById('teacherName').textContent = teacherId + '様へようこそ';
             }
         });
 

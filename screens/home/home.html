@@ -88,9 +88,9 @@
         // ページナビゲーション
         function navigateTo(page) {
             const pageMap = {
-                'upload-learning-data': 'upload-learning-data.html',
-                'upload-answer-sheet': 'upload-answer-sheet.html',
-                'view-answer-data': 'view-answer-data.html'
+                'upload-learning-data': '../upload-learning-data/upload-learning-data.html',
+                'upload-answer-sheet': '../upload-answer-sheet/upload-answer-sheet.html',
+                'view-answer-data': '../view-answer-data/view-answer-data.html'
             };
 
             if (pageMap[page]) {
@@ -103,7 +103,7 @@
             if (confirm('ログアウトしますか？')) {
                 localStorage.removeItem('isLoggedIn');
                 localStorage.removeItem('teacherId');
-                window.location.href = 'login.html';
+                window.location.href = '../login/login.html';
             }
         }
 
@@ -114,7 +114,7 @@
             const teacherId = localStorage.getItem('teacherId');
 
             if (!isLoggedIn) {
-                window.location.href = 'login.html';
+                window.location.href = '../login/login.html';
                 return;
             }
 
@@ -125,12 +125,19 @@
             }
         });
 
-        // モーダルの外側クリック時に閉じる
-        document.getElementById('navigationModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
+        // モーダルの外側クリック時に閉じる（要素が存在する場合のみ）
+        try {
+            const navigationModal = document.getElementById('navigationModal');
+            if (navigationModal && typeof navigationModal.addEventListener === 'function') {
+                navigationModal.addEventListener('click', function(e) {
+                    if (e.target === this && typeof closeModal === 'function') {
+                        closeModal();
+                    }
+                });
             }
-        });
+        } catch (err) {
+            console.warn('Navigation modal handler skipped:', err);
+        }
     </script>
 </body>
 </html>

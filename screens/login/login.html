@@ -81,9 +81,9 @@
                 localStorage.setItem('isLoggedIn', 'true');
                 localStorage.setItem('teacherId', teacherId);
                 
-                // ホーム画面にリダイレクト
+                // ホーム画面にリダイレクト（正しい相対パス）
                 setTimeout(function() {
-                    window.location.href = 'home.html';
+                    window.location.href = '../home/home.html';
                 }, 1500);
             } else {
                 showError('教師IDまたはパスワードが正しくありません');

@@ -11,6 +11,17 @@ cd backend
 env FLASK_APP=run.py venv/bin/python -m flask run --host=0.0.0.0
 ```
 
+Macで同じWi-Fi内の別端末から開く場合は、先にMacのWi-Fi IPを環境変数へ入れてから起動してください。
+
+```bash
+export HOST_IP=$(ipconfig getifaddr en0)
+cd /workspaces/Graduation-thesis
+docker compose up -d backend
+curl http://127.0.0.1:5001/network-url
+```
+
+`/network-url` が返す `http://<MacのIP>:5001/screens/login/login.html` を別端末で開きます。
+
 フロントエンド:
 
 ```bash
@@ -19,8 +30,11 @@ python3 -m http.server 8000 --directory /workspaces/Graduation-thesis
 
 ブラウザ:
 
-- ログイン画面: http://127.0.0.1:8000/screens/login/login.html
-- ホーム画面: http://127.0.0.1:8000/screens/home/home.html
+- ログイン画面: http://127.0.0.1:5001/screens/login/login.html
+- ホーム画面: http://127.0.0.1:5001/screens/home/home.html
+- LAN内アクセス用URLの確認: http://127.0.0.1:5001/network-url
+
+同じWi-Fi内の別端末から開く場合は、`/network-url` が返す `http://<MacのIP>:5001/screens/login/login.html` を使ってください。
 
 ## 2. 開発の流れ
 
@@ -40,8 +54,9 @@ python3 -m http.server 8000 --directory /workspaces/Graduation-thesis
 ## 4. 便利なAPI確認
 
 ```bash
-curl http://127.0.0.1:5000/health
-curl http://127.0.0.1:5000/api/auth/session
+curl http://127.0.0.1:5001/health
+curl http://127.0.0.1:5001/api/auth/session
+curl http://127.0.0.1:5001/network-url
 ```
 
 ## 5. 現在の次の候補

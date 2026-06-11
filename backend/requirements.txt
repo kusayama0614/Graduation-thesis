@@ -10,7 +10,9 @@ psycopg2-binary==2.9.9
 
 # ==================== Langchain & LLM ====================
 langchain>=0.1.0
-langchain-openai>=0.1.0
+langchain-core>=0.1.0
+langchain-google-genai>=0.0.1
+google-generativeai>=0.3.0
 openai>=1.3.0
 
 # ==================== ドキュメント処理 ====================

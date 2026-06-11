@@ -8,20 +8,12 @@ services:
   backend:
     image: mcr.microsoft.com/devcontainers/python:3.11
     volumes:
-      - ./backend:/workspace/backend
+      - .:/workspace
       - ./backend/venv:/workspace/backend/venv
     working_dir: /workspace/backend
     ports:
       - "5001:5000"
     environment:
       - FLASK_APP=run.py
+      - HOST_IP=${HOST_IP}
     command: bash -lc "/workspace/backend/venv/bin/python -m flask run --host=0.0.0.0 --port=5000"
-
-  static:
-    image: python:3.11-slim
-    volumes:
-      - .:/srv/app:ro
-    working_dir: /srv/app
-    ports:
-      - "8000:8000"
-    command: python3 -m http.server 8000 --directory /srv/app

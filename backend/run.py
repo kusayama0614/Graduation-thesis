@@ -6,6 +6,7 @@ Flaskアプリケーションの起動スクリプト
 """
 import os
 import sys
+import socket
 from dotenv import load_dotenv
 
 # 環境変数を読み込み
@@ -15,6 +16,15 @@ load_dotenv()
 from app import create_app
 
 app = create_app()
+
+
+def get_local_ip():
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(('8.8.8.8', 80))
+            return sock.getsockname()[0]
+    except OSError:
+        return '127.0.0.1'
 
 if __name__ == '__main__':
     # 開発環境での起動
@@ -27,6 +37,7 @@ if __name__ == '__main__':
     print(f'Environment: {os.getenv("FLASK_ENV", "production")}')
     print(f'Debug Mode: {debug_mode}')
     print(f'Running on: http://localhost:{port}')
+    print(f'LAN URL: http://{get_local_ip()}:5001/screens/login/login.html')
     print('=' * 60)
     
     app.run(

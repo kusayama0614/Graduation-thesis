@@ -80,8 +80,10 @@
     </div>
 
     <script>
+        const API_BASE_URL = '/api';
+
         // ダミーデータ
-        const dummyData = [
+        const fallbackData = [
             {
                 id: 1,
                 testName: '2026年5月 中間テスト',
@@ -156,23 +158,83 @@
             }
         ];
 
-        let currentData = dummyData;
+        let currentData = fallbackData;
         let currentPage = 1;
         const itemsPerPage = 5;
 
-        // ページ読み込み時
-        document.addEventListener('DOMContentLoaded', function() {
-            const isLoggedIn = localStorage.getItem('isLoggedIn');
-            if (!isLoggedIn) {
-                window.location.href = 'login.html';
-                return;
-            }
+        function mapApiItem(item) {
+            return {
+                id: Number(item.id),
+                testName: item.test_name,
+                subject: item.subject,
+                studentId: item.student_id || item.student_name,
+                studentName: item.student_name,
+                score: item.score,
+                status: item.status,
+                uploadDate: item.upload_date,
+                processingTime: item.processing_time,
+                questions: item.questions,
+                correctAnswers: item.correct_answers
+            };
+        }
 
-            loadData();
+        function buildQueryParams(filters = {}) {
+            const params = new URLSearchParams();
+
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && String(value).trim() !== '') {
+                    params.append(key, value);
+                }
+            });
+
+            return params;
+        }
+
+        // ページ読み込み時
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/session`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (!result.authenticated) {
+                    window.location.href = '../login/login.html';
+                    return;
+                }
+
+                await loadData();
+            } catch (error) {
+                window.location.href = '../login/login.html';
+            }
         });
 
         // データを読み込む
-        function loadData() {
+        async function loadData(filters = {}) {
+            try {
+                const params = buildQueryParams(filters);
+                const query = params.toString();
+                const url = query
+                    ? `${API_BASE_URL}/analysis/answer-data?${query}`
+                    : `${API_BASE_URL}/analysis/answer-data`;
+
+                const response = await fetch(url, {
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'データの取得に失敗しました');
+                }
+
+                currentData = (result.data || []).map(mapApiItem);
+            } catch (error) {
+                console.warn('Falling back to local data:', error);
+                currentData = fallbackData;
+            }
+
+            currentPage = 1;
             renderTable();
             renderPagination();
         }
@@ -183,12 +245,12 @@
             tableBody.innerHTML = '';
 
             if (currentData.length === 0) {
-                tableBody.parentElement.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
-                        <h3>データがありません</h3>
-                        <p>検索条件に一致するデータが見つかりませんでした。</p>
-                    </div>
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 32px; color: #666;">
+                            検索条件に一致するデータが見つかりませんでした。
+                        </td>
+                    </tr>
                 `;
                 return;
             }
@@ -231,41 +293,75 @@
         }
 
         // 詳細を表示
-        function showDetail(id) {
-            const item = dummyData.find(d => d.id === id);
-            if (!item) return;
+        async function showDetail(id) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/analysis/answer-data/${id}`, {
+                    credentials: 'include'
+                });
 
-            const detailContent = document.getElementById('detailContent');
-            const scoreDisplay = item.score !== null ? `${item.score}%` : '未処理';
+                const item = await response.json();
 
-            detailContent.innerHTML = `
-                <div class="detail-row">
-                    <div class="detail-label">テスト名:</div>
-                    <div class="detail-value">${item.testName}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">生徒ID:</div>
-                    <div class="detail-value">${item.studentId}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">スコア:</div>
-                    <div class="detail-value">${scoreDisplay}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">正答数:</div>
-                    <div class="detail-value">${item.correctAnswers !== null ? item.correctAnswers + '/' + item.questions : '---'}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">処理時間:</div>
-                    <div class="detail-value">${item.processingTime}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">アップロード日:</div>
-                    <div class="detail-value">${item.uploadDate}</div>
-                </div>
-            `;
+                if (!response.ok) {
+                    throw new Error(item.error || '詳細の取得に失敗しました');
+                }
 
-            document.getElementById('detailModal').classList.add('show');
+                const detailContent = document.getElementById('detailContent');
+                const scoreDisplay = item.score !== null ? `${item.score}%` : '未処理';
+                const errorPatterns = Array.isArray(item.error_patterns) && item.error_patterns.length > 0
+                    ? item.error_patterns.map(pattern => `
+                        <li>${pattern.pattern} (${pattern.count}件${pattern.examples ? ` / 例: ${pattern.examples.join(', ')}` : ''})</li>
+                    `).join('')
+                    : '<li>該当なし</li>';
+
+                detailContent.innerHTML = `
+                    <div class="detail-row">
+                        <div class="detail-label">テスト名:</div>
+                        <div class="detail-value">${item.test_name}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">生徒ID:</div>
+                        <div class="detail-value">${item.student_id}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">生徒名:</div>
+                        <div class="detail-value">${item.student_name || '---'}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">スコア:</div>
+                        <div class="detail-value">${scoreDisplay}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">正答数:</div>
+                        <div class="detail-value">${item.correct_answers !== null ? item.correct_answers + '/' + item.questions : '---'}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">処理時間:</div>
+                        <div class="detail-value">${item.processing_time}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">アップロード日:</div>
+                        <div class="detail-value">${item.upload_date}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">誤答パターン:</div>
+                        <div class="detail-value">
+                            <ul>${errorPatterns}</ul>
+                        </div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">分析:</div>
+                        <div class="detail-value">${item.analysis || '---'}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">学習計画:</div>
+                        <div class="detail-value" style="white-space: pre-line;">${item.study_plan || '---'}</div>
+                    </div>
+                `;
+
+                document.getElementById('detailModal').classList.add('show');
+            } catch (error) {
+                alert(error.message || '詳細の取得に失敗しました');
+            }
         }
 
         // 詳細モーダルを閉じる
@@ -274,32 +370,50 @@
         }
 
         // データをダウンロード
-        function downloadData(id) {
-            const item = dummyData.find(d => d.id === id);
-            if (!item) return;
-            alert(`${item.testName} (${item.studentId}) の解答解説をダウンロードします`);
+        async function downloadData(id) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/analysis/export`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        format: 'csv',
+                        filters: { data_id: String(id) }
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'エクスポートに失敗しました');
+                }
+
+                alert(result.message || 'データのエクスポートを開始しました');
+            } catch (error) {
+                alert(error.message || 'エクスポートに失敗しました');
+            }
         }
 
         // フィルターを適用
         function applyFilters() {
-            const testName = document.getElementById('testNameFilter').value.toLowerCase();
-            const studentId = document.getElementById('studentIdFilter').value.toLowerCase();
+            const testName = document.getElementById('testNameFilter').value;
+            const studentId = document.getElementById('studentIdFilter').value;
+            const uploadDate = document.getElementById('dateFilter').value;
 
-            currentData = dummyData.filter(item => {
-                return (testName === '' || item.testName.toLowerCase().includes(testName)) &&
-                       (studentId === '' || item.studentId.toLowerCase().includes(studentId));
+            loadData({
+                test_name: testName,
+                student_id: studentId,
+                upload_date: uploadDate
             });
-
-            currentPage = 1;
-            loadData();
         }
 
         // フィルターをリセット
         function resetFilters() {
             document.getElementById('testNameFilter').value = '';
             document.getElementById('studentIdFilter').value = '';
-            currentData = dummyData;
-            currentPage = 1;
+            document.getElementById('dateFilter').value = '';
             loadData();
         }
 
@@ -325,20 +439,23 @@
 
         // データをエクスポート
         function exportData() {
-            alert('データをCSV形式でエクスポートします');
+            downloadData('all');
         }
 
         // ホームに戻る
         function goHome() {
-            window.location.href = 'home.html';
+            window.location.href = '../home/home.html';
         }
 
         // モーダルの外側クリック時に閉じる
-        document.getElementById('detailModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeDetailModal();
-            }
-        });
+        const detailModal = document.getElementById('detailModal');
+        if (detailModal) {
+            detailModal.addEventListener('click', function(e) {
+                if (e.target === this && typeof closeDetailModal === 'function') {
+                    closeDetailModal();
+                }
+            });
+        }
     </script>
 </body>
 </html>

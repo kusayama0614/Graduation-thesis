@@ -2,11 +2,13 @@
 """
 Flask アプリケーション初期化モジュール
 """
-from flask import Flask
+from flask import Flask, redirect, send_from_directory
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_session import Session
 import os
+import re
+import socket
 from dotenv import load_dotenv
 
 # 環境変数の読み込み
@@ -14,6 +16,24 @@ load_dotenv()
 
 # データベースの初期化
 db = SQLAlchemy()
+
+
+def _get_screens_dir():
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    return os.path.join(repo_root, 'screens')
+
+
+def _get_local_ip():
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(('8.8.8.8', 80))
+            return sock.getsockname()[0]
+    except OSError:
+        return '127.0.0.1'
+
+
+def _get_host_ip():
+    return os.getenv('HOST_IP', '').strip() or _get_local_ip()
 
 def create_app():
     """Flask アプリケーションファクトリ"""
@@ -32,6 +52,8 @@ def create_app():
     app.config['PERMANENT_SESSION_LIFETIME'] = int(
         os.getenv('PERMANENT_SESSION_LIFETIME', 3600)
     )
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
     
     # ファイルアップロード設定
     app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', 'uploads')
@@ -44,7 +66,11 @@ def create_app():
     
     # ==================== 拡張機能の初期化 ====================
     db.init_app(app)
-    CORS(app)
+    CORS(
+        app,
+        supports_credentials=True,
+        origins=re.compile(r'^http://(localhost|127\.0\.0\.1|[A-Za-z0-9.-]+):8000$')
+    )
     Session(app)
     
     # ==================== データベーステーブル作成 ====================
@@ -77,5 +103,22 @@ def create_app():
     @app.route('/health', methods=['GET'])
     def health_check():
         return {'status': 'ok'}, 200
+
+    @app.route('/network-url', methods=['GET'])
+    def network_url():
+        ip_address = _get_host_ip()
+        return {
+            'host': ip_address,
+            'url': f'http://{ip_address}:5001/screens/login/login.html'
+        }, 200
+
+    # ==================== フロントエンド配信 ====================
+    @app.route('/')
+    def index():
+        return redirect('/screens/login/login.html')
+
+    @app.route('/screens/<path:filename>')
+    def screens(filename):
+        return send_from_directory(_get_screens_dir(), filename)
     
     return app

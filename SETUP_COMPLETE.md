@@ -66,29 +66,23 @@ Graduation-thesis/
 
 ## 🚀 次のステップ
 
-### ステップ2️⃣: Langchain 統合（次に実装）
+### ステップ2️⃣: 開発ワークフロー整備
 
-以下のファイルを作成します：
+- 起動手順とよく使うコマンドを [WORKFLOW.md](WORKFLOW.md) に整理
+- 画面ごとの担当領域を明確化
+- ログイン、アップロード、分析の順で統合を進める
 
-1. **`backend/app/utils/langchain_analyzer.py`** - Langchain統合
-   - OCR結果の分析
-   - 自動採点エンジン
-   - 誤答パターン分析
-   - 個別学習計画生成
+### ステップ3️⃣: 分析機能の強化
 
-2. **`backend/app/utils/ocr_processor.py`** - OCR処理
-   - 画像からテキスト抽出
-   - ファイル処理
+- 解答データ確認画面をAPI連携
+- `backend/app/routes/analysis.py` の一覧取得を実データ化
+- レポート生成のAPIを実装
 
-3. **API の完成**
-   - `/api/analysis/generate-report` の実装
-   - `/api/analysis/export` の実装
+### ステップ4️⃣: 仕上げ
 
-### ステップ3️⃣: フロントエンド統合
-
-- HTML ページから Flask API を呼び出し
-- セッション管理の動作確認
-- ファイルアップロード処理の統合
+- エラーハンドリングの強化
+- ログやデバッグ出力の整理
+- 統合テストの追加
 
 ---
 
@@ -224,4 +218,4 @@ python -c "import openai; print('✅ OpenAI module OK')"
 
 **セットアップ完了日時:** 2026年5月24日  
 **ステータス:** 🟢 準備完了  
-**次のステップ:** Langchain統合実装
+**次のステップ:** 開発ワークフロー整備

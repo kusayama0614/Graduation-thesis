@@ -5,24 +5,15 @@ services:
       - .:/workspace
     working_dir: /workspace
     tty: true
-
   backend:
     image: mcr.microsoft.com/devcontainers/python:3.11
     volumes:
       - .:/workspace
+      - ./backend/venv:/workspace/backend/venv
     working_dir: /workspace/backend
     ports:
       - "5001:5000"
-    command: bash -c "pip install -r requirements.txt && python run.py"
     environment:
-      - FLASK_ENV=development
       - FLASK_APP=run.py
-
-  static:
-    image: python:3.11-slim
-    volumes:
-      - .:/workspace
-    working_dir: /workspace
-    ports:
-      - "8000:8000"
-    command: python -m http.server 8000
+      - HOST_IP=${HOST_IP}
+    command: bash -lc "/workspace/backend/venv/bin/python -m flask run --host=0.0.0.0 --port=5000"

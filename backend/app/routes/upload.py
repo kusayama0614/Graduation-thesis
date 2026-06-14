@@ -3,7 +3,6 @@
 ファイルアップロード関連のAPI エンドポイント
 """
 from flask import Blueprint, request, jsonify, session
-from app.routes.auth import login_required
 from app import db
 from app.models import LearningData, AnswerSheet
 import os
@@ -14,10 +13,9 @@ upload_bp = Blueprint('upload', __name__)
 
 # ==================== 学習データアップロード ====================
 @upload_bp.route('/learning-data', methods=['POST'])
-@login_required
 def upload_learning_data():
     """学習データをアップロード"""
-    teacher_id = session.get('teacher_id')
+    teacher_id = session.get('teacher_id') or request.form.get('teacher_id', 'guest')
     
     # ファイルの確認
     if 'files' not in request.files or len(request.files.getlist('files')) == 0:
@@ -81,10 +79,9 @@ def upload_learning_data():
 
 # ==================== 解答用紙アップロード ====================
 @upload_bp.route('/answer-sheet', methods=['POST'])
-@login_required
 def upload_answer_sheet():
     """解答用紙をアップロード"""
-    teacher_id = session.get('teacher_id')
+    teacher_id = session.get('teacher_id') or request.form.get('teacher_id', 'guest')
     
     # ファイルの確認
     if 'files' not in request.files or len(request.files.getlist('files')) == 0:
@@ -158,7 +155,6 @@ def upload_answer_sheet():
 
 # ==================== アップロード済みファイル一覧 ====================
 @upload_bp.route('/list', methods=['GET'])
-@login_required
 def list_uploads():
     """アップロード済みファイルの一覧を取得"""
     upload_folder = os.getenv('UPLOAD_FOLDER', 'uploads')

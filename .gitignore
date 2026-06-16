@@ -1,0 +1,22 @@
+# Environment files
+.env
+backend/.env
+
+# Firebase service account keys
+serviceAccountKey.json
+backend/serviceAccountKey.json
+**/serviceAccountKey.json
+backend/graduation-thesis-69856-firebase-adminsdk-fbsvc-371e4925b3.json
+**/graduation-thesis-69856-firebase-adminsdk-fbsvc-371e4925b3.json
+
+# Python cache and virtual environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+backend/venv/
+
+# Flask session / uploads runtime data
+backend/flask_session/
+backend/uploads/
+backend/instance/

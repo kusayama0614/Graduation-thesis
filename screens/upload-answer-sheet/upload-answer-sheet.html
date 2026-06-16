@@ -4,102 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>解答用紙アップロード - 教師管理システム</title>
-    <link rel="stylesheet" href="upload-answer-sheet.css">
-</head>
-<body>
-    <div class="container">
-        <!-- ヘッダー -->
-        <div class="header">
-            <h1>📝 解答用紙アップロード</h1>
-            <button class="back-button" onclick="goHome()">← ホームに戻る</button>
-        </div>
-
-        <!-- コンテンツ -->
-        <div class="content">
-            <!-- パンくず -->
-            <div class="breadcrumb">
-                <span onclick="goHome()" style="cursor: pointer; color: #667eea;">ホーム</span> 
-                &gt; 解答用紙アップロード
-            </div>
-
-            <!-- メッセージ -->
-            <div class="alert alert-info show" style="margin-bottom: 30px;">
-                <strong>📌 注意:</strong> PDF、JPEG、PNG形式のスキャン画像をアップロードできます。最大ファイルサイズは50MBです。
-            </div>
-
-            <!-- セクション1: 生徒情報 -->
-            <div class="section">
-                <h2>生徒情報</h2>
-                <p>解答用紙に対応する生徒を特定してください。</p>
-
-                <div class="form-group">
-                    <label for="studentGrade">学年 <span style="color: #d32f2f;">*</span></label>
-                    <select id="studentGrade" required>
-                        <option value="">選択してください</option>
-                        <option value="1">1年生</option>
-                        <option value="2">2年生</option>
-                        <option value="3">3年生</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="studentClass">クラス <span style="color: #d32f2f;">*</span></label>
-                    <select id="studentClass" required>
-                        <option value="">選択してください</option>
-                        <option value="A">A組</option>
-                        <option value="B">B組</option>
-                        <option value="C">C組</option>
-                        <option value="D">D組</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="studentId">生徒ID <span style="color: #d32f2f;">*</span></label>
-                    <input type="text" id="studentId" placeholder="例: S001" required>
-                </div>
-            </div>
-
-            <!-- セクション2: アップロード -->
-            <div class="section">
-                <h2>解答用紙ファイルの選択</h2>
-                <p>生徒の解答用紙をスキャンしたPDFまたは画像ファイルをアップロードしてください。システムが自動的に解答内容を解析します。</p>
-
-                <!-- ドラッグ&ドロップエリア -->
-                <div class="upload-area" id="uploadArea">
-                    <div class="upload-area-icon">📄</div>
-                    <h3>ファイルをドラッグ&ドロップ</h3>
-                    <p>または以下をクリック</p>
-                    <button class="file-select-button" onclick="document.getElementById('fileInput').click()">
-                        ファイルを選択する
-                    </button>
-                    <input type="file" id="fileInput" class="file-input" multiple accept=".pdf,.jpg,.jpeg,.png">
-                </div>
-
-                <!-- サポートされるフォーマット -->
-                <div class="supported-formats">
-                    <h4>📋 サポートされるファイル形式</h4>
-                    <ul>
-                        <li>PDF (.pdf) - PDFドキュメント</li>
-                        <li>JPEG (.jpg, .jpeg) - JPEG画像</li>
-                        <li>PNG (.png) - PNG画像</li>
-                    </ul>
-                </div>
-
-                <!-- ファイルリスト -->
-                <div class="file-list" id="fileList" style="display: none;">
-                    <h3>📂 選択されたファイル</h3>
-                    <div id="fileItems"></div>
-                </div>
-            </div>
-
-            <!-- セクション3: メタデータ -->
-            <div class="section">
-                <h2>解答用紙の情報</h2>
-
-                <div class="form-group">
-                    <label for="testName">テスト名</label>
-                    <input type="text" id="testName" placeholder="例: 2026年5月 中間テスト" required>
-                </div>
+        // Preview/読み取り機能は削除されました。選択したファイルはそのままアップロード時に送信されます。
 
                 <div class="form-group">
                     <label for="examDate">試験日</label>
@@ -112,6 +17,41 @@
                 </div>
             </div>
 
+            <!-- セクション4: 処理オプション -->
+            <div class="section">
+                <h2>処理オプション</h2>
+                <p>アップロード後に実行する処理を選択してください。</p>
+
+                <div class="form-group" style="display: flex; flex-direction: column; gap: 12px;">
+                    <label style="display: flex; align-items: center; gap: 10px; font-weight: 600;">
+                        <input type="checkbox" id="autoScore" checked>
+                        自動採点を実行する
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; font-weight: 600;">
+                        <input type="checkbox" id="ocrProcess" checked>
+                        OCRで文字認識を行う
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; font-weight: 600;">
+                        <input type="checkbox" id="generateReport">
+                        分析レポートを生成する
+                    </label>
+                </div>
+
+                <div class="alert alert-info show" style="margin-top: 16px;">
+                    <strong>処理の流れ:</strong> アップロード後に OCR → 自動採点 → 必要に応じてレポート生成、という順で進みます。
+                </div>
+            </div>
+
+            <!-- セクション5: 処理進捗 -->
+            <div class="section" id="processingSection" style="display: none;">
+                <h2>処理進捗</h2>
+                <div class="processing-summary" id="processingSummary">アップロード待ちです</div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+                </div>
+                <div class="processing-steps" id="processingSteps"></div>
+            </div>
+
             <!-- ボタン -->
             <div class="button-group">
                 <button class="button button-secondary" onclick="goHome()">キャンセル</button>
@@ -121,13 +61,78 @@
     </div>
 
     <script>
-        const API_BASE_URL = '/api';
+        function resolveApiBaseUrl() {
+            const stored = localStorage.getItem('apiBaseUrl');
+            if (stored) {
+                return stored.replace(/\/$/, '');
+            }
+
+            if (window.location.protocol === 'file:') {
+                return 'http://127.0.0.1:5002/api';
+            }
+
+            if (window.location.port === '5002') {
+                return '/api';
+            }
+
+            return `${window.location.protocol}//${window.location.hostname}:5002/api`;
+        }
+
+        const API_BASE_URL = resolveApiBaseUrl();
         let selectedFiles = [];
+        let answerKeyFile = null;
+        let answerKeyCandidates = [];
+        let processingPollTimer = null;
+        let processingRecordId = null;
+        let processingWorkflow = null;
 
         // ファイル入力の変更
         document.getElementById('fileInput').addEventListener('change', function(e) {
             handleFiles(e.target.files);
         });
+
+        document.getElementById('answerKeyInput').addEventListener('change', function(e) {
+            answerKeyFile = e.target.files?.[0] || null;
+            const hint = document.getElementById('answerKeyHint');
+            if (answerKeyFile) {
+                hint.className = 'alert info show';
+                hint.innerHTML = `<strong>選択済み:</strong> ${escapeHtml(answerKeyFile.name)}。プレビュー機能は無効化されています。アップロード時にサーバ側で解析されます。`;
+            } else {
+                hint.className = 'alert';
+                hint.textContent = '';
+            }
+        });
+
+        async function loadOcrStatus() {
+            const banner = document.getElementById('ocrStatusBanner');
+            try {
+                const response = await fetch(`${API_BASE_URL}/upload/ocr-status`, {
+                    credentials: 'include'
+                });
+                const status = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(status.error || 'OCR status request failed');
+                }
+
+                const items = [
+                    `Google Vision: ${status.vision_configured ? '設定あり' : '未設定'}`,
+                    `Tesseract: ${status.tesseract_available ? '利用可' : '未インストール'}`,
+                    `PDF本文抽出: ${status.pdf_text_extraction_available ? '利用可' : '利用不可'}`,
+                ];
+
+                banner.className = 'alert alert-info show';
+                banner.innerHTML = `
+                    <strong>OCR状態:</strong><br>
+                    ${items.map((item) => `・${item}`).join('<br>')}
+                    ${status.vision_error ? `<br><small>Vision確認メモ: ${escapeHtml(status.vision_error)}</small>` : ''}
+                    <br><small>※ スキャン画像PDFの実OCRは「模範解答を読み取りする」プレビューで確認してください。</small>
+                `;
+            } catch (error) {
+                banner.className = 'alert alert-warning show';
+                banner.textContent = 'OCRの状態を取得できませんでした。PDF本文抽出のみ動作する場合があります。';
+            }
+        }
 
         // ドラッグ&ドロップ
         const uploadArea = document.getElementById('uploadArea');
@@ -187,6 +192,8 @@
             updateFileList();
         }
 
+        // Preview/preview-edit functions removed: answer key files are uploaded directly without client-side preview.
+
         // データを送信
         async function submitData() {
             if (selectedFiles.length === 0) {
@@ -199,6 +206,11 @@
             const studentId = document.getElementById('studentId').value.trim();
             const testName = document.getElementById('testName').value.trim();
             const examDate = document.getElementById('examDate').value;
+
+            if (processingPollTimer) {
+                clearInterval(processingPollTimer);
+                processingPollTimer = null;
+            }
 
             if (!studentGrade) {
                 showAlert('学年を選択してください', 'error');
@@ -237,9 +249,18 @@
             formData.append('subject', 'math');
             formData.append('exam_date', examDate);
             formData.append('notes', document.getElementById('notes').value);
-            formData.append('auto_score', 'true');
-            formData.append('ocr_process', 'true');
-            formData.append('generate_report', 'false');
+            formData.append('auto_score', document.getElementById('autoScore').checked ? 'true' : 'false');
+            formData.append('ocr_process', document.getElementById('ocrProcess').checked ? 'true' : 'false');
+            formData.append('generate_report', document.getElementById('generateReport').checked ? 'true' : 'false');
+            // Client-side preview removed: only allow server-side parsing of uploaded answer key files.
+            if (document.getElementById('autoScore').checked && !answerKeyFile) {
+                showAlert('自動採点を使う場合は、解答データ（CSV/XLSX/JSON）または answer_key を指定してください', 'error');
+                return;
+            }
+
+            if (answerKeyFile) {
+                formData.append('answer_key_file', answerKeyFile);
+            }
 
             try {
                 const response = await fetch(`${API_BASE_URL}/upload/answer-sheet`, {
@@ -254,14 +275,106 @@
                     throw new Error(result.error || 'アップロードに失敗しました');
                 }
 
-                showAlert(`✓ ${result.message}`, 'success');
+                processingRecordId = result.results?.[0]?.record_id || null;
+                processingWorkflow = result.workflow || {};
+                const nextSteps = (processingWorkflow.processing_steps || []).join(' → ');
+                showProcessingPanel(processingWorkflow, result.results?.[0] || {});
+                showAlert(`✓ ${result.message}${nextSteps ? ` / 処理: ${nextSteps}` : ''}`, 'success');
 
-                setTimeout(() => {
-                    goHome();
-                }, 2000);
+                if (processingRecordId) {
+                    startPollingProcessingStatus(processingRecordId);
+                }
             } catch (error) {
                 showAlert(error.message || 'アップロードに失敗しました', 'error');
             }
+        }
+
+        function showProcessingPanel(workflow, uploadResult) {
+            const section = document.getElementById('processingSection');
+            section.style.display = 'block';
+
+            const steps = buildProcessingSteps(workflow);
+            renderProcessingSteps(steps, 'queued', 0, uploadResult.processing_message || 'キューに登録されました');
+        }
+
+        function buildProcessingSteps(workflow) {
+            const selected = workflow?.processing_steps || [];
+            const labels = {
+                ocr: 'OCR処理',
+                auto_score: '自動採点',
+                generate_report: 'レポート生成',
+            };
+
+            return [
+                { key: 'queued', label: 'キュー登録' },
+                ...selected.map((step) => ({ key: step, label: labels[step] || step })),
+                { key: 'completed', label: '完了' },
+            ];
+        }
+
+        function renderProcessingSteps(steps, currentStage, progressPercent, summaryText) {
+            const summary = document.getElementById('processingSummary');
+            const progressBarFill = document.getElementById('progressBarFill');
+            const processingSteps = document.getElementById('processingSteps');
+
+            summary.textContent = summaryText || '処理中です';
+            progressBarFill.style.width = `${Math.min(Math.max(progressPercent || 0, 0), 100)}%`;
+            processingSteps.innerHTML = '';
+
+            const stageIndex = steps.findIndex((step) => step.key === currentStage);
+
+            steps.forEach((step, index) => {
+                const state = index < stageIndex ? 'done' : index === stageIndex ? 'active' : 'pending';
+                const item = document.createElement('div');
+                item.className = `processing-step ${state}`;
+                item.innerHTML = `
+                    <div class="processing-step-icon">${state === 'done' ? '✓' : index + 1}</div>
+                    <div class="processing-step-label">${step.label}</div>
+                `;
+                processingSteps.appendChild(item);
+            });
+        }
+
+        function startPollingProcessingStatus(recordId) {
+            const steps = buildProcessingSteps(processingWorkflow || {});
+
+            processingPollTimer = setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/analysis/answer-data/${recordId}`, {
+                        credentials: 'include'
+                    });
+                    const detail = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(detail.error || '処理状況の取得に失敗しました');
+                    }
+
+                    const progressPercent = detail.progress_percent ?? (detail.status === 'completed' ? 100 : detail.status === 'failed' ? 100 : 10);
+                    const currentStage = detail.current_step || (detail.status === 'completed' ? 'completed' : 'queued');
+                    const summaryText = detail.processing_message || (detail.status === 'completed' ? 'すべての処理が完了しました' : '処理を進めています');
+
+                    renderProcessingSteps(steps, currentStage, progressPercent, summaryText);
+
+                    if (detail.status === 'completed') {
+                        clearInterval(processingPollTimer);
+                        processingPollTimer = null;
+                        showAlert('✓ すべての処理が完了しました。ホームへ戻ります。', 'success');
+                        setTimeout(() => {
+                            goHome();
+                        }, 1800);
+                    }
+
+                    if (detail.status === 'failed') {
+                        clearInterval(processingPollTimer);
+                        processingPollTimer = null;
+                        showAlert(detail.processing_message || '処理に失敗しました', 'error');
+                    }
+                } catch (error) {
+                    clearInterval(processingPollTimer);
+                    processingPollTimer = null;
+                    showAlert(error.message || '処理状況の取得に失敗しました', 'error');
+                }
+            }, 1000);
         }
 
         // ホームに戻る
@@ -303,7 +416,31 @@
             // 今日の日付をデフォルトに設定
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('examDate').value = today;
+
+            renderProcessingSteps(
+                [
+                    { key: 'queued', label: 'キュー登録' },
+                    { key: 'ocr', label: 'OCR処理' },
+                    { key: 'auto_score', label: '自動採点' },
+                    { key: 'generate_report', label: 'レポート生成' },
+                    { key: 'completed', label: '完了' },
+                ],
+                'queued',
+                0,
+                'アップロード待ちです'
+            );
+
+            await loadOcrStatus();
         });
+
+        function escapeHtml(text) {
+            return String(text)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
     </script>
 </body>
 </html>

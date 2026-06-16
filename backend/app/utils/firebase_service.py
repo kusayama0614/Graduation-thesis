@@ -73,6 +73,9 @@ class FirebaseService:
     def _analysis_results(self):
         return self.client.collection('analysis_results') if self.enabled else None
 
+    def _processing_logs(self):
+        return self.client.collection('processing_logs') if self.enabled else None
+
     def _serialize_doc(self, doc_snapshot):
         if not doc_snapshot.exists:
             return None
@@ -190,7 +193,27 @@ class FirebaseService:
         doc_ref.set(payload)
         return payload | {'id': doc_ref.id}
 
-    def save_answer_sheet(self, teacher_id: str, test_name: str, subject: str, exam_date: str, file_path: str, file_name: str, file_size: int, status: str = 'pending') -> Dict[str, Any]:
+    def save_answer_sheet(
+        self,
+        teacher_id: str,
+        test_name: str,
+        subject: str,
+        exam_date: str,
+        file_path: str,
+        file_name: str,
+        file_size: int,
+        status: str = 'pending',
+        student_grade: Optional[str] = None,
+        student_class: Optional[str] = None,
+        student_id: Optional[str] = None,
+        notes: Optional[str] = None,
+        processing_options: Optional[Dict[str, Any]] = None,
+        processing_stage: str = 'uploaded',
+        current_step: Optional[str] = None,
+        completed_steps: Optional[List[str]] = None,
+        progress_percent: Optional[int] = None,
+        processing_message: Optional[str] = None,
+    ) -> Dict[str, Any]:
         if not self.enabled:
             raise RuntimeError('Firebase is not enabled')
 
@@ -204,12 +227,54 @@ class FirebaseService:
             'test_name': test_name,
             'subject': subject,
             'exam_date': exam_date,
+            'student_grade': student_grade,
+            'student_class': student_class,
+            'student_id': student_id,
+            'notes': notes,
+            'processing_options': processing_options or {},
+            'processing_stage': processing_stage,
+            'current_step': current_step,
+            'completed_steps': completed_steps or [],
+            'progress_percent': progress_percent,
+            'processing_message': processing_message,
             'file_path': file_path,
             'file_name': file_name,
             'file_size': file_size,
             'status': status,
             'created_at': self._now(),
             'updated_at': self._now(),
+        }
+        doc_ref.set(payload)
+        return payload | {'id': doc_ref.id}
+
+    def update_answer_sheet(self, data_id: str, updates: Dict[str, Any]) -> None:
+        if not self.enabled:
+            raise RuntimeError('Firebase is not enabled')
+
+        collection = self._answer_sheets()
+        if collection is None:
+            raise RuntimeError('Firestore collection is unavailable')
+
+        updates = dict(updates)
+        updates['updated_at'] = self._now()
+        collection.document(data_id).update(updates)
+
+    def save_processing_log(self, answer_sheet_id: str, step: str, status: str, message: str = '', error: str = '') -> Dict[str, Any]:
+        if not self.enabled:
+            raise RuntimeError('Firebase is not enabled')
+
+        collection = self._processing_logs()
+        if collection is None:
+            raise RuntimeError('Firestore collection is unavailable')
+
+        doc_ref = collection.document()
+        payload = {
+            'answer_sheet_id': answer_sheet_id,
+            'step': step,
+            'status': status,
+            'message': message,
+            'error': error,
+            'created_at': self._now(),
         }
         doc_ref.set(payload)
         return payload | {'id': doc_ref.id}
@@ -237,6 +302,21 @@ class FirebaseService:
             return None
 
         return self._serialize_doc(collection.document(data_id).get())
+
+    def get_analysis_result_by_answer_sheet_id(self, answer_sheet_id: str) -> Optional[Dict[str, Any]]:
+        if not self.enabled:
+            return None
+
+        collection = self._analysis_results()
+        if collection is None:
+            return None
+
+        query = collection.where('answer_sheet_id', '==', answer_sheet_id)
+        for doc in query.stream():
+            if doc.exists:
+                return self._serialize_doc(doc)
+
+        return None
 
     def save_analysis_result(self, answer_sheet_id: str, student_name: str, score: Optional[float], correct_count: Optional[int], total_questions: Optional[int], error_patterns: Any, analysis_text: str, study_plan: str, processing_time: str, status: str = 'completed') -> Dict[str, Any]:
         if not self.enabled:

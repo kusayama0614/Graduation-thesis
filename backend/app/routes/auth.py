@@ -43,7 +43,12 @@ def login():
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
 
     firebase_service = get_firebase_service()
-    teacher = firebase_service.authenticate_teacher(teacher_id, password) if firebase_service.enabled else None
+    teacher = None
+    if firebase_service.enabled:
+        try:
+            teacher = firebase_service.authenticate_teacher(teacher_id, password)
+        except Exception:
+            teacher = None
 
     if teacher:
         session['teacher_id'] = teacher['teacher_id']
@@ -165,11 +170,20 @@ def change_password():
     firebase_service = get_firebase_service()
 
     if firebase_service.enabled:
-        teacher = firebase_service.authenticate_teacher(teacher_id, data['old_password'])
-        if not teacher:
-            return jsonify({'error': 'Old password is incorrect'}), 400
+        try:
+            teacher = firebase_service.authenticate_teacher(teacher_id, data['old_password'])
+            if not teacher:
+                return jsonify({'error': 'Old password is incorrect'}), 400
 
-        firebase_service.update_password(teacher_id, data['new_password'])
+            firebase_service.update_password(teacher_id, data['new_password'])
+        except Exception:
+            teacher = Teacher.query.filter_by(teacher_id=teacher_id).first()
+
+            if not teacher or not check_password_hash(teacher.password_hash, data['old_password']):
+                return jsonify({'error': 'Old password is incorrect'}), 400
+
+            teacher.password_hash = generate_password_hash(data['new_password'])
+            db.session.commit()
     else:
         teacher = Teacher.query.filter_by(teacher_id=teacher_id).first()
 

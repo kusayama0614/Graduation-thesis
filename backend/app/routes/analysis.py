@@ -127,6 +127,18 @@ def get_answer_data_detail(data_id):
     if firebase_service.enabled:
         answer_sheet = firebase_service.get_answer_sheet(data_id)
         if answer_sheet:
+            analysis_result = firebase_service.get_analysis_result_by_answer_sheet_id(data_id)
+            if analysis_result:
+                answer_sheet = answer_sheet | {
+                    'analysis': analysis_result.get('analysis_text'),
+                    'study_plan': analysis_result.get('study_plan'),
+                    'score': analysis_result.get('score'),
+                    'correct_answers': analysis_result.get('correct_count'),
+                    'questions': analysis_result.get('total_questions'),
+                    'error_patterns': analysis_result.get('error_patterns'),
+                    'analysis_result_id': analysis_result.get('id'),
+                }
+
             return jsonify(answer_sheet), 200
 
     # ==================== デモデータ ====================

@@ -23,6 +23,10 @@ python-docx>=1.1.2
 # ==================== OCR & 画像処理 ====================
 pytesseract==0.3.10
 Pillow>=11.0.0
+pdf2image==1.16.3
+google-cloud-vision==3.14.0
+opencv-python-headless==4.8.0.76
+openpyxl==3.1.2
 
 # ==================== JSON処理 ====================
 jsonschema==4.19.0

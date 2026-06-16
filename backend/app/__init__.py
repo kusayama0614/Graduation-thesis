@@ -72,7 +72,11 @@ def _seed_default_teachers():
 
     firebase_service = get_firebase_service()
     if firebase_service.enabled:
-        firebase_service.seed_default_teachers(default_teachers)
+        try:
+            firebase_service.seed_default_teachers(default_teachers)
+        except Exception:
+            # Firestore 権限が未整備でもアプリ起動を止めない
+            pass
 
 def create_app():
     """Flask アプリケーションファクトリ"""
@@ -160,9 +164,10 @@ def create_app():
     @app.route('/network-url', methods=['GET'])
     def network_url():
         ip_address = _get_host_ip()
+        runtime_port = os.getenv('APP_PORT') or os.getenv('PORT', '5000')
         return {
             'host': ip_address,
-            'url': f'http://{ip_address}:5001/screens/login/login.html'
+            'url': f'http://{ip_address}:{runtime_port}/screens/login/login.html'
         }, 200
 
     # ==================== フロントエンド配信 ====================

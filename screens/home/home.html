@@ -87,16 +87,26 @@
     <script>
         const API_BASE_URL = '/api';
 
+        function resolveScreenUrl(screenPath) {
+            const normalizedPath = screenPath.startsWith('/') ? screenPath : `/${screenPath}`;
+
+            if (window.location.protocol === 'file:') {
+                return `../${screenPath.replace(/^\/+/, '')}`;
+            }
+
+            return `${window.location.origin}${normalizedPath}`;
+        }
+
         // ページナビゲーション
         function navigateTo(page) {
             const pageMap = {
-                'upload-learning-data': '../upload-learning-data/upload-learning-data.html',
-                'upload-answer-sheet': '../upload-answer-sheet/upload-answer-sheet.html',
-                'view-answer-data': '../view-answer-data/view-answer-data.html'
+                'upload-learning-data': 'screens/upload-learning-data/upload-learning-data.html',
+                'upload-answer-sheet': 'screens/upload-answer-sheet/upload-answer-sheet.html',
+                'view-answer-data': 'screens/view-answer-data/view-answer-data.html'
             };
 
             if (pageMap[page]) {
-                window.location.href = pageMap[page];
+                window.location.href = resolveScreenUrl(pageMap[page]);
             }
         }
 
@@ -127,7 +137,7 @@
                 const result = await response.json();
 
                 if (!result.authenticated) {
-                    window.location.href = '../login/login.html';
+                    window.location.href = resolveScreenUrl('screens/login/login.html');
                     return;
                 }
 
@@ -139,7 +149,7 @@
                     localStorage.setItem('teacherId', teacherId);
                 }
             } catch (error) {
-                window.location.href = '../login/login.html';
+                window.location.href = resolveScreenUrl('screens/login/login.html');
             }
         });
 

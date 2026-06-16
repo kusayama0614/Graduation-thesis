@@ -35,6 +35,8 @@ python3 -m venv venv
 
 # 仮想環境を有効化
 source venv/bin/activate  # Linux/Mac
+# fish の場合
+source venv/bin/activate.fish
 # または
 venv\Scripts\activate  # Windows
 ```
@@ -43,7 +45,10 @@ venv\Scripts\activate  # Windows
 
 ```bash
 # requirements.txt からインストール
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+
+# 既存の venv で古い SQLAlchemy が残る場合は、
+# venv を作り直してから再実行してください
 
 # または個別にインストール（カスタマイズ時）
 pip install Flask==3.0.0
@@ -63,10 +68,34 @@ FLASK_ENV=development
 FLASK_APP=run.py
 SECRET_KEY=your-secret-key
 DATABASE_URL=sqlite:///graduation_system.db
-OPENAI_API_KEY=your-openai-api-key
+PORT=5002
+GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/serviceAccountKey.json
+GOOGLE_API_KEY=your-google-gemini-api-key
+GOOGLE_MODEL=gemini-2.5-flash
+SESSION_TYPE=filesystem
+PERMANENT_SESSION_LIFETIME=3600
+UPLOAD_FOLDER=uploads
+MAX_CONTENT_LENGTH=52428800
+LANGCHAIN_API_KEY=optional
+LANGCHAIN_TRACING_V2=false
 ```
 
-⚠️ **重要**: `OPENAI_API_KEY` を設定してください（Langchain統合時に必須）
+`PORT=5002` を設定しておくと、`python run.py` 実行時に起動ポートを固定しやすくなります。
+
+このプロジェクトでは Google Gemini を使うため、API キーは `GOOGLE_API_KEY` に設定してください。
+
+⚠️ **重要**: `GOOGLE_API_KEY` を設定してください（Gemini/LangChain 統合時に必須）
+
+### Firebase を使う場合
+
+Firestore をデータベースとして使う場合は、次のいずれかを設定してください。
+
+1. `GOOGLE_APPLICATION_CREDENTIALS` にサービスアカウント JSON の絶対パスを指定する
+2. `FIREBASE_CREDENTIALS_JSON` にサービスアカウント JSON をそのまま入れる
+
+`GOOGLE_APPLICATION_CREDENTIALS` のパスは、実際に配置したサービスアカウント JSON に合わせて置き換えてください。
+
+未設定の場合は既存の SQLite 実装にフォールバックします。
 
 ### ステップ4: アップロードフォルダの作成
 
@@ -82,13 +111,21 @@ python run.py
 
 ブラウザで以下にアクセス：
 ```
-http://localhost:5000/health
+http://localhost:5002/health
 ```
 
 成功すれば以下が表示されます：
 ```json
 {"status": "ok"}
 ```
+
+Firebase の接続状態も確認できます:
+
+```bash
+curl http://localhost:5002/health/firebase
+```
+
+Firebase が使える場合は `enabled: true`、未設定なら `enabled: false` が返ります。
 
 ---
 
@@ -264,11 +301,10 @@ Content-Type: application/json
 | Flask-SQLAlchemy | 3.1.1 | ORM |
 | langchain | 0.1.0 | LLMチェーンフレームワーク |
 | openai | 1.3.0 | OpenAI API |
-| SQLAlchemy | 2.0.23 | データベースORM |
-| psycopg2-binary | 2.9.9 | PostgreSQL接続 |
+| SQLAlchemy | 2.0.51 | データベースORM |
+| SQLite | 標準搭載 | デフォルトDB |
 | pytesseract | 0.3.10 | OCR処理 |
 | Pillow | 10.0.0 | 画像処理 |
-| faiss-cpu | 1.7.4 | ベクトル検索 |
 
 ---
 
@@ -278,7 +314,7 @@ Content-Type: application/json
 
 1. **パスワード管理**: bcrypt または argon2 を使用してハッシュ化
 2. **CORS設定**: 許可するオリジンを明示的に指定
-3. **セッション**: Redis または PostgreSQL で管理
+3. **セッション**: Redis で管理し、DBは標準の SQLite を使用
 4. **API認証**: JWT または OAuth2 を実装
 5. **入力バリデーション**: より厳密なチェック
 6. **HTTPS**: 本番環境では必須

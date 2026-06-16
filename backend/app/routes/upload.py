@@ -5,6 +5,7 @@
 from flask import Blueprint, request, jsonify, session
 from app import db
 from app.models import LearningData, AnswerSheet
+from app.utils.firebase_service import get_firebase_service
 import os
 from datetime import datetime
 
@@ -31,6 +32,7 @@ def upload_learning_data():
         return jsonify({'error': 'Title is required'}), 400
     
     upload_results = []
+    firebase_service = get_firebase_service()
     
     for file in files:
         try:
@@ -44,23 +46,38 @@ def upload_learning_data():
             file.save(filepath)
             
             # ==================== デモ用: DBに保存（実装予定） ====================
-            # learning_data = LearningData(
-            #     teacher_id=teacher_id,
-            #     title=title,
-            #     category=category,
-            #     description=description,
-            #     file_path=filepath,
-            #     file_name=file.filename,
-            #     file_size=os.path.getsize(filepath),
-            #     file_type=file.filename.split('.')[-1]
-            # )
-            # db.session.add(learning_data)
-            # db.session.commit()
+            saved_record = None
+            if firebase_service.enabled:
+                saved_record = firebase_service.save_learning_data(
+                    teacher_id=teacher_id,
+                    title=title,
+                    category=category,
+                    description=description,
+                    file_path=filepath,
+                    file_name=file.filename,
+                    file_size=os.path.getsize(filepath),
+                    file_type=file.filename.split('.')[-1]
+                )
+            else:
+                learning_data = LearningData(
+                    teacher_id=teacher_id,
+                    title=title,
+                    category=category,
+                    description=description,
+                    file_path=filepath,
+                    file_name=file.filename,
+                    file_size=os.path.getsize(filepath),
+                    file_type=file.filename.split('.')[-1]
+                )
+                db.session.add(learning_data)
+                db.session.commit()
+                saved_record = {'id': learning_data.id}
             
             upload_results.append({
                 'filename': file.filename,
                 'size': file.content_length,
-                'status': 'success'
+                'status': 'success',
+                'record_id': saved_record.get('id') if saved_record else None
             })
         
         except Exception as e:
@@ -102,6 +119,7 @@ def upload_answer_sheet():
         }), 400
     
     upload_results = []
+    firebase_service = get_firebase_service()
     
     for file in files:
         try:
@@ -115,23 +133,38 @@ def upload_answer_sheet():
             file.save(filepath)
             
             # ==================== デモ用: DBに保存（実装予定） ====================
-            # answer_sheet = AnswerSheet(
-            #     teacher_id=teacher_id,
-            #     test_name=test_name,
-            #     subject=subject,
-            #     exam_date=exam_date,
-            #     file_path=filepath,
-            #     file_name=file.filename,
-            #     file_size=os.path.getsize(filepath),
-            #     status='processing'
-            # )
-            # db.session.add(answer_sheet)
-            # db.session.commit()
+            saved_record = None
+            if firebase_service.enabled:
+                saved_record = firebase_service.save_answer_sheet(
+                    teacher_id=teacher_id,
+                    test_name=test_name,
+                    subject=subject,
+                    exam_date=exam_date,
+                    file_path=filepath,
+                    file_name=file.filename,
+                    file_size=os.path.getsize(filepath),
+                    status='processing'
+                )
+            else:
+                answer_sheet = AnswerSheet(
+                    teacher_id=teacher_id,
+                    test_name=test_name,
+                    subject=subject,
+                    exam_date=exam_date,
+                    file_path=filepath,
+                    file_name=file.filename,
+                    file_size=os.path.getsize(filepath),
+                    status='processing'
+                )
+                db.session.add(answer_sheet)
+                db.session.commit()
+                saved_record = {'id': answer_sheet.id}
             
             upload_results.append({
                 'filename': file.filename,
                 'size': file.content_length,
                 'status': 'success',
+                'record_id': saved_record.get('id') if saved_record else None,
                 'processing_options': {
                     'auto_score': auto_score,
                     'ocr_process': ocr_process,

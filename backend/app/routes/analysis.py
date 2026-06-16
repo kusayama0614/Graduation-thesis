@@ -5,6 +5,7 @@
 from flask import Blueprint, request, jsonify, session
 from app.routes.auth import login_required
 from app.utils.langchain_analyzer import get_report_generator
+from app.utils.firebase_service import get_firebase_service
 import json
 import traceback
 
@@ -23,6 +24,27 @@ def get_answer_data():
     subject = request.args.get('subject', '')
     status = request.args.get('status', '')
     
+    firebase_service = get_firebase_service()
+
+    if firebase_service.enabled:
+        firebase_rows = firebase_service.list_answer_sheets(teacher_id=teacher_id)
+        filtered_data = firebase_rows
+
+        if test_name:
+            filtered_data = [d for d in filtered_data if test_name in (d.get('test_name', '').lower())]
+
+        if subject:
+            filtered_data = [d for d in filtered_data if d.get('subject') == subject]
+
+        if status:
+            filtered_data = [d for d in filtered_data if d.get('status') == status]
+
+        return jsonify({
+            'total': len(firebase_rows),
+            'filtered': len(filtered_data),
+            'data': filtered_data
+        }), 200
+
     # ==================== デモデータ ====================
     dummy_data = [
         {
@@ -100,7 +122,13 @@ def get_answer_data():
 @login_required
 def get_answer_data_detail(data_id):
     """解答データの詳細を取得"""
-    
+    firebase_service = get_firebase_service()
+
+    if firebase_service.enabled:
+        answer_sheet = firebase_service.get_answer_sheet(data_id)
+        if answer_sheet:
+            return jsonify(answer_sheet), 200
+
     # ==================== デモデータ ====================
     dummy_details = {
         '1': {
@@ -171,6 +199,13 @@ def generate_report():
     if not data_id:
         return jsonify({'error': 'data_id is required'}), 400
     
+    firebase_service = get_firebase_service()
+
+    if firebase_service.enabled:
+        student_data = firebase_service.get_answer_sheet(data_id)
+    else:
+        student_data = None
+
     # ==================== デモデータ（実装例） ====================
     # 本来はデータベースから取得
     demo_answer_data = {
@@ -208,7 +243,8 @@ def generate_report():
         }
     }
     
-    student_data = demo_answer_data.get(data_id)
+    if not student_data:
+        student_data = demo_answer_data.get(data_id)
     
     if not student_data:
         return jsonify({'error': 'Data not found', 'data_id': data_id}), 404
@@ -231,6 +267,22 @@ def generate_report():
         
         if report_type in ['study_plan', 'both']:
             result['study_plan'] = generator.generate_study_plan(student_data)
+
+        if firebase_service.enabled:
+            try:
+                firebase_service.save_analysis_result(
+                    answer_sheet_id=data_id,
+                    student_name=student_data.get('student_name', ''),
+                    score=student_data.get('score'),
+                    correct_count=student_data.get('correct_answers'),
+                    total_questions=student_data.get('questions'),
+                    error_patterns=student_data.get('error_patterns', []),
+                    analysis_text=result.get('analysis_report', ''),
+                    study_plan=result.get('study_plan', ''),
+                    processing_time=student_data.get('processing_time', '')
+                )
+            except Exception:
+                pass
         
         return jsonify({
             'success': True,

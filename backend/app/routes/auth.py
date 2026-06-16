@@ -5,8 +5,8 @@
 from flask import Blueprint, request, jsonify, session
 from app import db
 from app.models import Teacher
+from app.utils.firebase_service import get_firebase_service
 from werkzeug.security import generate_password_hash, check_password_hash
-import os
 from functools import wraps
 
 auth_bp = Blueprint('auth', __name__)
@@ -41,26 +41,38 @@ def login():
     
     if len(password) < 6:
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
-    
-    # ==================== デモ用ハードコード ====================
-    # 本来はデータベースから取得してハッシュと比較
-    DEMO_CREDENTIALS = {
-        'teacher001': 'password123',
-        'teacher002': 'password456'
-    }
-    
-    if teacher_id in DEMO_CREDENTIALS and DEMO_CREDENTIALS[teacher_id] == password:
-        # セッションに保存
-        session['teacher_id'] = teacher_id
+
+    firebase_service = get_firebase_service()
+    teacher = firebase_service.authenticate_teacher(teacher_id, password) if firebase_service.enabled else None
+
+    if teacher:
+        session['teacher_id'] = teacher['teacher_id']
+        session['teacher_db_id'] = teacher.get('id', teacher['teacher_id'])
+        session['teacher_name'] = teacher.get('name')
         session.permanent = True
-        
+
         return jsonify({
             'success': True,
             'message': 'Login successful',
-            'teacher_id': teacher_id
+            'teacher_id': teacher['teacher_id'],
+            'name': teacher.get('name')
         }), 200
-    
-    return jsonify({'error': 'Invalid credentials'}), 401
+
+    teacher = Teacher.query.filter_by(teacher_id=teacher_id).first()
+    if not teacher or not check_password_hash(teacher.password_hash, password):
+        return jsonify({'error': 'Invalid credentials'}), 401
+
+    session['teacher_id'] = teacher.teacher_id
+    session['teacher_db_id'] = teacher.id
+    session['teacher_name'] = teacher.name
+    session.permanent = True
+
+    return jsonify({
+        'success': True,
+        'message': 'Login successful',
+        'teacher_id': teacher.teacher_id,
+        'name': teacher.name
+    }), 200
 
 
 # ==================== ログアウト ====================
@@ -79,7 +91,8 @@ def check_session():
     if 'teacher_id' in session:
         return jsonify({
             'authenticated': True,
-            'teacher_id': session['teacher_id']
+            'teacher_id': session['teacher_id'],
+            'name': session.get('teacher_name')
         }), 200
     
     return jsonify({
@@ -108,9 +121,29 @@ def register():
     
     if len(password) < 6:
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
-    
-    # ==================== デモ用レスポンス ====================
-    # 本来はデータベースに保存
+
+    firebase_service = get_firebase_service()
+
+    if firebase_service.enabled:
+        try:
+            firebase_service.create_teacher(teacher_id, password, name, email)
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 409
+    else:
+        if Teacher.query.filter_by(teacher_id=teacher_id).first():
+            return jsonify({'error': 'Teacher ID already exists'}), 409
+
+        hashed_password = generate_password_hash(password)
+        teacher = Teacher(
+            teacher_id=teacher_id,
+            password_hash=hashed_password,
+            name=name,
+            email=email
+        )
+
+        db.session.add(teacher)
+        db.session.commit()
+
     return jsonify({
         'success': True,
         'message': 'Registration successful',
@@ -128,7 +161,24 @@ def change_password():
     if not data or not data.get('old_password') or not data.get('new_password'):
         return jsonify({'error': 'Missing required fields'}), 400
     
-    # 本来はデータベースから取得して確認
+    teacher_id = session.get('teacher_id')
+    firebase_service = get_firebase_service()
+
+    if firebase_service.enabled:
+        teacher = firebase_service.authenticate_teacher(teacher_id, data['old_password'])
+        if not teacher:
+            return jsonify({'error': 'Old password is incorrect'}), 400
+
+        firebase_service.update_password(teacher_id, data['new_password'])
+    else:
+        teacher = Teacher.query.filter_by(teacher_id=teacher_id).first()
+
+        if not teacher or not check_password_hash(teacher.password_hash, data['old_password']):
+            return jsonify({'error': 'Old password is incorrect'}), 400
+
+        teacher.password_hash = generate_password_hash(data['new_password'])
+        db.session.commit()
+
     return jsonify({
         'success': True,
         'message': 'Password changed successfully'

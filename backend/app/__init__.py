@@ -10,6 +10,7 @@ import os
 import re
 import socket
 from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash
 
 # 環境変数の読み込み
 load_dotenv()
@@ -34,6 +35,44 @@ def _get_local_ip():
 
 def _get_host_ip():
     return os.getenv('HOST_IP', '').strip() or _get_local_ip()
+
+
+def _seed_default_teachers():
+    from app.models import Teacher
+    from app.utils.firebase_service import get_firebase_service
+
+    default_teachers = [
+        {
+            'teacher_id': 'teacher001',
+            'password': 'password123',
+            'name': '山田先生',
+            'email': 'teacher001@example.com'
+        },
+        {
+            'teacher_id': 'teacher002',
+            'password': 'password456',
+            'name': '佐藤先生',
+            'email': 'teacher002@example.com'
+        }
+    ]
+
+    for teacher_info in default_teachers:
+        existing_teacher = Teacher.query.filter_by(teacher_id=teacher_info['teacher_id']).first()
+        if existing_teacher:
+            continue
+
+        db.session.add(Teacher(
+            teacher_id=teacher_info['teacher_id'],
+            password_hash=generate_password_hash(teacher_info['password']),
+            name=teacher_info['name'],
+            email=teacher_info['email']
+        ))
+
+    db.session.commit()
+
+    firebase_service = get_firebase_service()
+    if firebase_service.enabled:
+        firebase_service.seed_default_teachers(default_teachers)
 
 def create_app():
     """Flask アプリケーションファクトリ"""
@@ -75,7 +114,9 @@ def create_app():
     
     # ==================== データベーステーブル作成 ====================
     with app.app_context():
+        from app import models  # noqa: F401
         db.create_all()
+        _seed_default_teachers()
     
     # ==================== ブループリント登録 ====================
     from app.routes.auth import auth_bp
@@ -103,6 +144,18 @@ def create_app():
     @app.route('/health', methods=['GET'])
     def health_check():
         return {'status': 'ok'}, 200
+
+    @app.route('/health/firebase', methods=['GET'])
+    def firebase_health_check():
+        from app.utils.firebase_service import get_firebase_service
+
+        firebase_service = get_firebase_service()
+        status = firebase_service.status()
+
+        return {
+            'status': 'ok' if status['enabled'] else 'not_configured',
+            'firebase': status
+        }, 200
 
     @app.route('/network-url', methods=['GET'])
     def network_url():

@@ -26,10 +26,30 @@ def get_local_ip():
     except OSError:
         return '127.0.0.1'
 
+
+def find_available_port(preferred_port):
+    for port in range(preferred_port, preferred_port + 20):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if sock.connect_ex(('127.0.0.1', port)) != 0:
+                return port
+    return preferred_port
+
+
+def get_runtime_port(preferred_port):
+    assigned_port = os.getenv('APP_PORT')
+    if assigned_port:
+        return int(assigned_port)
+
+    port = find_available_port(preferred_port)
+    os.environ['APP_PORT'] = str(port)
+    return port
+
 if __name__ == '__main__':
     # 開発環境での起動
     debug_mode = os.getenv('FLASK_ENV', 'production') == 'development'
-    port = int(os.getenv('PORT', 5000))
+    preferred_port = int(os.getenv('PORT', 5000))
+    port = get_runtime_port(preferred_port)
     
     print('=' * 60)
     print('🚀 Graduation Thesis System - Backend')
@@ -37,7 +57,9 @@ if __name__ == '__main__':
     print(f'Environment: {os.getenv("FLASK_ENV", "production")}')
     print(f'Debug Mode: {debug_mode}')
     print(f'Running on: http://localhost:{port}')
-    print(f'LAN URL: http://{get_local_ip()}:5001/screens/login/login.html')
+    print(f'LAN URL: http://{get_local_ip()}:{port}/screens/login/login.html')
+    if port != preferred_port:
+        print(f'Preferred port {preferred_port} was busy; using {port} instead.')
     print('=' * 60)
     
     app.run(

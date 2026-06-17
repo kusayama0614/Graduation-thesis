@@ -9,6 +9,10 @@ backend/serviceAccountKey.json
 backend/graduation-thesis-69856-firebase-adminsdk-fbsvc-371e4925b3.json
 **/graduation-thesis-69856-firebase-adminsdk-fbsvc-371e4925b3.json
 
+# GCP Service Account credentials (new keys)
+backend/graduation-thesis-69856-*.json
+**/graduation-thesis-69856-*.json
+
 # Python cache and virtual environments
 __pycache__/
 *.pyc

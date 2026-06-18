@@ -1,6 +1,12 @@
 # Environment files
 .env
 backend/.env
+.env.local
+backend/.env.local
+.env.*
+backend/.env.*
+!.env.example
+!backend/.env.example
 
 # Firebase service account keys
 serviceAccountKey.json

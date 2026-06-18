@@ -253,11 +253,17 @@
                     throw new Error(result.error || 'アップロードに失敗しました');
                 }
 
-                showAlert(`✓ ${result.message}`, 'success');
+                const savedIds = (result.results || [])
+                    .map((item) => item.record_id)
+                    .filter(Boolean)
+                    .join(', ');
 
-                setTimeout(() => {
-                    goHome();
-                }, 1500);
+                const messageLines = ['ファイルのアップロードが完了しました！'];
+                if (savedIds) {
+                    messageLines.push(`ID: ${savedIds}`);
+                }
+
+                showAlert(`✓ ${messageLines.join('<br>')}`, 'success');
             } catch (error) {
                 showAlert(error.message || 'アップロードに失敗しました', 'error');
             }

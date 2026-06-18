@@ -70,8 +70,8 @@ SECRET_KEY=your-secret-key
 DATABASE_URL=sqlite:///graduation_system.db
 PORT=5002
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/serviceAccountKey.json
-GOOGLE_API_KEY=your-google-gemini-api-key
-GOOGLE_MODEL=gemini-2.5-flash
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4o-mini
 SESSION_TYPE=filesystem
 PERMANENT_SESSION_LIFETIME=3600
 UPLOAD_FOLDER=uploads
@@ -82,9 +82,9 @@ LANGCHAIN_TRACING_V2=false
 
 `PORT=5002` を設定しておくと、`python run.py` 実行時に起動ポートを固定しやすくなります。
 
-このプロジェクトでは Google Gemini を使うため、API キーは `GOOGLE_API_KEY` に設定してください。
+このプロジェクトでは OpenAI を使うため、API キーは `OPENAI_API_KEY` に設定してください。
 
-⚠️ **重要**: `GOOGLE_API_KEY` を設定してください（Gemini/LangChain 統合時に必須）
+⚠️ **重要**: `OPENAI_API_KEY` を設定してください（OpenAI/LangChain 統合時に必須）
 
 ### Firebase を使う場合
 

@@ -3,7 +3,7 @@
 LangChain を用いた AI 分析・レポート生成モジュール
 """
 import os
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 import json
@@ -14,17 +14,16 @@ class ReportGenerator:
     
     def __init__(self):
         """初期化"""
-        api_key = os.getenv('GOOGLE_API_KEY')
+        api_key = os.getenv('OPENAI_API_KEY')
         if not api_key:
-            raise ValueError("GOOGLE_API_KEY is not set in environment variables")
+            raise ValueError("OPENAI_API_KEY is not set in environment variables")
 
-        configured_model = os.getenv('GOOGLE_MODEL', '').strip()
+        configured_model = os.getenv('OPENAI_MODEL', '').strip()
         fallback_models = [
             configured_model,
-            'gemini-2.5-flash',
-            'gemini-2.5-pro',
-            'gemini-2.0-flash',
-            'gemini-2.0-flash-001',
+            'gpt-4o-mini',
+            'gpt-4.1-mini',
+            'gpt-4o',
         ]
         self.model_candidates = []
         for model_name in fallback_models:
@@ -35,9 +34,9 @@ class ReportGenerator:
         self.output_parser = StrOutputParser()
 
     def _build_llm(self, model_name: str):
-        return ChatGoogleGenerativeAI(
+        return ChatOpenAI(
             model=model_name,
-            google_api_key=self.api_key,
+            openai_api_key=self.api_key,
             temperature=0.7,
             max_tokens=2000
         )
@@ -82,7 +81,7 @@ class ReportGenerator:
                 f"対象: {student_name} / {subject} / {test_name}\n"
                 f"スコア: {score}/100\n"
                 f"正答率: {accuracy}%\n\n"
-                f"Gemini API がクォータ不足のため利用できませんでした。\n"
+                f"OpenAI API がクォータ不足のため利用できませんでした。\n"
                 f"そのため、ルールベースで学習計画を生成しています。\n\n"
                 f"1. 短期目標（1週間）\n"
                 f"- {weak_areas}\n"
@@ -100,7 +99,7 @@ class ReportGenerator:
                 f"- できたことを記録する\n\n"
                 f"5. 次回目標\n"
                 f"- 現在より5〜10点の向上を目指す\n\n"
-                f"補足: このレポートは Gemini ではなくローカル生成です。\n"
+                f"補足: このレポートは OpenAI ではなくローカル生成です。\n"
                 f"理由: {reason}"
             )
 
@@ -109,7 +108,7 @@ class ReportGenerator:
             f"対象: {student_name} / {subject} / {test_name}\n"
             f"スコア: {score}/100\n"
             f"正答率: {accuracy}%\n\n"
-            f"Gemini API がクォータ不足のため利用できませんでした。\n"
+            f"OpenAI API がクォータ不足のため利用できませんでした。\n"
             f"そのため、ルールベースで分析レポートを生成しています。\n\n"
             f"1. 全体評価\n"
             f"- 得点は一定の到達度を示していますが、安定性の向上が必要です。\n"
@@ -127,7 +126,7 @@ class ReportGenerator:
             f"- 週末にまとめて再テストする\n\n"
             f"5. 目標設定\n"
             f"- 次回は現状より5〜10点の上積みを狙う\n\n"
-            f"補足: このレポートは Gemini ではなくローカル生成です。\n"
+            f"補足: このレポートは OpenAI ではなくローカル生成です。\n"
             f"理由: {reason}"
         )
 
@@ -182,7 +181,7 @@ class ReportGenerator:
         else:
             error_text = "特に顕著なエラーパターンは検出されていません"
         
-        # レポート生成（利用可能な Gemini モデルを順に試す）
+        # レポート生成（利用可能な OpenAI モデルを順に試す）
         result = self._invoke_with_model_fallback(prompt_template, {
             'student_name': student_data.get('student_name', '未名の生徒'),
             'subject': student_data.get('subject', '未指定'),

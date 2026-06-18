@@ -4,7 +4,8 @@
 """
 from flask import Blueprint, request, jsonify, session, current_app
 from app import db
-from app.models import LearningData, AnswerSheet
+from app.models import LearningData, AnswerSheet, Teacher
+from app.routes.auth import login_required
 from app.utils.answer_sheet_processor import start_answer_sheet_processing
 from app.utils.firebase_service import get_firebase_service
 from app.utils.ocr import get_ocr_status
@@ -31,85 +32,101 @@ def _save_upload_file(file_storage, prefix: str, teacher_id: str) -> str:
     return filepath
 
 
-# Note: client-side preview/reading of answer keys removed. Answer key files
-# may still be uploaded with the /answer-sheet endpoint and are parsed server-side.
+def _get_teacher_db_id(teacher_id: str) -> str | None:
+    teacher_db_id = session.get('teacher_db_id')
+    if teacher_db_id:
+        return teacher_db_id
+
+    teacher = Teacher.query.filter_by(teacher_id=teacher_id).first()
+    if teacher:
+        return teacher.id
+
+    return None
 
 
-# ==================== 学習データアップロード ====================
 @upload_bp.route('/learning-data', methods=['POST'])
+@login_required
 def upload_learning_data():
     """学習データをアップロード"""
     teacher_id = session.get('teacher_id') or request.form.get('teacher_id', 'guest')
-    
-    # ファイルの確認
+    teacher_db_id = _get_teacher_db_id(teacher_id)
+
+    if not teacher_db_id:
+        return jsonify({'error': 'Teacher account was not found for this session'}), 401
+
     if 'files' not in request.files or len(request.files.getlist('files')) == 0:
         return jsonify({'error': 'No files provided'}), 400
-    
+
     files = request.files.getlist('files')
     title = request.form.get('title', '').strip()
     category = request.form.get('category', 'other')
     description = request.form.get('description', '')
-    
-    # バリデーション
+
     if not title:
         return jsonify({'error': 'Title is required'}), 400
-    
+
     upload_results = []
     firebase_service = get_firebase_service()
-    
+
     for file in files:
         try:
-            # ファイル名の生成
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"learning_{teacher_id}_{timestamp}_{file.filename}"
             filepath = os.path.join(os.getenv('UPLOAD_FOLDER', 'uploads'), filename)
-            
-            # ファイル保存
+
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
             file.save(filepath)
-            
-            # ==================== デモ用: DBに保存（実装予定） ====================
-            saved_record = None
+
+            file_size = os.path.getsize(filepath)
+            file_type = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
+
+            local_learning_data = LearningData(
+                teacher_id=teacher_db_id,
+                title=title,
+                category=category,
+                description=description,
+                file_path=filepath,
+                file_name=file.filename,
+                file_size=file_size,
+                file_type=file_type,
+            )
+            db.session.add(local_learning_data)
+            db.session.commit()
+
+            firebase_record = None
+            firebase_error = None
             if firebase_service.enabled:
-                saved_record = firebase_service.save_learning_data(
-                    teacher_id=teacher_id,
-                    title=title,
-                    category=category,
-                    description=description,
-                    file_path=filepath,
-                    file_name=file.filename,
-                    file_size=os.path.getsize(filepath),
-                    file_type=file.filename.split('.')[-1]
-                )
-            else:
-                learning_data = LearningData(
-                    teacher_id=teacher_id,
-                    title=title,
-                    category=category,
-                    description=description,
-                    file_path=filepath,
-                    file_name=file.filename,
-                    file_size=os.path.getsize(filepath),
-                    file_type=file.filename.split('.')[-1]
-                )
-                db.session.add(learning_data)
-                db.session.commit()
-                saved_record = {'id': learning_data.id}
-            
+                try:
+                    firebase_record = firebase_service.save_learning_data(
+                        teacher_id=teacher_id,
+                        title=title,
+                        category=category,
+                        description=description,
+                        file_path=filepath,
+                        file_name=file.filename,
+                        file_size=file_size,
+                        file_type=file_type,
+                    )
+                except Exception as exc:
+                    firebase_error = str(exc)
+
             upload_results.append({
                 'filename': file.filename,
-                'size': file.content_length,
+                'size': file_size,
                 'status': 'success',
-                'record_id': saved_record.get('id') if saved_record else None
+                'record_id': local_learning_data.id,
+                'firebase_record_id': firebase_record.get('id') if firebase_record else None,
+                'warning': firebase_error,
             })
-        
-        except Exception as e:
+
+        except Exception as exc:
+            db.session.rollback()
             upload_results.append({
                 'filename': file.filename,
-                'error': str(e),
+                'error': str(exc),
                 'status': 'failed'
             })
-    
+
     return jsonify({
         'success': True,
         'message': f'Uploaded {len(upload_results)} files',

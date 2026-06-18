@@ -307,17 +307,17 @@ def generate_report():
         return jsonify({
             'error': 'API configuration error',
             'details': str(e),
-            'hint': 'GOOGLE_API_KEY environment variable must be set'
+            'hint': 'OPENAI_API_KEY environment variable must be set'
         }), 500
 
     except Exception as e:
         error_message = str(e)
 
-        if 'API key not valid' in error_message or 'API_KEY_INVALID' in error_message:
+        if 'API key not valid' in error_message or 'API_KEY_INVALID' in error_message or 'Incorrect API key' in error_message or '401' in error_message:
             return jsonify({
                 'error': 'Failed to generate report',
-                'details': 'GOOGLE_API_KEY is invalid for Gemini API.',
-                'hint': 'Use a valid API key from Google AI Studio and replace the current GOOGLE_API_KEY value.'
+                'details': 'OPENAI_API_KEY is invalid for the OpenAI API.',
+                'hint': 'Use a valid API key from OpenAI and replace the current OPENAI_API_KEY value.'
             }), 500
     
         # その他のエラー

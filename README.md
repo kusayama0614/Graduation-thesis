@@ -16,4 +16,4 @@
 2. Firestore Database を有効化します。
 3. サービスアカウントキーを発行します。
 4. `backend/.env` に上記の環境変数を設定します。
-5. `http://localhost:5000/health/firebase` で接続状態を確認します。
+5. `http://localhost:5001/health/firebase` で接続状態を確認します。

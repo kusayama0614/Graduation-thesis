@@ -84,6 +84,7 @@
 
 
 
+    <script src="../common/api-debug-badge.js"></script>
     <script>
         function resolveApiBaseUrl() {
             const stored = localStorage.getItem('apiBaseUrl');
@@ -103,6 +104,12 @@
         }
 
         const API_BASE_URL = resolveApiBaseUrl();
+
+        function mountApiDebugBadge() {
+            if (window.ApiDebugBadge && typeof window.ApiDebugBadge.init === 'function') {
+                window.ApiDebugBadge.init(API_BASE_URL);
+            }
+        }
 
         function resolveScreenUrl(screenPath) {
             const normalizedPath = screenPath.startsWith('/') ? screenPath : `/${screenPath}`;
@@ -147,6 +154,7 @@
 
         // ページ読み込み時の処理
         document.addEventListener('DOMContentLoaded', async function() {
+            mountApiDebugBadge();
             try {
                 const response = await fetch(`${API_BASE_URL}/auth/session`, {
                     credentials: 'include'

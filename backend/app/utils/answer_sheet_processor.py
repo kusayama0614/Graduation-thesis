@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 import time
-from datetime import datetime
+import json
 from typing import Any, Dict, Optional
 
 from app import db
@@ -13,6 +13,7 @@ from app.utils.firebase_service import get_firebase_service
 from app.utils.langchain_analyzer import get_report_generator
 from app.utils.ocr import process_file
 from app.utils.scoring import score_with_key
+from app.utils.time_utils import utc_now
 
 
 def start_answer_sheet_processing(app, answer_sheet_id: str, teacher_id: str, payload: Dict[str, Any]) -> None:
@@ -28,6 +29,7 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
     with app.app_context():
         firebase_service = get_firebase_service()
         processing_options = payload.get('processing_options', {})
+        processing_job_id = payload.get('processing_job_id')
         stage_sequence = []
         stage_labels = {
             'ocr': 'OCR処理',
@@ -43,6 +45,23 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
         if processing_options.get('generate_report', False):
             stage_sequence.append('generate_report')
 
+        if not stage_sequence:
+            _update_status(
+                firebase_service,
+                answer_sheet_id,
+                status='completed',
+                processing_stage='completed',
+                current_step='completed',
+                completed_steps=[],
+                progress_percent=100,
+                processing_message='追加処理なしで完了しました',
+                processing_job_id=processing_job_id,
+                last_error=None,
+                stage='completed',
+                message='No processing steps selected',
+            )
+            return
+
         _update_status(
             firebase_service,
             answer_sheet_id,
@@ -52,6 +71,8 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
             completed_steps=[],
             progress_percent=0,
             processing_message='処理を開始しました',
+            processing_job_id=processing_job_id,
+            last_error=None,
             stage='processing',
             message='Processing started',
         )
@@ -89,6 +110,7 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
                         completed_steps=completed_steps,
                         progress_percent=int(((index - 1) / total_steps) * 100),
                         processing_message=f'{current_label} で失敗しました',
+                        last_error=str(exc),
                         stage='failed',
                         message=str(exc),
                     )
@@ -96,7 +118,14 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
             elif stage == 'ocr':
                 try:
                     # ファイルパスを取得してOCRを実行
-                    sheet = firebase_service.get_answer_sheet(answer_sheet_id) if firebase_service.enabled else None
+                    if firebase_service.enabled:
+                        sheet = firebase_service.get_answer_sheet(answer_sheet_id)
+                    else:
+                        local_sheet = db.session.get(AnswerSheet, answer_sheet_id)
+                        sheet = {
+                            'file_path': local_sheet.file_path,
+                        } if local_sheet else None
+
                     file_path = None
                     if sheet:
                         file_path = sheet.get('file_path') or sheet.get('filePath')
@@ -105,11 +134,18 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
 
                     full_text, per_pages = process_file(file_path)
                     # OCR 結果を保存
-                    firebase_service.update_answer_sheet(answer_sheet_id, {
-                        'ocr_text': full_text,
-                        'ocr_pages': per_pages,
-                        'processing_message': 'OCR完了',
-                    })
+                    if firebase_service.enabled:
+                        firebase_service.update_answer_sheet(answer_sheet_id, {
+                            'ocr_text': full_text,
+                            'ocr_pages': per_pages,
+                            'processing_message': 'OCR完了',
+                        })
+                    else:
+                        sheet_row = db.session.get(AnswerSheet, answer_sheet_id)
+                        if sheet_row:
+                            sheet_row.ocr_text = full_text
+                            sheet_row.processing_message = 'OCR完了'
+                            db.session.commit()
                 except Exception as exc:
                     _write_processing_log(firebase_service, answer_sheet_id, stage, 'failed', f'{stage} failed', str(exc))
                     _update_status(
@@ -121,6 +157,7 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
                         completed_steps=completed_steps,
                         progress_percent=int(((index - 1) / total_steps) * 100),
                         processing_message=f'{current_label} で失敗しました',
+                        last_error=str(exc),
                         stage='failed',
                         message=str(exc),
                     )
@@ -128,7 +165,23 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
             elif stage == 'auto_score':
                 try:
                     # 採点ロジックを実行
-                    sheet = firebase_service.get_answer_sheet(answer_sheet_id) if firebase_service.enabled else None
+                    if firebase_service.enabled:
+                        sheet = firebase_service.get_answer_sheet(answer_sheet_id)
+                    else:
+                        local_sheet = db.session.get(AnswerSheet, answer_sheet_id)
+                        local_answer_key = {}
+                        if local_sheet and local_sheet.answer_key:
+                            try:
+                                local_answer_key = json.loads(local_sheet.answer_key)
+                            except Exception:
+                                local_answer_key = {}
+                        sheet = {
+                            'ocr_text': local_sheet.ocr_text if local_sheet else '',
+                            'answer_key': local_answer_key,
+                            'student_id': local_sheet.student_id if local_sheet else None,
+                            'student_name': local_sheet.student_id if local_sheet else None,
+                        } if local_sheet else None
+
                     if not sheet:
                         raise RuntimeError('Answer sheet record not found for scoring')
 
@@ -141,28 +194,54 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
                     score_result = score_with_key(ocr_text, answer_key)
 
                     # 保存: sheet と analysis_result
-                    firebase_service.update_answer_sheet(answer_sheet_id, {
-                        'score': score_result.get('score'),
-                        'correct_count': score_result.get('correct_count'),
-                        'total_questions': score_result.get('total_questions'),
-                        'error_patterns': score_result.get('error_patterns'),
-                        'processing_message': '採点完了',
-                    })
+                    if firebase_service.enabled:
+                        firebase_service.update_answer_sheet(answer_sheet_id, {
+                            'score': score_result.get('score'),
+                            'correct_count': score_result.get('correct_count'),
+                            'total_questions': score_result.get('total_questions'),
+                            'error_patterns': score_result.get('error_patterns'),
+                            'processing_message': '採点完了',
+                        })
+                    else:
+                        sheet_row = db.session.get(AnswerSheet, answer_sheet_id)
+                        if sheet_row:
+                            sheet_row.score = score_result.get('score')
+                            sheet_row.correct_count = score_result.get('correct_count')
+                            sheet_row.total_questions = score_result.get('total_questions')
+                            sheet_row.error_patterns = json.dumps(score_result.get('error_patterns') or [], ensure_ascii=False)
+                            sheet_row.processing_message = '採点完了'
+                            db.session.commit()
 
                     # Save analysis result summary
                     try:
-                        firebase_service.save_analysis_result(
-                            answer_sheet_id=answer_sheet_id,
-                            student_name=sheet.get('student_id') or sheet.get('student_name') or '未設定',
-                            score=score_result.get('score'),
-                            correct_count=score_result.get('correct_count'),
-                            total_questions=score_result.get('total_questions'),
-                            error_patterns=score_result.get('error_patterns'),
-                            analysis_text='自動採点結果',
-                            study_plan='',
-                            processing_time='自動採点',
-                            status='completed',
-                        )
+                        if firebase_service.enabled:
+                            firebase_service.save_analysis_result(
+                                answer_sheet_id=answer_sheet_id,
+                                student_name=sheet.get('student_id') or sheet.get('student_name') or '未設定',
+                                score=score_result.get('score'),
+                                correct_count=score_result.get('correct_count'),
+                                total_questions=score_result.get('total_questions'),
+                                error_patterns=score_result.get('error_patterns'),
+                                analysis_text='自動採点結果',
+                                study_plan='',
+                                processing_time='自動採点',
+                                status='completed',
+                            )
+                        else:
+                            db.session.add(AnalysisResult(
+                                answer_sheet_id=answer_sheet_id,
+                                student_name=sheet.get('student_id') or sheet.get('student_name') or '未設定',
+                                score=score_result.get('score'),
+                                correct_count=score_result.get('correct_count'),
+                                total_questions=score_result.get('total_questions'),
+                                error_patterns=json.dumps(score_result.get('error_patterns') or [], ensure_ascii=False),
+                                analysis_text='自動採点結果',
+                                study_plan='',
+                                processing_time='自動採点',
+                                status='completed',
+                                created_at=utc_now(),
+                            ))
+                            db.session.commit()
                     except Exception:
                         pass
                 except Exception as exc:
@@ -176,6 +255,7 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
                         completed_steps=completed_steps,
                         progress_percent=int(((index - 1) / total_steps) * 100),
                         processing_message=f'{current_label} で失敗しました',
+                        last_error=str(exc),
                         stage='failed',
                         message=str(exc),
                     )
@@ -201,6 +281,7 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
             completed_steps=completed_steps,
             progress_percent=100,
             processing_message='すべての処理が完了しました',
+            last_error=None,
             stage='completed',
             message='Processing completed',
         )
@@ -234,12 +315,26 @@ def _update_status(firebase_service, answer_sheet_id: str, **updates) -> None:
             pass
         return
 
-    sheet = AnswerSheet.query.get(answer_sheet_id)
+    sheet = db.session.get(AnswerSheet, answer_sheet_id)
     if not sheet:
         return
 
-    if 'status' in updates:
+    if 'status' in updates and updates['status'] is not None:
         sheet.status = updates['status']
+    if 'processing_stage' in updates and updates['processing_stage'] is not None:
+        sheet.processing_stage = updates['processing_stage']
+    if 'current_step' in updates and updates['current_step'] is not None:
+        sheet.current_step = updates['current_step']
+    if 'completed_steps' in updates and updates['completed_steps'] is not None:
+        sheet.completed_steps = json.dumps(updates['completed_steps'], ensure_ascii=False)
+    if 'progress_percent' in updates and updates['progress_percent'] is not None:
+        sheet.progress_percent = int(updates['progress_percent'])
+    if 'processing_message' in updates and updates['processing_message'] is not None:
+        sheet.processing_message = updates['processing_message']
+    if 'processing_job_id' in updates and updates['processing_job_id'] is not None:
+        sheet.processing_job_id = updates['processing_job_id']
+    if 'last_error' in updates:
+        sheet.last_error = updates['last_error']
     db.session.commit()
 
 
@@ -257,7 +352,7 @@ def _write_processing_log(firebase_service, answer_sheet_id: str, step: str, sta
         status=status,
         message=message,
         error=error,
-        created_at=datetime.utcnow(),
+        created_at=utc_now(),
     ))
     db.session.commit()
 
@@ -292,6 +387,6 @@ def _save_analysis_result(firebase_service, answer_sheet_id: str, payload: Dict[
         study_plan=study_plan,
         processing_time='非同期処理',
         status='completed',
-        created_at=datetime.utcnow(),
+        created_at=utc_now(),
     ))
     db.session.commit()

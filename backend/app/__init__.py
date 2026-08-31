@@ -11,6 +11,8 @@ import re
 import socket
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash
+from sqlalchemy import inspect, text
+from app.utils.api_response import make_error_response
 
 # 環境変数の読み込み
 load_dotenv()
@@ -83,6 +85,45 @@ def _seed_default_teachers():
             # Firestore 権限が未整備でもアプリ起動を止めない
             pass
 
+
+def _ensure_answer_sheet_columns():
+    """Backfill newly added columns for existing SQLite databases."""
+    if db.engine.dialect.name != 'sqlite':
+        return
+
+    inspector = inspect(db.engine)
+    table_names = set(inspector.get_table_names())
+    if 'answer_sheets' not in table_names:
+        return
+
+    existing_columns = {column['name'] for column in inspector.get_columns('answer_sheets')}
+    expected_columns = [
+        ('student_grade', 'TEXT'),
+        ('student_class', 'TEXT'),
+        ('student_id', 'TEXT'),
+        ('notes', 'TEXT'),
+        ('processing_options', 'TEXT'),
+        ('processing_stage', "TEXT DEFAULT 'pending'"),
+        ('processing_job_id', 'TEXT'),
+        ('current_step', 'TEXT'),
+        ('completed_steps', 'TEXT'),
+        ('progress_percent', 'INTEGER DEFAULT 0'),
+        ('processing_message', 'TEXT'),
+        ('last_error', 'TEXT'),
+        ('answer_key', 'TEXT'),
+        ('ocr_text', 'TEXT'),
+        ('score', 'FLOAT'),
+        ('correct_count', 'INTEGER'),
+        ('total_questions', 'INTEGER'),
+        ('error_patterns', 'TEXT'),
+    ]
+
+    with db.engine.begin() as conn:
+        for column_name, column_type in expected_columns:
+            if column_name in existing_columns:
+                continue
+            conn.execute(text(f'ALTER TABLE answer_sheets ADD COLUMN {column_name} {column_type}'))
+
 def create_app():
     """Flask アプリケーションファクトリ"""
     app = Flask(__name__)
@@ -125,6 +166,7 @@ def create_app():
     with app.app_context():
         from app import models  # noqa: F401
         db.create_all()
+        _ensure_answer_sheet_columns()
         _seed_default_teachers()
     
     # ==================== ブループリント登録 ====================
@@ -139,15 +181,15 @@ def create_app():
     # ==================== エラーハンドラ ====================
     @app.errorhandler(400)
     def bad_request(error):
-        return {'error': 'Bad request'}, 400
+        return make_error_response('BAD_REQUEST', 'Bad request', 400)
     
     @app.errorhandler(404)
     def not_found(error):
-        return {'error': 'Not found'}, 404
+        return make_error_response('NOT_FOUND', 'Not found', 404)
     
     @app.errorhandler(500)
     def internal_error(error):
-        return {'error': 'Internal server error'}, 500
+        return make_error_response('INTERNAL_SERVER_ERROR', 'Internal server error', 500)
     
     # ==================== ヘルスチェック ====================
     @app.route('/health', methods=['GET'])
@@ -169,7 +211,7 @@ def create_app():
     @app.route('/network-url', methods=['GET'])
     def network_url():
         ip_address = _get_host_ip()
-        runtime_port = os.getenv('APP_PORT') or os.getenv('PORT', '5000')
+        runtime_port = os.getenv('APP_PORT') or os.getenv('PORT', '5001')
         return {
             'host': ip_address,
             'url': f'http://{ip_address}:{runtime_port}/screens/login/login.html'

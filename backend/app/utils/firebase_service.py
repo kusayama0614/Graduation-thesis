@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from werkzeug.security import check_password_hash, generate_password_hash
+from app.utils.time_utils import utc_now
 
 
 class FirebaseService:
@@ -59,7 +60,7 @@ class FirebaseService:
         }
 
     def _now(self) -> datetime:
-        return datetime.utcnow()
+        return utc_now()
 
     def _teachers(self):
         return self.client.collection('teachers') if self.enabled else None
@@ -86,6 +87,16 @@ class FirebaseService:
             if isinstance(value, datetime):
                 data[key] = value.isoformat()
         return data
+
+    def _where_equal(self, query, field_path: str, value: Any):
+        """Prefer modern Firestore filter API while keeping compatibility."""
+        try:
+            from google.cloud.firestore_v1.base_query import FieldFilter
+
+            return query.where(filter=FieldFilter(field_path, '==', value))
+        except Exception:
+            # Fallback for environments with older Firestore clients.
+            return query.where(field_path, '==', value)
 
     def seed_default_teachers(self, teachers: List[Dict[str, str]]) -> None:
         if not self.enabled:
@@ -279,6 +290,19 @@ class FirebaseService:
         doc_ref.set(payload)
         return payload | {'id': doc_ref.id}
 
+    def list_processing_logs_by_answer_sheet_id(self, answer_sheet_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        if not self.enabled:
+            return []
+
+        collection = self._processing_logs()
+        if collection is None:
+            return []
+
+        query = self._where_equal(collection, 'answer_sheet_id', answer_sheet_id).limit(limit)
+        logs = [self._serialize_doc(doc) for doc in query.stream() if doc.exists]
+        logs.sort(key=lambda row: row.get('created_at') or '', reverse=True)
+        return logs
+
     def list_answer_sheets(self, teacher_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
         if not self.enabled:
             return []
@@ -289,7 +313,7 @@ class FirebaseService:
 
         query = collection.limit(limit)
         if teacher_id:
-            query = query.where('teacher_id', '==', teacher_id)
+            query = self._where_equal(query, 'teacher_id', teacher_id)
 
         return [self._serialize_doc(doc) for doc in query.stream() if doc.exists]
 
@@ -311,7 +335,7 @@ class FirebaseService:
         if collection is None:
             return None
 
-        query = collection.where('answer_sheet_id', '==', answer_sheet_id)
+        query = self._where_equal(collection, 'answer_sheet_id', answer_sheet_id)
         for doc in query.stream():
             if doc.exists:
                 return self._serialize_doc(doc)

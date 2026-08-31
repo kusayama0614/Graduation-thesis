@@ -14,6 +14,57 @@
             <button class="back-button" onclick="goHome()">← ホームに戻る</button>
         </div>
 
+        <div class="status-cards" id="learningProgressCards">
+            <div class="status-card">
+                <div class="value" id="summaryTotalStudents">0</div>
+                <div class="label">対象生徒数</div>
+            </div>
+            <div class="status-card">
+                <div class="value" id="summaryTotalRecords">0</div>
+                <div class="label">解答記録数</div>
+            </div>
+            <div class="status-card">
+                <div class="value" id="summaryAverageScore">---</div>
+                <div class="label">平均スコア</div>
+            </div>
+            <div class="status-card">
+                <div class="value" id="summaryAtRiskStudents">0</div>
+                <div class="label">要フォロー生徒数</div>
+            </div>
+        </div>
+
+        <div class="table-section progress-section">
+            <div class="table-header">
+                <h3>📈 生徒別学習進捗</h3>
+                <div class="progress-actions">
+                    <label class="progress-toggle-label">
+                        <input type="checkbox" id="atRiskOnlyToggle" onchange="handleAtRiskToggleChanged()">
+                        要フォローのみ
+                    </label>
+                    <button class="action-btn" onclick="exportLearningProgress()">進捗CSV</button>
+                    <button class="action-btn" onclick="reloadProgressOnly()">進捗を更新</button>
+                </div>
+            </div>
+            <div class="table-content">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>生徒ID</th>
+                            <th>受験回数</th>
+                            <th>平均スコア</th>
+                            <th>最新スコア</th>
+                            <th>改善幅</th>
+                            <th>要フォロー</th>
+                            <th>弱点タグ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="progressTableBody"></tbody>
+                </table>
+            </div>
+            <div class="pagination" id="progressPagination"></div>
+            <div class="pagination-meta" id="progressPaginationMeta"></div>
+        </div>
+
         <!-- フィルターセクション -->
         <div class="filter-section">
             <h2>🔍 検索・フィルター</h2>
@@ -41,8 +92,21 @@
         <div class="table-section">
             <div class="table-header">
                 <h3>📊 解答データ一覧</h3>
-                <button class="export-button" onclick="exportData()">📥 データをエクスポート</button>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label for="exportFormat" style="font-size: 14px; color: #555;">形式</label>
+                    <select id="exportFormat" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px;">
+                        <option value="csv" selected>CSV</option>
+                        <option value="json">JSON</option>
+                    </select>
+                    <label for="exportProfile" style="font-size: 14px; color: #555;">項目</label>
+                    <select id="exportProfile" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px;">
+                        <option value="detailed" selected>詳細</option>
+                        <option value="minimal">最小</option>
+                    </select>
+                    <button class="export-button" onclick="exportData()">📥 データをエクスポート</button>
+                </div>
             </div>
+            <div id="loadErrorBanner" style="display: none; margin: 8px 0 12px; padding: 10px 12px; border-radius: 6px; background: #ffebee; color: #b71c1c; font-size: 14px;"></div>
             <div class="table-content">
                 <table id="dataTable">
                     <thead>
@@ -65,6 +129,7 @@
             <div class="pagination" id="pagination">
                 <!-- ページネーションボタンがここに挿入されます -->
             </div>
+            <div class="pagination-meta" id="paginationMeta"></div>
         </div>
     </div>
 
@@ -81,6 +146,59 @@
         </div>
     </div>
 
+    <div class="modal" id="retryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>処理再実行オプション</span>
+                <button class="modal-close" onclick="closeRetryModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="retryTargetText" style="margin: 0 0 12px; color: #444;"></p>
+                <div class="retry-presets">
+                    <button class="retry-preset-btn" onclick="applyRetryPreset('all')">全ON</button>
+                    <button class="retry-preset-btn" onclick="applyRetryPreset('ocr')">OCRのみ</button>
+                    <button class="retry-preset-btn" onclick="applyRetryPreset('score')">採点のみ</button>
+                    <button class="retry-preset-btn" onclick="applyRetryPreset('report')">レポートのみ</button>
+                </div>
+                <label style="display: block; margin: 8px 0;"><input type="checkbox" id="retryOptOcr"> OCR処理</label>
+                <label style="display: block; margin: 8px 0;"><input type="checkbox" id="retryOptScore"> 自動採点</label>
+                <label style="display: block; margin: 8px 0;"><input type="checkbox" id="retryOptReport"> レポート生成</label>
+                <div style="margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end;">
+                    <button class="action-btn" onclick="closeRetryModal()">キャンセル</button>
+                    <button class="action-btn" onclick="submitRetryProcessing()">再実行開始</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="logsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>処理ログ</span>
+                <button class="modal-close" onclick="closeLogsModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="logsMeta" style="font-size: 13px; color: #666; margin-bottom: 10px;"></div>
+                <div class="logs-toolbar">
+                    <select id="logsStatusFilter" class="logs-select" onchange="renderLogsInModal()">
+                        <option value="all">すべて</option>
+                        <option value="started">started</option>
+                        <option value="completed">completed</option>
+                        <option value="failed">failed</option>
+                    </select>
+                    <select id="logsSortOrder" class="logs-select" onchange="renderLogsInModal()">
+                        <option value="desc">新しい順</option>
+                        <option value="asc">古い順</option>
+                    </select>
+                    <button class="action-btn" id="logsViewToggleBtn" onclick="toggleLogsViewMode()">JSON表示</button>
+                    <button class="action-btn" onclick="copyVisibleLogs()">表示中ログをコピー</button>
+                </div>
+                <div id="logsList" style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; background: #f8f8f8; border-radius: 8px; padding: 10px; max-height: 420px; overflow: auto;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../common/api-debug-badge.js"></script>
     <script>
         function resolveApiBaseUrl() {
             const stored = localStorage.getItem('apiBaseUrl');
@@ -101,91 +219,46 @@
 
         const API_BASE_URL = resolveApiBaseUrl();
 
-        // ダミーデータ
-        const fallbackData = [
-            {
-                id: 1,
-                testName: '2026年5月 中間テスト',
-                subject: '数学',
-                studentId: 'S001',
-                score: 85,
-                status: 'completed',
-                uploadDate: '2026-05-24',
-                processingTime: '2分30秒',
-                questions: 20,
-                correctAnswers: 17
-            },
-            {
-                id: 2,
-                testName: '2026年5月 中間テスト',
-                subject: '英語',
-                studentId: 'S002',
-                score: 92,
-                status: 'completed',
-                uploadDate: '2026-05-24',
-                processingTime: '1分45秒',
-                questions: 25,
-                correctAnswers: 23
-            },
-            {
-                id: 3,
-                testName: '2026年5月 確認テスト',
-                subject: '数学',
-                studentId: 'S003',
-                score: null,
-                status: 'processing',
-                uploadDate: '2026-05-24',
-                processingTime: '処理中...',
-                questions: 20,
-                correctAnswers: null
-            },
-            {
-                id: 4,
-                testName: '2026年4月 実力テスト',
-                subject: '国語',
-                studentId: 'S004',
-                score: 78,
-                status: 'completed',
-                uploadDate: '2026-05-23',
-                processingTime: '3分15秒',
-                questions: 15,
-                correctAnswers: 12
-            },
-            {
-                id: 5,
-                testName: '2026年5月 中間テスト',
-                subject: '理科',
-                studentId: 'S005',
-                score: null,
-                status: 'pending',
-                uploadDate: '2026-05-24',
-                processingTime: '待機中',
-                questions: 18,
-                correctAnswers: null
-            },
-            {
-                id: 6,
-                testName: '2026年4月 実力テスト',
-                subject: '数学',
-                studentId: 'S006',
-                score: 88,
-                status: 'completed',
-                uploadDate: '2026-05-22',
-                processingTime: '2分10秒',
-                questions: 20,
-                correctAnswers: 18
+        function mountApiDebugBadge() {
+            if (window.ApiDebugBadge && typeof window.ApiDebugBadge.init === 'function') {
+                window.ApiDebugBadge.init(API_BASE_URL);
             }
-        ];
+        }
 
-        let currentData = fallbackData;
+        let currentData = [];
         let currentPage = 1;
-        const itemsPerPage = 5;
+        const itemsPerPage = 20;
         let currentFilters = {};
+        let paginationState = {
+            total: 0,
+            filtered: 0,
+            page: 1,
+            perPage: itemsPerPage,
+            totalPages: 1,
+            hasNext: false,
+            hasPrev: false,
+        };
         let refreshTimer = null;
+        let retryTargetId = null;
+        let latestLogs = [];
+        let latestLogsDataId = '';
+        let logsViewMode = 'line';
+        let learningProgressRows = [];
+        let learningProgressPage = 1;
+        const learningProgressPerPage = 10;
+        let learningProgressAtRiskOnly = false;
+        let learningProgressPagination = {
+            page: 1,
+            perPage: learningProgressPerPage,
+            totalStudents: 0,
+            totalPages: 1,
+            hasNext: false,
+            hasPrev: false,
+        };
 
         function mapApiItem(item) {
             return {
-                id: Number(item.id),
+                id: String(item.id),
                 testName: item.test_name,
                 subject: item.subject,
                 studentId: item.student_id || item.student_name,
@@ -201,7 +274,9 @@
                 completedSteps: Array.isArray(item.completed_steps) ? item.completed_steps : [],
                 progressPercent: Number(item.progress_percent || 0),
                 processingMessage: item.processing_message || '',
-                processingOptions: item.processing_options || {}
+                processingOptions: item.processing_options || {},
+                processingJobId: item.processing_job_id || '',
+                lastError: item.last_error || ''
             };
         }
 
@@ -219,6 +294,7 @@
 
         // ページ読み込み時
         document.addEventListener('DOMContentLoaded', async function() {
+            mountApiDebugBadge();
             try {
                 const response = await fetch(`${API_BASE_URL}/auth/session`, {
                     credentials: 'include'
@@ -239,10 +315,17 @@
         // データを読み込む
         async function loadData(filters = {}, options = {}) {
             const { resetPage = true } = options;
+            const errorBanner = document.getElementById('loadErrorBanner');
 
             try {
                 currentFilters = filters;
+                if (resetPage) {
+                    currentPage = 1;
+                }
+
                 const params = buildQueryParams(filters);
+                params.set('page', String(currentPage));
+                params.set('per_page', String(itemsPerPage));
                 const query = params.toString();
                 const url = query
                     ? `${API_BASE_URL}/analysis/answer-data?${query}`
@@ -259,17 +342,236 @@
                 }
 
                 currentData = (result.data || []).map(mapApiItem);
+                paginationState = {
+                    total: Number(result.total || 0),
+                    filtered: Number(result.filtered || 0),
+                    page: Number(result.page || currentPage || 1),
+                    perPage: Number(result.per_page || itemsPerPage),
+                    totalPages: Number(result.total_pages || 1),
+                    hasNext: Boolean(result.has_next),
+                    hasPrev: Boolean(result.has_prev),
+                };
+                currentPage = paginationState.page;
+                errorBanner.style.display = 'none';
+                errorBanner.textContent = '';
             } catch (error) {
-                console.warn('Falling back to local data:', error);
-                currentData = fallbackData;
+                console.warn('Failed to load API data:', error);
+                currentData = [];
+                paginationState = {
+                    total: 0,
+                    filtered: 0,
+                    page: 1,
+                    perPage: itemsPerPage,
+                    totalPages: 1,
+                    hasNext: false,
+                    hasPrev: false,
+                };
+                errorBanner.style.display = 'block';
+                errorBanner.textContent = error.message || 'データの取得に失敗しました。時間をおいて再度お試しください。';
             }
 
-            if (resetPage) {
-                currentPage = 1;
-            }
+            await loadLearningProgress(filters, { resetPage });
             renderTable();
             renderPagination();
             updateRefreshTimer();
+        }
+
+        async function loadLearningProgress(filters = {}, options = {}) {
+            const { resetPage = false } = options;
+            if (resetPage) {
+                learningProgressPage = 1;
+            }
+
+            const atRiskToggle = document.getElementById('atRiskOnlyToggle');
+            learningProgressAtRiskOnly = Boolean(atRiskToggle && atRiskToggle.checked);
+
+            const params = buildQueryParams(filters);
+            params.set('page', String(learningProgressPage));
+            params.set('per_page', String(learningProgressPerPage));
+            if (learningProgressAtRiskOnly) {
+                params.set('at_risk_only', 'true');
+            }
+
+            const query = params.toString();
+            const url = query
+                ? `${API_BASE_URL}/analysis/learning-progress?${query}`
+                : `${API_BASE_URL}/analysis/learning-progress`;
+
+            try {
+                const response = await fetch(url, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error || '進捗集計の取得に失敗しました');
+                }
+
+                const summary = result.summary || {};
+                learningProgressRows = Array.isArray(result.students) ? result.students : [];
+                learningProgressPagination = {
+                    page: Number(result.page || learningProgressPage || 1),
+                    perPage: Number(result.per_page || learningProgressPerPage),
+                    totalStudents: Number(result.total_students || 0),
+                    totalPages: Number(result.total_pages || 1),
+                    hasNext: Boolean(result.has_next),
+                    hasPrev: Boolean(result.has_prev),
+                };
+                learningProgressPage = learningProgressPagination.page;
+
+                document.getElementById('summaryTotalStudents').textContent = String(summary.total_students || 0);
+                document.getElementById('summaryTotalRecords').textContent = String(summary.total_records || 0);
+                document.getElementById('summaryAverageScore').textContent =
+                    summary.average_score !== null && summary.average_score !== undefined
+                        ? `${summary.average_score}%`
+                        : '---';
+                document.getElementById('summaryAtRiskStudents').textContent = String(summary.at_risk_students || 0);
+            } catch (error) {
+                learningProgressRows = [];
+                learningProgressPagination = {
+                    page: 1,
+                    perPage: learningProgressPerPage,
+                    totalStudents: 0,
+                    totalPages: 1,
+                    hasNext: false,
+                    hasPrev: false,
+                };
+                document.getElementById('summaryTotalStudents').textContent = '0';
+                document.getElementById('summaryTotalRecords').textContent = '0';
+                document.getElementById('summaryAverageScore').textContent = '---';
+                document.getElementById('summaryAtRiskStudents').textContent = '0';
+            }
+
+            renderLearningProgressTable();
+            renderLearningProgressPagination();
+        }
+
+        function formatProgressScore(score) {
+            if (score === null || score === undefined) {
+                return '---';
+            }
+            return `${score}%`;
+        }
+
+        function formatImprovementValue(value) {
+            if (value === null || value === undefined) {
+                return '---';
+            }
+            if (value > 0) {
+                return `+${value}`;
+            }
+            return `${value}`;
+        }
+
+        function renderLearningProgressTable() {
+            const body = document.getElementById('progressTableBody');
+            body.innerHTML = '';
+
+            if (learningProgressRows.length === 0) {
+                body.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 24px; color: #666;">進捗データはまだありません。</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            learningProgressRows.forEach((row) => {
+                const weakTags = Array.isArray(row.weak_tags) && row.weak_tags.length > 0
+                    ? row.weak_tags.map((tag) => `${tag.tag}(${tag.count})`).join(', ')
+                    : '---';
+                const riskBadge = row.at_risk
+                    ? '<span class="risk-badge is-risk">要フォロー</span>'
+                    : '<span class="risk-badge">安定</span>';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.student_id || '---'}</td>
+                    <td>${row.total_tests || 0}</td>
+                    <td>${formatProgressScore(row.average_score)}</td>
+                    <td>${formatProgressScore(row.latest_score)}</td>
+                    <td class="progress-improvement-cell">${formatImprovementValue(row.improvement_delta)}</td>
+                    <td>${riskBadge}</td>
+                    <td>${weakTags}</td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function renderLearningProgressPagination() {
+            const totalPages = Math.max(1, Number(learningProgressPagination.totalPages || 1));
+            const pagination = document.getElementById('progressPagination');
+            const meta = document.getElementById('progressPaginationMeta');
+
+            pagination.innerHTML = '';
+
+            for (let i = 1; i <= totalPages; i++) {
+                const button = document.createElement('button');
+                button.textContent = i;
+                if (i === learningProgressPage) {
+                    button.classList.add('active');
+                }
+                button.onclick = () => {
+                    learningProgressPage = i;
+                    loadLearningProgress(currentFilters, { resetPage: false });
+                };
+                pagination.appendChild(button);
+            }
+
+            meta.textContent = `表示 ${learningProgressRows.length} 件 / 生徒総数 ${learningProgressPagination.totalStudents} 件 (ページ ${learningProgressPagination.page}/${learningProgressPagination.totalPages})`;
+        }
+
+        function reloadProgressOnly() {
+            loadLearningProgress(currentFilters, { resetPage: false });
+        }
+
+        function handleAtRiskToggleChanged() {
+            learningProgressPage = 1;
+            loadLearningProgress(currentFilters, { resetPage: false });
+        }
+
+        async function exportLearningProgress() {
+            const params = buildQueryParams(currentFilters);
+            params.set('format', 'csv');
+            if (learningProgressAtRiskOnly) {
+                params.set('at_risk_only', 'true');
+            }
+
+            const query = params.toString();
+            const url = query
+                ? `${API_BASE_URL}/analysis/learning-progress/export?${query}`
+                : `${API_BASE_URL}/analysis/learning-progress/export`;
+
+            try {
+                const response = await fetch(url, {
+                    credentials: 'include'
+                });
+                if (!response.ok) {
+                    let message = '進捗CSVの出力に失敗しました';
+                    try {
+                        const errorPayload = await response.json();
+                        message = errorPayload.error || errorPayload.message || message;
+                    } catch (parseError) {
+                        // Keep default message when parsing fails.
+                    }
+                    throw new Error(message);
+                }
+
+                const blob = await response.blob();
+                const disposition = response.headers.get('Content-Disposition') || '';
+                const match = disposition.match(/filename="?([^";]+)"?/i);
+                const filename = (match && match[1]) ? match[1] : 'learning_progress.csv';
+
+                const blobUrl = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                alert(error.message || '進捗CSVの出力に失敗しました');
+            }
         }
 
         // テーブルをレンダリング
@@ -277,7 +579,7 @@
             const tableBody = document.getElementById('tableBody');
             tableBody.innerHTML = '';
 
-            const totalPages = Math.max(1, Math.ceil(currentData.length / itemsPerPage));
+            const totalPages = Math.max(1, Number(paginationState.totalPages || 1));
             if (currentPage > totalPages) {
                 currentPage = totalPages;
             }
@@ -296,13 +598,9 @@
                 return;
             }
 
-            const start = (currentPage - 1) * itemsPerPage;
-            const end = start + itemsPerPage;
-            const pageData = currentData.slice(start, end);
-
-            pageData.forEach((item, index) => {
+            currentData.forEach((item, index) => {
                 const scoreDisplay = item.score !== null ? `${item.score}%` : '---';
-                const rowNum = start + index + 1;
+                const rowNum = (paginationState.page - 1) * paginationState.perPage + index + 1;
                 const progressValue = Math.max(0, Math.min(100, Number(item.progressPercent || 0)));
 
                 const row = document.createElement('tr');
@@ -322,8 +620,10 @@
                     <td>${item.uploadDate}</td>
                     <td>
                         <div class="action-buttons">
-                            <button class="action-btn" onclick="showDetail(${item.id})">詳細</button>
-                            <button class="action-btn" onclick="downloadData(${item.id})">DL</button>
+                            <button class="action-btn" onclick="showDetail('${item.id}')">詳細</button>
+                            <button class="action-btn" onclick="downloadData('${item.id}')">DL</button>
+                            <button class="action-btn" onclick="openRetryModal('${item.id}')">再実行</button>
+                            <button class="action-btn" onclick="showProcessingLogs('${item.id}')">ログ</button>
                         </div>
                     </td>
                 `;
@@ -413,11 +713,19 @@
                         <div class="detail-value">${getStageLabel(item)}</div>
                     </div>
                     <div class="detail-row">
+                        <div class="detail-label">処理ジョブID:</div>
+                        <div class="detail-value">${item.processing_job_id || item.processingJobId || '---'}</div>
+                    </div>
+                    <div class="detail-row">
                         <div class="detail-label">進捗バー:</div>
                         <div class="detail-value">
                             <div class="progress-bar"><span style="width: ${progressValue}%"></span></div>
                             <div class="progress-message" style="margin-top: 8px;">${item.processing_message || item.processingMessage || '---'}</div>
                         </div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">最終エラー:</div>
+                        <div class="detail-value">${item.last_error || item.lastError || '---'}</div>
                     </div>
                     <div class="detail-row">
                         <div class="detail-label">完了ステップ:</div>
@@ -465,6 +773,8 @@
         // データをダウンロード
         async function downloadData(id) {
             try {
+                const exportFormat = getSelectedExportFormat();
+                const exportProfile = getSelectedExportProfile();
                 const response = await fetch(`${API_BASE_URL}/analysis/export`, {
                     method: 'POST',
                     credentials: 'include',
@@ -472,21 +782,237 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        format: 'csv',
+                        format: exportFormat,
+                        profile: exportProfile,
                         filters: { data_id: String(id) }
                     })
                 });
-
-                const result = await response.json();
-
                 if (!response.ok) {
-                    throw new Error(result.error || 'エクスポートに失敗しました');
+                    let message = 'エクスポートに失敗しました';
+                    try {
+                        const errorPayload = await response.json();
+                        message = errorPayload.error || errorPayload.message || message;
+                    } catch (parseError) {
+                        // Keep default message when error body is not JSON.
+                    }
+                    throw new Error(message);
                 }
 
-                alert(result.message || 'データのエクスポートを開始しました');
+                const blob = await response.blob();
+                const disposition = response.headers.get('Content-Disposition') || '';
+                const match = disposition.match(/filename="?([^";]+)"?/i);
+                const defaultName = id === 'all'
+                    ? `answer_data.${exportFormat}`
+                    : `answer_data_${id}.${exportFormat}`;
+                const filename = match && match[1] ? match[1] : defaultName;
+
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
             } catch (error) {
                 alert(error.message || 'エクスポートに失敗しました');
             }
+        }
+
+        function openRetryModal(id) {
+            retryTargetId = id;
+            const targetText = document.getElementById('retryTargetText');
+            targetText.textContent = `データID ${id} の再実行内容を選択してください。`;
+
+            const target = currentData.find((item) => String(item.id) === String(id));
+            const options = target && target.processingOptions ? target.processingOptions : {};
+            document.getElementById('retryOptOcr').checked = options.ocr_process !== false;
+            document.getElementById('retryOptScore').checked = options.auto_score !== false;
+            document.getElementById('retryOptReport').checked = options.generate_report === true;
+
+            document.getElementById('retryModal').classList.add('show');
+        }
+
+        function closeRetryModal() {
+            retryTargetId = null;
+            document.getElementById('retryModal').classList.remove('show');
+        }
+
+        function applyRetryPreset(preset) {
+            const presetMap = {
+                all: { ocr: true, score: true, report: true },
+                ocr: { ocr: true, score: false, report: false },
+                score: { ocr: false, score: true, report: false },
+                report: { ocr: false, score: false, report: true },
+            };
+
+            const selected = presetMap[preset] || presetMap.all;
+            document.getElementById('retryOptOcr').checked = selected.ocr;
+            document.getElementById('retryOptScore').checked = selected.score;
+            document.getElementById('retryOptReport').checked = selected.report;
+        }
+
+        async function submitRetryProcessing() {
+            if (!retryTargetId) {
+                return;
+            }
+
+            const requestPayload = {
+                data_id: String(retryTargetId),
+                processing_options: {
+                    ocr_process: document.getElementById('retryOptOcr').checked,
+                    auto_score: document.getElementById('retryOptScore').checked,
+                    generate_report: document.getElementById('retryOptReport').checked,
+                }
+            };
+
+            closeRetryModal();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/analysis/retry-processing`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestPayload)
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error || result.message || '再実行に失敗しました');
+                }
+
+                alert(`再実行を開始しました\nJob ID: ${result.processing_job_id || '---'}`);
+                loadData(currentFilters, { resetPage: false });
+            } catch (error) {
+                alert(error.message || '再実行に失敗しました');
+            }
+        }
+
+        async function showProcessingLogs(id) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/analysis/processing-logs/${id}?limit=20`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || result.message || 'ログの取得に失敗しました');
+                }
+
+                const logs = Array.isArray(result.logs) ? result.logs : [];
+                latestLogs = logs;
+                latestLogsDataId = String(id);
+                logsViewMode = 'line';
+                document.getElementById('logsViewToggleBtn').textContent = 'JSON表示';
+                if (logs.length === 0) {
+                    document.getElementById('logsStatusFilter').value = 'all';
+                    document.getElementById('logsSortOrder').value = 'desc';
+                    document.getElementById('logsMeta').textContent = `データID: ${id} / 表示件数: 0 / 全件数: 0`;
+                    document.getElementById('logsList').textContent = 'ログはまだありません。';
+                    document.getElementById('logsModal').classList.add('show');
+                    return;
+                }
+
+                document.getElementById('logsStatusFilter').value = 'all';
+                document.getElementById('logsSortOrder').value = 'desc';
+                renderLogsInModal();
+                document.getElementById('logsModal').classList.add('show');
+            } catch (error) {
+                alert(error.message || 'ログの取得に失敗しました');
+            }
+        }
+
+        function normalizeLogStatus(rawStatus) {
+            const normalized = String(rawStatus || '').toLowerCase();
+            return normalized === 'success' ? 'completed' : normalized;
+        }
+
+        function sortLogsByCreatedAt(logs, order) {
+            return [...logs].sort((a, b) => {
+                const timeA = Date.parse(a.created_at || '');
+                const timeB = Date.parse(b.created_at || '');
+                const safeA = Number.isNaN(timeA) ? 0 : timeA;
+                const safeB = Number.isNaN(timeB) ? 0 : timeB;
+                return order === 'asc' ? safeA - safeB : safeB - safeA;
+            });
+        }
+
+        function renderLogsInModal() {
+            const statusFilter = document.getElementById('logsStatusFilter').value;
+            const sortOrder = document.getElementById('logsSortOrder').value;
+            const filteredLogs = latestLogs.filter((log) => {
+                const normalizedStatus = normalizeLogStatus(log.status);
+                if (statusFilter === 'all') {
+                    return true;
+                }
+                return normalizedStatus === statusFilter;
+            });
+            const sortedLogs = sortLogsByCreatedAt(filteredLogs, sortOrder);
+            const visibleLogs = sortedLogs.slice(0, 20);
+
+            const lines = visibleLogs.map((log) => {
+                const time = log.created_at || '-';
+                const step = log.step || '-';
+                const status = normalizeLogStatus(log.status) || '-';
+                const message = log.message || log.error || '-';
+                return `${time} | ${step} | ${status} | ${message}`;
+            });
+
+            document.getElementById('logsMeta').textContent =
+                `データID: ${latestLogsDataId} / 表示件数: ${visibleLogs.length} / 条件一致: ${filteredLogs.length} / 全件数: ${latestLogs.length}`;
+
+            if (logsViewMode === 'json') {
+                document.getElementById('logsList').textContent = visibleLogs.length > 0
+                    ? JSON.stringify(visibleLogs, null, 2)
+                    : '[]';
+                return;
+            }
+
+            document.getElementById('logsList').textContent = lines.length > 0
+                ? lines.join('\n')
+                : 'この条件に一致するログはありません。';
+        }
+
+        function toggleLogsViewMode() {
+            logsViewMode = logsViewMode === 'line' ? 'json' : 'line';
+            document.getElementById('logsViewToggleBtn').textContent =
+                logsViewMode === 'line' ? 'JSON表示' : 'テキスト表示';
+            renderLogsInModal();
+        }
+
+        async function copyVisibleLogs() {
+            const text = document.getElementById('logsList').textContent || '';
+            if (!text.trim()) {
+                alert('コピー対象のログがありません。');
+                return;
+            }
+
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                    alert('表示中のログをコピーしました。');
+                    return;
+                }
+
+                const temp = document.createElement('textarea');
+                temp.value = text;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                temp.remove();
+                alert('表示中のログをコピーしました。');
+            } catch (error) {
+                alert('ログのコピーに失敗しました。');
+            }
+        }
+
+        function closeLogsModal() {
+            latestLogs = [];
+            latestLogsDataId = '';
+            logsViewMode = 'line';
+            document.getElementById('logsModal').classList.remove('show');
         }
 
         // フィルターを適用
@@ -512,8 +1038,9 @@
 
         // ページネーションをレンダリング
         function renderPagination() {
-            const totalPages = Math.ceil(currentData.length / itemsPerPage);
+            const totalPages = Math.max(1, Number(paginationState.totalPages || 1));
             const pagination = document.getElementById('pagination');
+            const paginationMeta = document.getElementById('paginationMeta');
             pagination.innerHTML = '';
 
             for (let i = 1; i <= totalPages; i++) {
@@ -522,17 +1049,28 @@
                 if (i === currentPage) button.classList.add('active');
                 button.onclick = () => {
                     currentPage = i;
-                    renderTable();
-                    renderPagination();
-                    window.scrollTo(0, 0);
+                    loadData(currentFilters, { resetPage: false });
                 };
                 pagination.appendChild(button);
             }
+
+            paginationMeta.textContent =
+                `表示 ${currentData.length} 件 / 条件一致 ${paginationState.filtered} 件 / 全体 ${paginationState.total} 件 (ページ ${paginationState.page}/${paginationState.totalPages})`;
         }
 
         // データをエクスポート
         function exportData() {
             downloadData('all');
+        }
+
+        function getSelectedExportFormat() {
+            const element = document.getElementById('exportFormat');
+            return element && element.value ? element.value : 'csv';
+        }
+
+        function getSelectedExportProfile() {
+            const element = document.getElementById('exportProfile');
+            return element && element.value ? element.value : 'detailed';
         }
 
         // ホームに戻る
@@ -546,6 +1084,24 @@
             detailModal.addEventListener('click', function(e) {
                 if (e.target === this && typeof closeDetailModal === 'function') {
                     closeDetailModal();
+                }
+            });
+        }
+
+        const retryModal = document.getElementById('retryModal');
+        if (retryModal) {
+            retryModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeRetryModal();
+                }
+            });
+        }
+
+        const logsModal = document.getElementById('logsModal');
+        if (logsModal) {
+            logsModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeLogsModal();
                 }
             });
         }

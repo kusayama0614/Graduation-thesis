@@ -123,6 +123,7 @@
         </div>
     </div>
 
+    <script src="../common/api-debug-badge.js"></script>
     <script>
         function resolveApiBaseUrl() {
             const stored = localStorage.getItem('apiBaseUrl');
@@ -143,6 +144,18 @@
 
         const API_BASE_URL = resolveApiBaseUrl();
         let selectedFiles = [];
+
+        function mountApiDebugBadge() {
+            if (window.ApiDebugBadge && typeof window.ApiDebugBadge.init === 'function') {
+                window.ApiDebugBadge.init(API_BASE_URL);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', mountApiDebugBadge);
+        } else {
+            mountApiDebugBadge();
+        }
 
         // ファイル入力の変更
         document.getElementById('fileInput').addEventListener('change', function(e) {

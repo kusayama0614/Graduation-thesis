@@ -103,7 +103,7 @@ python run.py
 ============================================================
 Environment: development
 Debug Mode: True
-Running on: http://localhost:5000
+Running on: http://localhost:5001
 ============================================================
 ```
 
@@ -113,15 +113,15 @@ Running on: http://localhost:5000
 
 ```bash
 # ログイン
-curl -X POST http://localhost:5000/api/auth/login \
+curl -X POST http://localhost:5001/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"teacher_id":"teacher001","password":"password123"}'
 
 # 統計情報取得
-curl -X GET http://localhost:5000/api/analysis/statistics
+curl -X GET http://localhost:5001/api/analysis/statistics
 
 # ヘルスチェック
-curl http://localhost:5000/health
+curl http://localhost:5001/health
 ```
 
 ### 3. フロントエンドの確認
@@ -131,7 +131,7 @@ cd screens
 python3 -m http.server 8000
 ```
 
-ブラウザで `http://localhost:8000/login.html` を開く
+ブラウザで `http://localhost:8000/login/login.html` を開く
 
 ---
 
@@ -146,9 +146,9 @@ python3 -m http.server 8000
 
 ## ❓ よくある質問
 
-### Q: ポート5000が既に使用されている場合？
+### Q: ポート5001が既に使用されている場合？
 ```bash
-PORT=8000 python run.py
+PORT=5002 python run.py
 ```
 
 ### Q: データベースをリセットしたい場合？

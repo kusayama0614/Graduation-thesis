@@ -2,10 +2,11 @@
 """
 ファイルアップロード関連のAPI エンドポイント
 """
-from flask import Blueprint, request, jsonify, session, current_app
+from flask import Blueprint, request, session, current_app
 from app import db
 from app.models import LearningData, AnswerSheet, Teacher
 from app.routes.auth import login_required
+from app.utils.api_response import make_error_response, make_success_response
 from app.utils.answer_sheet_processor import start_answer_sheet_processing
 from app.utils.firebase_service import get_firebase_service
 from app.utils.ocr import get_ocr_status
@@ -13,6 +14,7 @@ from app.utils.answer_key_parser import parse_answer_key_file
 import os
 from datetime import datetime
 import json
+from uuid import uuid4
 
 upload_bp = Blueprint('upload', __name__)
 
@@ -20,7 +22,7 @@ upload_bp = Blueprint('upload', __name__)
 @upload_bp.route('/ocr-status', methods=['GET'])
 def ocr_status():
     """OCR の利用可否を返す"""
-    return jsonify(get_ocr_status()), 200
+    return make_success_response(get_ocr_status(), 200)
 
 
 def _save_upload_file(file_storage, prefix: str, teacher_id: str) -> str:
@@ -52,10 +54,10 @@ def upload_learning_data():
     teacher_db_id = _get_teacher_db_id(teacher_id)
 
     if not teacher_db_id:
-        return jsonify({'error': 'Teacher account was not found for this session'}), 401
+        return make_error_response('AUTH_TEACHER_NOT_FOUND', 'Teacher account was not found for this session', 401)
 
     if 'files' not in request.files or len(request.files.getlist('files')) == 0:
-        return jsonify({'error': 'No files provided'}), 400
+        return make_error_response('UPLOAD_FILES_MISSING', 'No files provided', 400)
 
     files = request.files.getlist('files')
     title = request.form.get('title', '').strip()
@@ -63,7 +65,7 @@ def upload_learning_data():
     description = request.form.get('description', '')
 
     if not title:
-        return jsonify({'error': 'Title is required'}), 400
+        return make_error_response('UPLOAD_TITLE_REQUIRED', 'Title is required', 400)
 
     upload_results = []
     firebase_service = get_firebase_service()
@@ -127,11 +129,10 @@ def upload_learning_data():
                 'status': 'failed'
             })
 
-    return jsonify({
-        'success': True,
+    return make_success_response({
         'message': f'Uploaded {len(upload_results)} files',
         'results': upload_results
-    }), 200
+    }, 200)
 
 
 # ==================== 解答用紙アップロード ====================
@@ -142,11 +143,15 @@ def upload_answer_sheet():
     teacher_id = session.get('teacher_id')
 
     if not teacher_id:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return make_error_response('AUTH_UNAUTHORIZED', 'Unauthorized', 401)
+
+    teacher_db_id = _get_teacher_db_id(teacher_id)
+    if not teacher_db_id:
+        return make_error_response('AUTH_TEACHER_NOT_FOUND', 'Teacher account was not found for this session', 401)
     
     # ファイルの確認
     if 'files' not in request.files or len(request.files.getlist('files')) == 0:
-        return jsonify({'error': 'No files provided'}), 400
+        return make_error_response('UPLOAD_FILES_MISSING', 'No files provided', 400)
     
     files = request.files.getlist('files')
     test_name = request.form.get('test_name', '').strip()
@@ -193,9 +198,13 @@ def upload_answer_sheet():
     
     # バリデーション
     if not test_name or not subject or not exam_date:
-        return jsonify({
-            'error': 'test_name, subject, and exam_date are required'
-        }), 400
+        return make_error_response('UPLOAD_REQUIRED_FIELDS', 'test_name, subject, and exam_date are required', 400)
+
+    exam_date_value = None
+    try:
+        exam_date_value = datetime.strptime(exam_date, '%Y-%m-%d').date()
+    except ValueError:
+        return make_error_response('UPLOAD_INVALID_EXAM_DATE', 'exam_date must be in YYYY-MM-DD format', 400)
     
     upload_results = []
     firebase_service = get_firebase_service()
@@ -213,9 +222,11 @@ def upload_answer_sheet():
         processing_steps.append('generate_report')
 
     processing_stage = 'queued' if processing_steps else 'uploaded'
+    initial_status = 'processing' if processing_steps else 'completed'
     
     for file in files:
         try:
+            processing_job_id = str(uuid4())
             # ファイル名の生成
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"answer_{teacher_id}_{timestamp}_{file.filename}"
@@ -236,53 +247,62 @@ def upload_answer_sheet():
                     file_path=filepath,
                     file_name=file.filename,
                     file_size=os.path.getsize(filepath),
-                    status='processing',
+                    status=initial_status,
                     student_grade=student_grade,
                     student_class=student_class,
                     student_id=student_id,
                     notes=notes,
                     processing_options=processing_options,
                     processing_stage=processing_stage,
+                    processing_job_id=processing_job_id,
                     current_step='queued',
                     completed_steps=[],
                     progress_percent=0,
                     processing_message='キューに登録されました',
                 )
                 # 解答キーがあれば後で使えるよう保存
+                post_updates = {'processing_job_id': processing_job_id}
                 if answer_key:
+                    post_updates['answer_key'] = answer_key
+                if post_updates:
                     try:
-                        firebase_service.update_answer_sheet(saved_record.get('id'), {'answer_key': answer_key})
+                        firebase_service.update_answer_sheet(saved_record.get('id'), post_updates)
                     except Exception:
                         pass
             else:
                 answer_sheet = AnswerSheet(
-                    teacher_id=teacher_id,
+                    teacher_id=teacher_db_id,
                     test_name=test_name,
                     subject=subject,
-                    exam_date=exam_date,
+                    exam_date=exam_date_value,
+                    student_grade=student_grade,
+                    student_class=student_class,
+                    student_id=student_id,
+                    notes=notes,
                     file_path=filepath,
                     file_name=file.filename,
                     file_size=os.path.getsize(filepath),
-                    status='processing'
+                    status=initial_status,
+                    processing_options=json.dumps(processing_options, ensure_ascii=False),
+                    processing_stage=processing_stage,
+                    processing_job_id=processing_job_id,
+                    current_step='queued' if processing_steps else 'completed',
+                    completed_steps=json.dumps([], ensure_ascii=False),
+                    progress_percent=0 if processing_steps else 100,
+                    processing_message='キューに登録されました' if processing_steps else 'アップロードが完了しました',
+                    last_error=None,
+                    answer_key=json.dumps(answer_key, ensure_ascii=False) if answer_key else None,
                 )
                 db.session.add(answer_sheet)
                 db.session.commit()
                 saved_record = {'id': answer_sheet.id}
-                # ローカルDB を使う場合は answer_key を保存するカラムがなければスキップ
-                if answer_key:
-                    try:
-                        # attempt to save to a JSON file next to upload as fallback
-                        ak_path = filepath + '.answer_key.json'
-                        with open(ak_path, 'w', encoding='utf-8') as akf:
-                            json.dump(answer_key, akf, ensure_ascii=False, indent=2)
-                    except Exception:
-                        pass
             
             upload_results.append({
                 'filename': file.filename,
                 'size': file.content_length,
                 'status': 'success',
                 'record_id': saved_record.get('id') if saved_record else None,
+                'processing_job_id': processing_job_id,
                 'student_id': student_id,
                 'processing_stage': processing_stage,
                 'processing_options': processing_options,
@@ -303,6 +323,7 @@ def upload_answer_sheet():
                     'exam_date': exam_date,
                     'notes': notes,
                     'processing_options': processing_options,
+                    'processing_job_id': processing_job_id,
                     'answer_key': answer_key,
                 }
             )
@@ -314,11 +335,9 @@ def upload_answer_sheet():
                 'status': 'failed'
             })
     
-    return jsonify({
-        'success': True,
+    return make_success_response({
         'message': f'Uploaded {len(upload_results)} files',
-        'results': upload_results
-        ,
+        'results': upload_results,
         'workflow': {
             'student_grade': student_grade,
             'student_class': student_class,
@@ -327,7 +346,7 @@ def upload_answer_sheet():
             'processing_steps': processing_steps,
             'processing_stage': processing_stage,
         }
-    }), 200
+    }, 200)
 
 
 # ==================== アップロード済みファイル一覧 ====================
@@ -337,7 +356,7 @@ def list_uploads():
     upload_folder = os.getenv('UPLOAD_FOLDER', 'uploads')
     
     if not os.path.exists(upload_folder):
-        return jsonify({'files': []}), 200
+        return make_success_response({'files': []}, 200)
     
     files = []
     for filename in os.listdir(upload_folder):
@@ -351,4 +370,4 @@ def list_uploads():
                 ).isoformat()
             })
     
-    return jsonify({'files': files}), 200
+    return make_success_response({'files': files}, 200)

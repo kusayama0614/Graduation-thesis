@@ -41,6 +41,11 @@ def _seed_default_teachers():
     from app.models import Teacher
     from app.utils.firebase_service import get_firebase_service
 
+    env_name = os.getenv('FLASK_ENV', 'production').strip().lower()
+    demo_seed_enabled = os.getenv('ENABLE_DEMO_TEACHERS', '').strip().lower() in ('1', 'true', 'yes')
+    if env_name != 'development' and not demo_seed_enabled:
+        return
+
     default_teachers = [
         {
             'teacher_id': 'teacher001',

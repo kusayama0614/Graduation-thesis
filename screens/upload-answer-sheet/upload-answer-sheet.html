@@ -68,14 +68,14 @@
             }
 
             if (window.location.protocol === 'file:') {
-                return 'http://127.0.0.1:5002/api';
+                return 'http://127.0.0.1:5001/api';
             }
 
-            if (window.location.port === '5002') {
+            if (window.location.port === '5001') {
                 return '/api';
             }
 
-            return `${window.location.protocol}//${window.location.hostname}:5002/api`;
+            return `${window.location.protocol}//${window.location.hostname}:5001/api`;
         }
 
         const API_BASE_URL = resolveApiBaseUrl();

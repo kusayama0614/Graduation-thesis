@@ -48,7 +48,7 @@ def get_runtime_port(preferred_port):
 if __name__ == '__main__':
     # 開発環境での起動
     debug_mode = os.getenv('FLASK_ENV', 'production') == 'development'
-    preferred_port = int(os.getenv('PORT', 5000))
+    preferred_port = int(os.getenv('PORT', 5001))
     port = get_runtime_port(preferred_port)
     
     print('=' * 60)

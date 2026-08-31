@@ -68,7 +68,7 @@ FLASK_ENV=development
 FLASK_APP=run.py
 SECRET_KEY=your-secret-key
 DATABASE_URL=sqlite:///graduation_system.db
-PORT=5002
+PORT=5001
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/serviceAccountKey.json
 OPENAI_API_KEY=your-openai-api-key
 OPENAI_MODEL=gpt-4o-mini
@@ -80,7 +80,7 @@ LANGCHAIN_API_KEY=optional
 LANGCHAIN_TRACING_V2=false
 ```
 
-`PORT=5002` を設定しておくと、`python run.py` 実行時に起動ポートを固定しやすくなります。
+`PORT=5001` を設定しておくと、`python run.py` 実行時に起動ポートを固定しやすくなります。
 
 このプロジェクトでは OpenAI を使うため、API キーは `OPENAI_API_KEY` に設定してください。
 
@@ -111,7 +111,7 @@ python run.py
 
 ブラウザで以下にアクセス：
 ```
-http://localhost:5002/health
+http://localhost:5001/health
 ```
 
 成功すれば以下が表示されます：
@@ -122,7 +122,7 @@ http://localhost:5002/health
 Firebase の接続状態も確認できます:
 
 ```bash
-curl http://localhost:5002/health/firebase
+curl http://localhost:5001/health/firebase
 ```
 
 Firebase が使える場合は `enabled: true`、未設定なら `enabled: false` が返ります。

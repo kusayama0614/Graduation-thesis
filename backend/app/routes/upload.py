@@ -136,9 +136,13 @@ def upload_learning_data():
 
 # ==================== 解答用紙アップロード ====================
 @upload_bp.route('/answer-sheet', methods=['POST'])
+@login_required
 def upload_answer_sheet():
     """解答用紙をアップロード"""
-    teacher_id = session.get('teacher_id') or request.form.get('teacher_id', 'guest')
+    teacher_id = session.get('teacher_id')
+
+    if not teacher_id:
+        return jsonify({'error': 'Unauthorized'}), 401
     
     # ファイルの確認
     if 'files' not in request.files or len(request.files.getlist('files')) == 0:

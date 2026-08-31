@@ -12,11 +12,12 @@ services:
       - .:/workspace
     working_dir: /workspace/backend
     ports:
-      - "5001:5000"
+      - "5001:5001"
     command: bash -c "pip install -r requirements.txt && python run.py"
     environment:
       - FLASK_ENV=development
       - FLASK_APP=run.py
+      - PORT=5001
 
   static:
     image: python:3.11-slim

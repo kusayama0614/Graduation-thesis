@@ -28,6 +28,7 @@ jobs:
 
       - name: Run tests
         env:
+          PYTHONPATH: ${{ github.workspace }}/backend
           FLASK_ENV: testing
           ENABLE_DEMO_TEACHERS: "false"
           FIREBASE_CREDENTIALS_JSON: ""

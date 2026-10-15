@@ -161,7 +161,7 @@ def upload_answer_sheet():
     student_class = request.form.get('student_class', '').strip() or None
     student_id = request.form.get('student_id', '').strip() or None
     notes = request.form.get('notes', '').strip() or None
-    auto_score = request.form.get('auto_score', 'true').lower() == 'true'
+    auto_score = request.form.get('auto_score', 'false').lower() == 'true'
     ocr_process = request.form.get('ocr_process', 'true').lower() == 'true'
     generate_report = request.form.get('generate_report', 'false').lower() == 'true'
     # 解答キー（JSON文字列）またはファイルで受け取る

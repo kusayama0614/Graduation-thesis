@@ -10,6 +10,10 @@ from app.utils.api_response import make_error_response, make_success_response
 from app.utils.answer_sheet_processor import start_answer_sheet_processing
 from app.utils.langchain_analyzer import get_report_generator
 from app.utils.firebase_service import get_firebase_service
+from app.utils.scored_result_ocr import (
+    extract_scored_result_suggestions,
+    normalize_question_results,
+)
 from app.utils.time_utils import utc_now
 import json
 import traceback
@@ -108,6 +112,15 @@ def _sheet_to_response_payload(sheet, analysis_result=None):
     if not error_patterns and analysis_result:
         error_patterns = _deserialize_error_patterns(analysis_result.error_patterns)
 
+    question_results = []
+    if sheet.question_results:
+        try:
+            parsed_results = json.loads(sheet.question_results)
+            if isinstance(parsed_results, list):
+                question_results = parsed_results
+        except (TypeError, ValueError):
+            question_results = []
+
     processing_time = '---'
     if analysis_result and analysis_result.processing_time:
         processing_time = analysis_result.processing_time
@@ -126,6 +139,7 @@ def _sheet_to_response_payload(sheet, analysis_result=None):
         'questions': analysis_result.total_questions if analysis_result and analysis_result.total_questions is not None else sheet.total_questions,
         'correct_answers': analysis_result.correct_count if analysis_result and analysis_result.correct_count is not None else sheet.correct_count,
         'error_patterns': error_patterns,
+        'question_results': question_results,
         'analysis': analysis_result.analysis_text if analysis_result else None,
         'study_plan': analysis_result.study_plan if analysis_result else None,
         'analysis_result_id': analysis_result.id if analysis_result else None,
@@ -418,7 +432,7 @@ def _build_learning_progress(rows):
 def _normalize_processing_options(raw_value):
     defaults = {
         'ocr_process': True,
-        'auto_score': True,
+        'auto_score': False,
         'generate_report': False,
     }
 
@@ -434,7 +448,7 @@ def _normalize_processing_options(raw_value):
     options = defaults | raw_value
     return {
         'ocr_process': bool(options.get('ocr_process', options.get('ocr', True))),
-        'auto_score': bool(options.get('auto_score', True)),
+        'auto_score': bool(options.get('auto_score', False)),
         'generate_report': bool(options.get('generate_report', False)),
     }
 
@@ -701,6 +715,168 @@ def get_answer_data_detail(data_id):
 
     analysis_result = AnalysisResult.query.filter_by(answer_sheet_id=data_id).order_by(AnalysisResult.created_at.desc()).first()
     return make_success_response(_sheet_to_response_payload(answer_sheet, analysis_result), 200)
+
+
+@analysis_bp.route('/answer-data/<data_id>/scored-result-suggestions', methods=['GET'])
+@login_required
+def get_scored_result_suggestions(data_id):
+    """Return OCR-derived suggestions for teacher review."""
+    teacher_id, teacher_db_id = _resolve_teacher_ids()
+    firebase_service = get_firebase_service()
+
+    if firebase_service.enabled:
+        sheet = firebase_service.get_answer_sheet(data_id)
+        if not sheet or sheet.get('teacher_id') != teacher_id:
+            return make_error_response('ANALYSIS_NOT_FOUND', 'Data not found', 404)
+        ocr_text = sheet.get('ocr_text') or ''
+    else:
+        if not teacher_db_id:
+            return make_error_response('ANALYSIS_NOT_FOUND', 'Data not found', 404)
+        sheet = AnswerSheet.query.filter_by(id=data_id, teacher_id=teacher_db_id).first()
+        if not sheet:
+            return make_error_response('ANALYSIS_NOT_FOUND', 'Data not found', 404)
+        ocr_text = sheet.ocr_text or ''
+
+    return make_success_response({
+        'data_id': data_id,
+        'suggestions': extract_scored_result_suggestions(ocr_text),
+        'review_required': True,
+    }, 200)
+
+
+@analysis_bp.route('/answer-data/<data_id>/scored-results', methods=['PUT'])
+@login_required
+def save_scored_results(data_id):
+    """Save teacher-confirmed score and per-question marks."""
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return make_error_response('ANALYSIS_INVALID_SCORED_RESULTS', 'A JSON object is required', 400)
+
+    score_value = payload.get('score')
+    correct_count = payload.get('correct_count')
+    total_questions = payload.get('total_questions')
+    if (
+        isinstance(score_value, bool)
+        or not isinstance(score_value, (int, float))
+        or not 0 <= score_value <= 100
+    ):
+        return make_error_response('ANALYSIS_INVALID_SCORED_RESULTS', 'score must be between 0 and 100', 400)
+    if (
+        isinstance(correct_count, bool)
+        or not isinstance(correct_count, int)
+        or isinstance(total_questions, bool)
+        or not isinstance(total_questions, int)
+        or total_questions <= 0
+        or correct_count < 0
+        or correct_count > total_questions
+    ):
+        return make_error_response(
+            'ANALYSIS_INVALID_SCORED_RESULTS',
+            'correct_count and total_questions must be valid non-negative question counts',
+            400,
+        )
+
+    try:
+        question_results = normalize_question_results(payload.get('question_results', []))
+    except ValueError as exc:
+        return make_error_response('ANALYSIS_INVALID_SCORED_RESULTS', str(exc), 400)
+
+    error_patterns = [
+        {
+            'pattern': f"設問 {item['question']}",
+            'count': 1,
+            'examples': ['採点済みプリントで不正解として確認'],
+        }
+        for item in question_results
+        if item['result'] == 'incorrect'
+    ]
+    normalized_score = round(float(score_value), 1)
+    teacher_id, teacher_db_id = _resolve_teacher_ids()
+    firebase_service = get_firebase_service()
+    student_name = '未設定の生徒'
+
+    try:
+        if firebase_service.enabled:
+            sheet = firebase_service.get_answer_sheet(data_id)
+            if not sheet or sheet.get('teacher_id') != teacher_id:
+                return make_error_response('ANALYSIS_NOT_FOUND', 'Data not found', 404)
+            student_name = sheet.get('student_id') or student_name
+            firebase_service.update_answer_sheet(data_id, {
+                'score': normalized_score,
+                'correct_count': correct_count,
+                'total_questions': total_questions,
+                'error_patterns': error_patterns,
+                'question_results': question_results,
+                'status': 'completed',
+                'processing_stage': 'completed',
+                'current_step': 'completed',
+                'progress_percent': 100,
+                'processing_message': '採点結果を教師が確認・保存しました',
+                'last_error': None,
+            })
+            firebase_service.save_analysis_result(
+                answer_sheet_id=data_id,
+                student_name=student_name,
+                score=normalized_score,
+                correct_count=correct_count,
+                total_questions=total_questions,
+                error_patterns=error_patterns,
+                analysis_text='採点済みプリントの確認済み結果',
+                study_plan='',
+                processing_time='教師確認',
+            )
+        else:
+            if not teacher_db_id:
+                return make_error_response('ANALYSIS_NOT_FOUND', 'Data not found', 404)
+            sheet = AnswerSheet.query.filter_by(id=data_id, teacher_id=teacher_db_id).first()
+            if not sheet:
+                return make_error_response('ANALYSIS_NOT_FOUND', 'Data not found', 404)
+            student_name = sheet.student_id or student_name
+            sheet.score = normalized_score
+            sheet.correct_count = correct_count
+            sheet.total_questions = total_questions
+            sheet.error_patterns = json.dumps(error_patterns, ensure_ascii=False)
+            sheet.question_results = json.dumps(question_results, ensure_ascii=False)
+            sheet.status = 'completed'
+            sheet.processing_stage = 'completed'
+            sheet.current_step = 'completed'
+            sheet.progress_percent = 100
+            sheet.processing_message = '採点結果を教師が確認・保存しました'
+            sheet.last_error = None
+            analysis_result = AnalysisResult(
+                answer_sheet_id=data_id,
+                student_name=student_name,
+                score=normalized_score,
+                correct_count=correct_count,
+                total_questions=total_questions,
+                error_patterns=json.dumps(error_patterns, ensure_ascii=False),
+                analysis_text='採点済みプリントの確認済み結果',
+                study_plan='',
+                processing_time='教師確認',
+                status='completed',
+                created_at=utc_now(),
+            )
+            db.session.add(analysis_result)
+            db.session.commit()
+    except Exception as exc:
+        if not firebase_service.enabled:
+            db.session.rollback()
+        current_app.logger.exception('Failed to save confirmed scored results for %s', data_id)
+        return make_error_response(
+            'ANALYSIS_SCORED_RESULTS_SAVE_FAILED',
+            'Failed to save scored results',
+            500,
+            details=str(exc),
+        )
+
+    return make_success_response({
+        'data_id': data_id,
+        'score': normalized_score,
+        'correct_count': correct_count,
+        'total_questions': total_questions,
+        'question_results': question_results,
+        'message': '採点結果を保存しました',
+    }, 200)
 
 
 # ==================== 統計情報取得 ====================

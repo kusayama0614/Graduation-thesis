@@ -116,6 +116,7 @@ def _ensure_answer_sheet_columns():
         ('correct_count', 'INTEGER'),
         ('total_questions', 'INTEGER'),
         ('error_patterns', 'TEXT'),
+        ('question_results', 'TEXT'),
     ]
 
     with db.engine.begin() as conn:

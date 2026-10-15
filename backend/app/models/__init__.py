@@ -77,6 +77,7 @@ class AnswerSheet(db.Model):
     correct_count = db.Column(db.Integer)
     total_questions = db.Column(db.Integer)
     error_patterns = db.Column(db.Text)  # JSON
+    question_results = db.Column(db.Text)  # JSON list
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
     

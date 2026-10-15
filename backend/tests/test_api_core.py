@@ -6,6 +6,7 @@ import pytest
 
 from app import create_app, db
 from app.models import AnswerSheet
+from app.utils.scored_result_ocr import extract_scored_result_suggestions
 
 
 @pytest.fixture()
@@ -441,6 +442,120 @@ def test_learning_progress_returns_student_aggregation(client, monkeypatch):
     assert s2["average_score"] == 55.0
     assert s2["latest_score"] == 55.0
     assert s2["at_risk"] is True
+
+
+def test_extract_scored_result_suggestions_from_ocr():
+    suggestions = extract_scored_result_suggestions(
+        "得点: 8/10\n正答数: 2/3\n問1 ○\n問2 ×\n3: ✓\n"
+    )
+
+    assert suggestions == {
+        "score": 80.0,
+        "correct_count": 2,
+        "total_questions": 3,
+        "question_results": [
+            {"question": "1", "result": "correct"},
+            {"question": "2", "result": "incorrect"},
+            {"question": "3", "result": "correct"},
+        ],
+    }
+
+
+def test_scored_result_suggestions_and_confirmed_results_feed_progress(client, monkeypatch):
+    _register_and_login(client, teacher_id="teacher_scored_results")
+    monkeypatch.setattr("app.routes.upload.start_answer_sheet_processing", lambda *args, **kwargs: None)
+
+    record = _upload_answer_sheet(
+        client,
+        filename="marked_worksheet.txt",
+        test_name="Marked Worksheet",
+        subject="math",
+        student_id="M001",
+    )
+    with client.application.app_context():
+        sheet = db.session.get(AnswerSheet, record["record_id"])
+        sheet.ocr_text = "得点: 8/10\n問1 ○\n問2 ×\n"
+        sheet.status = "failed"
+        sheet.last_error = "OCR output requires teacher correction"
+        db.session.commit()
+
+    suggestions_response = client.get(
+        f"/api/analysis/answer-data/{record['record_id']}/scored-result-suggestions"
+    )
+    assert suggestions_response.status_code == 200
+    suggestions = suggestions_response.get_json()["suggestions"]
+    assert suggestions["score"] == 80.0
+    assert suggestions["question_results"] == [
+        {"question": "1", "result": "correct"},
+        {"question": "2", "result": "incorrect"},
+    ]
+
+    save_response = client.put(
+        f"/api/analysis/answer-data/{record['record_id']}/scored-results",
+        json={
+            "score": 75,
+            "correct_count": 3,
+            "total_questions": 4,
+            "question_results": [
+                {"question": "1", "result": "correct"},
+                {"question": "2", "result": "incorrect"},
+                {"question": "3", "result": "unmarked"},
+            ],
+        },
+    )
+    assert save_response.status_code == 200
+
+    detail = client.get(f"/api/analysis/answer-data/{record['record_id']}").get_json()
+    assert detail["score"] == 75
+    assert detail["correct_answers"] == 3
+    assert detail["questions"] == 4
+    assert detail["status"] == "completed"
+    assert detail["last_error"] is None
+    assert detail["question_results"][1] == {"question": "2", "result": "incorrect"}
+
+    progress = client.get("/api/analysis/learning-progress").get_json()
+    student = next(item for item in progress["students"] if item["student_id"] == "M001")
+    assert student["latest_score"] == 75
+    assert student["weak_tags"] == [{"tag": "設問 2", "count": 1}]
+
+
+def test_save_scored_results_rejects_invalid_counts_and_duplicate_questions(client, monkeypatch):
+    _register_and_login(client, teacher_id="teacher_invalid_scored_results")
+    monkeypatch.setattr("app.routes.upload.start_answer_sheet_processing", lambda *args, **kwargs: None)
+    record = _upload_answer_sheet(
+        client,
+        filename="invalid_marked_worksheet.txt",
+        test_name="Invalid Marked Worksheet",
+        subject="math",
+        student_id="M002",
+    )
+
+    response = client.put(
+        f"/api/analysis/answer-data/{record['record_id']}/scored-results",
+        json={
+            "score": 90,
+            "correct_count": 3,
+            "total_questions": 2,
+            "question_results": [],
+        },
+    )
+    assert response.status_code == 400
+    assert response.get_json()["error_code"] == "ANALYSIS_INVALID_SCORED_RESULTS"
+
+    duplicate_question_response = client.put(
+        f"/api/analysis/answer-data/{record['record_id']}/scored-results",
+        json={
+            "score": 90,
+            "correct_count": 1,
+            "total_questions": 2,
+            "question_results": [
+                {"question": "1", "result": "correct"},
+                {"question": "1", "result": "incorrect"},
+            ],
+        },
+    )
+    assert duplicate_question_response.status_code == 400
+    assert duplicate_question_response.get_json()["error_code"] == "ANALYSIS_INVALID_SCORED_RESULTS"
 
 
 def test_learning_progress_supports_at_risk_only_filter(client, monkeypatch):

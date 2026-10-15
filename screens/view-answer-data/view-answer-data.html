@@ -680,7 +680,10 @@
                 }
 
                 const detailContent = document.getElementById('detailContent');
-                const scoreDisplay = item.score !== null ? `${item.score}%` : '未処理';
+                const scoreDisplay = item.score !== null && item.score !== undefined ? `${item.score}%` : '未処理';
+                const correctAnswerDisplay = item.correct_answers !== null && item.correct_answers !== undefined
+                    ? `${item.correct_answers}/${item.questions}`
+                    : '---';
                 const progressValue = Math.max(0, Math.min(100, Number(item.progress_percent || item.progressPercent || 0)));
                 const progressSteps = Array.isArray(item.completed_steps) && item.completed_steps.length > 0
                     ? item.completed_steps.join(' → ')
@@ -690,6 +693,16 @@
                         <li>${pattern.pattern} (${pattern.count}件${pattern.examples ? ` / 例: ${pattern.examples.join(', ')}` : ''})</li>
                     `).join('')
                     : '<li>該当なし</li>';
+                const questionResults = Array.isArray(item.question_results) && item.question_results.length > 0
+                    ? item.question_results.map(result => {
+                        const label = {
+                            correct: '正解',
+                            incorrect: '不正解',
+                            unmarked: '未判定',
+                        }[result.result] || '未判定';
+                        return `<li>問${escapeHtml(result.question)}: ${label}</li>`;
+                    }).join('')
+                    : '<li>登録なし</li>';
 
                 detailContent.innerHTML = `
                     <div class="detail-row">
@@ -733,7 +746,11 @@
                     </div>
                     <div class="detail-row">
                         <div class="detail-label">正答数:</div>
-                        <div class="detail-value">${item.correct_answers !== null ? item.correct_answers + '/' + item.questions : '---'}</div>
+                        <div class="detail-value">${correctAnswerDisplay}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">問題別正誤:</div>
+                        <div class="detail-value"><ul>${questionResults}</ul></div>
                     </div>
                     <div class="detail-row">
                         <div class="detail-label">処理時間:</div>
@@ -766,6 +783,15 @@
         }
 
         // 詳細モーダルを閉じる
+        function escapeHtml(text) {
+            return String(text)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
         function closeDetailModal() {
             document.getElementById('detailModal').classList.remove('show');
         }

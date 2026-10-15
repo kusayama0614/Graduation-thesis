@@ -40,7 +40,7 @@ def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: D
 
         if processing_options.get('ocr_process', True):
             stage_sequence.append('ocr')
-        if processing_options.get('auto_score', True):
+        if processing_options.get('auto_score', False):
             stage_sequence.append('auto_score')
         if processing_options.get('generate_report', False):
             stage_sequence.append('generate_report')

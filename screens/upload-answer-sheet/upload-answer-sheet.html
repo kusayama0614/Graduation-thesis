@@ -4,41 +4,101 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>解答用紙アップロード - 教師管理システム</title>
-        // Preview/読み取り機能は削除されました。選択したファイルはそのままアップロード時に送信されます。
+    <link rel="stylesheet" href="upload-answer-sheet.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>採点済みプリントの取り込み</h1>
+            <button class="back-button" type="button" onclick="goHome()">← ホームに戻る</button>
+        </div>
+        <div class="content">
+            <div class="breadcrumb">
+                <span onclick="goHome()" style="cursor: pointer; color: #667eea;">ホーム</span>
+                &gt; 採点済みプリントの取り込み
+            </div>
 
+            <div class="section">
+                <h2>生徒情報</h2>
+                <div class="form-group">
+                    <label for="studentGrade">学年</label>
+                    <select id="studentGrade" required>
+                        <option value="">選択してください</option>
+                        <option value="1">1年生</option>
+                        <option value="2">2年生</option>
+                        <option value="3">3年生</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="studentClass">クラス</label>
+                    <select id="studentClass" required>
+                        <option value="">選択してください</option>
+                        <option value="A">A組</option>
+                        <option value="B">B組</option>
+                        <option value="C">C組</option>
+                        <option value="D">D組</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="studentId">生徒ID</label>
+                    <input type="text" id="studentId" placeholder="例: S001" required>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>プリントの選択</h2>
+                <p>採点済みプリントを選択してください。複数ファイルを選択できます。</p>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-area-icon">📄</div>
+                    <h3>ファイルをドラッグ&ドロップ</h3>
+                    <p>または選択してください（PDF、JPEG、PNG）</p>
+                    <button class="file-select-button" type="button" onclick="document.getElementById('fileInput').click()">ファイルを選択する</button>
+                    <input type="file" id="fileInput" class="file-input" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+                </div>
+                <div class="file-list" id="fileList" style="display: none;">
+                    <h3>選択されたファイル</h3>
+                    <div id="fileItems"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>テスト情報</h2>
+                <div class="form-group">
+                    <label for="testName">テスト名</label>
+                    <input type="text" id="testName" placeholder="例: 2学期中間テスト" required>
+                </div>
+                <div class="form-group">
+                    <label for="subject">教科</label>
+                    <input type="text" id="subject" value="数学" required>
+                </div>
                 <div class="form-group">
                     <label for="examDate">試験日</label>
                     <input type="date" id="examDate" required>
                 </div>
-
                 <div class="form-group">
                     <label for="notes">備考</label>
-                    <textarea id="notes" placeholder="特記事項や注意点があれば入力してください..."></textarea>
+                    <textarea id="notes" placeholder="特記事項があれば入力してください"></textarea>
                 </div>
+            </div>
+
+            <div class="alert alert-info show" id="ocrStatusBanner">
+                OCRの利用状況を確認しています...
             </div>
 
             <!-- セクション4: 処理オプション -->
             <div class="section">
                 <h2>処理オプション</h2>
-                <p>アップロード後に実行する処理を選択してください。</p>
+                <p>自動採点は行いません。OCRは採点結果の候補を読み取るために使用します。</p>
 
                 <div class="form-group" style="display: flex; flex-direction: column; gap: 12px;">
-                    <label style="display: flex; align-items: center; gap: 10px; font-weight: 600;">
-                        <input type="checkbox" id="autoScore" checked>
-                        自動採点を実行する
-                    </label>
                     <label style="display: flex; align-items: center; gap: 10px; font-weight: 600;">
                         <input type="checkbox" id="ocrProcess" checked>
                         OCRで文字認識を行う
                     </label>
-                    <label style="display: flex; align-items: center; gap: 10px; font-weight: 600;">
-                        <input type="checkbox" id="generateReport">
-                        分析レポートを生成する
-                    </label>
                 </div>
 
                 <div class="alert alert-info show" style="margin-top: 16px;">
-                    <strong>処理の流れ:</strong> アップロード後に OCR → 自動採点 → 必要に応じてレポート生成、という順で進みます。
+                    <strong>処理の流れ:</strong> 採点済みプリントをOCRで読み取り、候補を確認・修正してから進捗データに登録します。
                 </div>
             </div>
 
@@ -50,6 +110,12 @@
                     <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
                 </div>
                 <div class="processing-steps" id="processingSteps"></div>
+            </div>
+
+            <div class="section" id="scoredResultReviewSection" style="display: none;">
+                <h2>採点結果の確認・登録</h2>
+                <p>OCRの読み取り候補を確認し、必要に応じて修正して保存してください。読み取れない項目は手入力できます。</p>
+                <div id="scoredResultReviews"></div>
             </div>
 
             <!-- ボタン -->
@@ -81,10 +147,7 @@
 
         const API_BASE_URL = resolveApiBaseUrl();
         let selectedFiles = [];
-        let answerKeyFile = null;
-        let answerKeyCandidates = [];
         let processingPollTimer = null;
-        let processingRecordId = null;
         let processingWorkflow = null;
 
         function mountApiDebugBadge() {
@@ -102,18 +165,6 @@
         // ファイル入力の変更
         document.getElementById('fileInput').addEventListener('change', function(e) {
             handleFiles(e.target.files);
-        });
-
-        document.getElementById('answerKeyInput').addEventListener('change', function(e) {
-            answerKeyFile = e.target.files?.[0] || null;
-            const hint = document.getElementById('answerKeyHint');
-            if (answerKeyFile) {
-                hint.className = 'alert info show';
-                hint.innerHTML = `<strong>選択済み:</strong> ${escapeHtml(answerKeyFile.name)}。プレビュー機能は無効化されています。アップロード時にサーバ側で解析されます。`;
-            } else {
-                hint.className = 'alert';
-                hint.textContent = '';
-            }
         });
 
         async function loadOcrStatus() {
@@ -139,7 +190,7 @@
                     <strong>OCR状態:</strong><br>
                     ${items.map((item) => `・${item}`).join('<br>')}
                     ${status.vision_error ? `<br><small>Vision確認メモ: ${escapeHtml(status.vision_error)}</small>` : ''}
-                    <br><small>※ スキャン画像PDFの実OCRは「模範解答を読み取りする」プレビューで確認してください。</small>
+                    <br><small>※ OCRで抽出した採点結果は、必ず確認・修正してから保存してください。</small>
                 `;
             } catch (error) {
                 banner.className = 'alert alert-warning show';
@@ -205,8 +256,6 @@
             updateFileList();
         }
 
-        // Preview/preview-edit functions removed: answer key files are uploaded directly without client-side preview.
-
         // データを送信
         async function submitData() {
             if (selectedFiles.length === 0) {
@@ -218,6 +267,7 @@
             const studentClass = document.getElementById('studentClass').value;
             const studentId = document.getElementById('studentId').value.trim();
             const testName = document.getElementById('testName').value.trim();
+            const subject = document.getElementById('subject').value.trim();
             const examDate = document.getElementById('examDate').value;
 
             if (processingPollTimer) {
@@ -245,6 +295,11 @@
                 return;
             }
 
+            if (!subject) {
+                showAlert('教科を入力してください', 'error');
+                return;
+            }
+
             if (!examDate) {
                 showAlert('試験日を選択してください', 'error');
                 return;
@@ -259,21 +314,12 @@
             formData.append('student_class', studentClass);
             formData.append('student_id', studentId);
             formData.append('test_name', testName);
-            formData.append('subject', 'math');
+            formData.append('subject', subject);
             formData.append('exam_date', examDate);
             formData.append('notes', document.getElementById('notes').value);
-            formData.append('auto_score', document.getElementById('autoScore').checked ? 'true' : 'false');
+            formData.append('auto_score', 'false');
             formData.append('ocr_process', document.getElementById('ocrProcess').checked ? 'true' : 'false');
-            formData.append('generate_report', document.getElementById('generateReport').checked ? 'true' : 'false');
-            // Client-side preview removed: only allow server-side parsing of uploaded answer key files.
-            if (document.getElementById('autoScore').checked && !answerKeyFile) {
-                showAlert('自動採点を使う場合は、解答データ（CSV/XLSX/JSON）または answer_key を指定してください', 'error');
-                return;
-            }
-
-            if (answerKeyFile) {
-                formData.append('answer_key_file', answerKeyFile);
-            }
+            formData.append('generate_report', 'false');
 
             try {
                 const response = await fetch(`${API_BASE_URL}/upload/answer-sheet`, {
@@ -288,14 +334,18 @@
                     throw new Error(result.error || 'アップロードに失敗しました');
                 }
 
-                processingRecordId = result.results?.[0]?.record_id || null;
                 processingWorkflow = result.workflow || {};
                 const nextSteps = (processingWorkflow.processing_steps || []).join(' → ');
                 showProcessingPanel(processingWorkflow, result.results?.[0] || {});
                 showAlert(`✓ ${result.message}${nextSteps ? ` / 処理: ${nextSteps}` : ''}`, 'success');
 
-                if (processingRecordId) {
-                    startPollingProcessingStatus(processingRecordId);
+                const records = (result.results || [])
+                    .filter((item) => item.status === 'success' && item.record_id)
+                    .map((item) => ({ id: String(item.record_id), filename: item.filename }));
+                if (records.length) {
+                    startPollingProcessingStatus(records);
+                } else {
+                    showAlert('登録されたプリントがありません。ファイルごとのエラーを確認してください。', 'error');
                 }
             } catch (error) {
                 showAlert(error.message || 'アップロードに失敗しました', 'error');
@@ -314,8 +364,6 @@
             const selected = workflow?.processing_steps || [];
             const labels = {
                 ocr: 'OCR処理',
-                auto_score: '自動採点',
-                generate_report: 'レポート生成',
             };
 
             return [
@@ -348,46 +396,193 @@
             });
         }
 
-        function startPollingProcessingStatus(recordId) {
+        function startPollingProcessingStatus(records) {
             const steps = buildProcessingSteps(processingWorkflow || {});
+            let pollInFlight = false;
 
             processingPollTimer = setInterval(async () => {
+                if (pollInFlight) return;
+                pollInFlight = true;
                 try {
-                    const response = await fetch(`${API_BASE_URL}/analysis/answer-data/${recordId}`, {
-                        credentials: 'include'
-                    });
-                    const detail = await response.json();
+                    const details = await Promise.all(records.map(async (record) => {
+                        const response = await fetch(`${API_BASE_URL}/analysis/answer-data/${encodeURIComponent(record.id)}`, {
+                            credentials: 'include'
+                        });
+                        const detail = await response.json();
+                        if (!response.ok) {
+                            throw new Error(detail.error || `${record.filename} の処理状況を取得できません`);
+                        }
+                        return { record, detail };
+                    }));
+                    const progress = details.reduce((sum, item) => sum + Number(item.detail.progress_percent || 0), 0);
+                    const averageProgress = Math.round(progress / Math.max(details.length, 1));
+                    const active = details.find((item) => item.detail.status !== 'completed' && item.detail.status !== 'failed');
+                    const summaryText = active
+                        ? `${active.record.filename}: ${active.detail.processing_message || '処理中です'}`
+                        : 'OCR処理が完了しました。候補を確認してください。';
+                    renderProcessingSteps(
+                        steps,
+                        active?.detail.current_step || 'completed',
+                        averageProgress,
+                        summaryText
+                    );
 
-                    if (!response.ok) {
-                        throw new Error(detail.error || '処理状況の取得に失敗しました');
-                    }
-
-                    const progressPercent = detail.progress_percent ?? (detail.status === 'completed' ? 100 : detail.status === 'failed' ? 100 : 10);
-                    const currentStage = detail.current_step || (detail.status === 'completed' ? 'completed' : 'queued');
-                    const summaryText = detail.processing_message || (detail.status === 'completed' ? 'すべての処理が完了しました' : '処理を進めています');
-
-                    renderProcessingSteps(steps, currentStage, progressPercent, summaryText);
-
-                    if (detail.status === 'completed') {
+                    if (details.every((item) => ['completed', 'failed'].includes(item.detail.status))) {
                         clearInterval(processingPollTimer);
                         processingPollTimer = null;
-                        showAlert('✓ すべての処理が完了しました。ホームへ戻ります。', 'success');
-                        setTimeout(() => {
-                            goHome();
-                        }, 1800);
-                    }
-
-                    if (detail.status === 'failed') {
-                        clearInterval(processingPollTimer);
-                        processingPollTimer = null;
-                        showAlert(detail.processing_message || '処理に失敗しました', 'error');
+                        await showScoredResultReviews(records, details);
                     }
                 } catch (error) {
                     clearInterval(processingPollTimer);
                     processingPollTimer = null;
                     showAlert(error.message || '処理状況の取得に失敗しました', 'error');
+                } finally {
+                    pollInFlight = false;
                 }
             }, 1000);
+        }
+
+        async function showScoredResultReviews(records, details) {
+            const section = document.getElementById('scoredResultReviewSection');
+            const container = document.getElementById('scoredResultReviews');
+            section.style.display = 'block';
+            container.innerHTML = records.map((record, index) => {
+                const detail = details[index]?.detail || {};
+                const failure = detail.status === 'failed'
+                    ? `<p class="alert alert-warning show">OCR処理に失敗しました。結果を手入力して保存できます。${escapeHtml(detail.processing_message || '')}</p>`
+                    : '';
+                return `
+                    <div class="section" id="scoredReview-${index}">
+                        <h3>${escapeHtml(record.filename)}</h3>
+                        ${failure}
+                        <div class="processing-summary" id="scoredReviewMessage-${index}">OCR候補を読み込んでいます...</div>
+                        <div class="form-group">
+                            <label>得点（100点満点）</label>
+                            <input type="number" min="0" max="100" step="0.1" id="scoredReviewScore-${index}">
+                        </div>
+                        <div class="form-group">
+                            <label>正答数</label>
+                            <input type="number" min="0" step="1" id="scoredReviewCorrect-${index}">
+                        </div>
+                        <div class="form-group">
+                            <label>問題数</label>
+                            <input type="number" min="1" step="1" id="scoredReviewTotal-${index}">
+                        </div>
+                        <h4>問題ごとの正誤（OCR候補）</h4>
+                        <div id="scoredReviewQuestions-${index}"></div>
+                        <button class="button button-secondary" type="button" onclick="addScoredQuestion(${index})">問題を追加</button>
+                        <button class="button button-primary" type="button" onclick="saveScoredResult(${index}, '${escapeHtml(record.id)}')">確認した結果を保存</button>
+                    </div>
+                `;
+            }).join('');
+
+            await Promise.all(records.map((record, index) => loadScoredResultSuggestions(record.id, index)));
+            showAlert('OCR処理が完了しました。読み取り候補を確認・修正して保存してください。', 'success');
+        }
+
+        async function loadScoredResultSuggestions(recordId, index) {
+            const message = document.getElementById(`scoredReviewMessage-${index}`);
+            try {
+                const response = await fetch(
+                    `${API_BASE_URL}/analysis/answer-data/${encodeURIComponent(recordId)}/scored-result-suggestions`,
+                    { credentials: 'include' }
+                );
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error || 'OCR候補を取得できませんでした');
+                }
+
+                const suggestion = result.suggestions || {};
+                if (suggestion.score !== null && suggestion.score !== undefined) {
+                    document.getElementById(`scoredReviewScore-${index}`).value = suggestion.score;
+                }
+                if (suggestion.correct_count !== null && suggestion.correct_count !== undefined) {
+                    document.getElementById(`scoredReviewCorrect-${index}`).value = suggestion.correct_count;
+                }
+                if (suggestion.total_questions !== null && suggestion.total_questions !== undefined) {
+                    document.getElementById(`scoredReviewTotal-${index}`).value = suggestion.total_questions;
+                }
+                const questions = document.getElementById(`scoredReviewQuestions-${index}`);
+                questions.innerHTML = (suggestion.question_results || []).map((item) =>
+                    scoredQuestionRow(item.question, item.result)
+                ).join('');
+                message.textContent = suggestion.question_results?.length
+                    ? `点数・問題別の候補を ${suggestion.question_results.length} 件読み取りました。`
+                    : '採点結果のOCR候補が見つかりませんでした。点数・正誤を入力してください。';
+            } catch (error) {
+                message.textContent = `${error.message} 点数・正誤を入力してください。`;
+            }
+        }
+
+        function scoredQuestionRow(question = '', result = 'unmarked') {
+            return `
+                <div class="form-group" style="display: flex; gap: 8px; align-items: center;">
+                    <label>問題 <input type="text" data-scored-question value="${escapeHtml(question)}" maxlength="32" style="width: 100px;"></label>
+                    <select data-scored-result>
+                        <option value="correct" ${result === 'correct' ? 'selected' : ''}>正解</option>
+                        <option value="incorrect" ${result === 'incorrect' ? 'selected' : ''}>不正解</option>
+                        <option value="unmarked" ${result === 'unmarked' ? 'selected' : ''}>未判定</option>
+                    </select>
+                    <button class="button button-secondary" type="button" onclick="this.parentElement.remove()">削除</button>
+                </div>
+            `;
+        }
+
+        function addScoredQuestion(index) {
+            document.getElementById(`scoredReviewQuestions-${index}`).insertAdjacentHTML(
+                'beforeend',
+                scoredQuestionRow()
+            );
+        }
+
+        async function saveScoredResult(index, recordId) {
+            const scoreText = document.getElementById(`scoredReviewScore-${index}`).value.trim();
+            const correctText = document.getElementById(`scoredReviewCorrect-${index}`).value.trim();
+            const totalText = document.getElementById(`scoredReviewTotal-${index}`).value.trim();
+            const score = Number(scoreText);
+            const correctCount = Number(correctText);
+            const totalQuestions = Number(totalText);
+            const questionResults = Array.from(
+                document.querySelectorAll(`#scoredReviewQuestions-${index} [data-scored-question]`)
+            ).map((input) => ({
+                question: input.value.trim(),
+                result: input.parentElement.parentElement.querySelector('[data-scored-result]').value,
+            }));
+
+            if (!scoreText || !correctText || !totalText
+                || !Number.isFinite(score)
+                || !Number.isInteger(correctCount)
+                || !Number.isInteger(totalQuestions)) {
+                showAlert('得点・正答数・問題数を入力してください。', 'error');
+                return;
+            }
+
+            const message = document.getElementById(`scoredReviewMessage-${index}`);
+            try {
+                const response = await fetch(
+                    `${API_BASE_URL}/analysis/answer-data/${encodeURIComponent(recordId)}/scored-results`,
+                    {
+                        method: 'PUT',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            score,
+                            correct_count: correctCount,
+                            total_questions: totalQuestions,
+                            question_results: questionResults,
+                        }),
+                    }
+                );
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error || '採点結果を保存できませんでした');
+                }
+                message.textContent = `保存済み: ${result.score}点 / ${result.correct_count}/${result.total_questions}問`;
+                showAlert(`${result.message}（${recordId}）`, 'success');
+            } catch (error) {
+                message.textContent = error.message;
+                showAlert(error.message || '採点結果を保存できませんでした', 'error');
+            }
         }
 
         // ホームに戻る
@@ -434,8 +629,6 @@
                 [
                     { key: 'queued', label: 'キュー登録' },
                     { key: 'ocr', label: 'OCR処理' },
-                    { key: 'auto_score', label: '自動採点' },
-                    { key: 'generate_report', label: 'レポート生成' },
                     { key: 'completed', label: '完了' },
                 ],
                 'queued',

@@ -336,11 +336,8 @@ class FirebaseService:
             return None
 
         query = self._where_equal(collection, 'answer_sheet_id', answer_sheet_id)
-        for doc in query.stream():
-            if doc.exists:
-                return self._serialize_doc(doc)
-
-        return None
+        results = [self._serialize_doc(doc) for doc in query.stream() if doc.exists]
+        return max(results, key=lambda row: str(row.get('created_at') or ''), default=None)
 
     def save_analysis_result(self, answer_sheet_id: str, student_name: str, score: Optional[float], correct_count: Optional[int], total_questions: Optional[int], error_patterns: Any, analysis_text: str, study_plan: str, processing_time: str, status: str = 'completed') -> Dict[str, Any]:
         if not self.enabled:

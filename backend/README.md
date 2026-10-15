@@ -194,10 +194,12 @@ Content-Type: multipart/form-data
 - test_name: "2026年5月 中間テスト"
 - subject: "数学"
 - exam_date: "2026-05-24"
-- auto_score: "true"
+- auto_score: "false"
 - ocr_process: "true"
 - generate_report: "false"
 ```
+
+アップロード後、OCRで抽出した得点・正答数・各問題の○×候補を教師が確認・修正して保存できます。保存結果は解答データ一覧と生徒別学習進捗に反映されます。OCR候補は完全とは限らないため、確認してから登録してください。
 
 ### データ分析 (`/api/analysis`)
 
@@ -209,6 +211,23 @@ GET /api/analysis/answer-data?test_name=中間テスト&subject=数学&status=co
 #### 解答データ詳細取得
 ```bash
 GET /api/analysis/answer-data/1
+```
+
+#### 採点済みプリントのOCR候補取得・確定結果保存
+```bash
+GET /api/analysis/answer-data/1/scored-result-suggestions
+PUT /api/analysis/answer-data/1/scored-results
+Content-Type: application/json
+
+{
+  "score": 80,
+  "correct_count": 8,
+  "total_questions": 10,
+  "question_results": [
+    {"question": "1", "result": "correct"},
+    {"question": "2", "result": "incorrect"}
+  ]
+}
 ```
 
 #### 統計情報取得
@@ -262,6 +281,10 @@ Content-Type: application/json
 - `file_name`: ファイル名
 - `file_size`: ファイルサイズ
 - `status`: ステータス (pending, processing, completed, failed)
+- `score`: 教師が確認した得点 (0-100)
+- `correct_count`: 正答数
+- `total_questions`: 総問題数
+- `question_results`: 教師が確認した問題ごとの正誤 (JSON)
 - `created_at`: 作成日時
 
 ### AnalysisResult テーブル

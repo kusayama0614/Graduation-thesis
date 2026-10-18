@@ -478,3 +478,63 @@ def test_problems_are_isolated_per_teacher(client):
     _register_and_login(client, teacher_id='other_teacher', password='secret12')
     assert client.get(f'/api/learning/problems/{problem_id}').status_code == 404
     assert client.get('/api/learning/profiles').get_json()['total'] == 0
+
+
+class FakeEmbedding:
+    """文章の長さと特定の語の有無からベクトルを作る（決定的）。"""
+
+    model_name = 'fake-embedding'
+
+    def __init__(self):
+        self.calls = []
+
+    def embed(self, texts):
+        self.calls.append(list(texts))
+        return [[float(len(t)), float('途中の式変形' in t), 1.0] for t in texts]
+
+
+def test_comparison_includes_semantic_similarity_and_caches_vectors(client):
+    problem_id = _setup_problem_and_profiles(client, FakeLLM(writer=correct_writer))
+    client.post(f'/api/learning/problems/{problem_id}/explanations', json={
+        'student_ids': ['S001', 'S002'], 'include_master': True, 'include_subtractive': True})
+    embedding = FakeEmbedding()
+    client.application.config['LEARNING_EMBEDDING_CLIENT'] = embedding
+
+    first = client.get(f'/api/learning/problems/{problem_id}/comparison').get_json()
+    assert first['semantic_similarity'] == {'available': True, 'model': 'fake-embedding', 'reason': None}
+    weak = next(s for s in first['students'] if s['student_id'] == 'S001')
+    assert 0 < weak['individual']['semantic_similarity_to_master'] <= 1
+    assert first['between_students']['individual']['mean_semantic_similarity'] is not None
+    assert len(embedding.calls) == 1 and len(embedding.calls[0]) == 5  # master + 2人 × (individual, subtractive)
+
+    second = client.get(f'/api/learning/problems/{problem_id}/comparison').get_json()
+    assert len(embedding.calls) == 1  # 保存済みのベクトルを使い，再計算しない
+    assert second['students'] == first['students']
+
+    from app.models import ExplanationEmbedding
+    with client.application.app_context():
+        assert ExplanationEmbedding.query.count() == 5
+    assert client.delete(f'/api/learning/problems/{problem_id}').status_code == 200
+    with client.application.app_context():
+        assert ExplanationEmbedding.query.count() == 0  # 問題を削除するとベクトルも消える
+
+
+def test_comparison_without_embedding_key_still_returns_text_similarity(client):
+    problem_id = _setup_problem_and_profiles(client, FakeLLM(writer=correct_writer))
+    client.post(f'/api/learning/problems/{problem_id}/explanations', json={
+        'student_ids': ['S001'], 'include_master': True})
+    client.application.config['LEARNING_EMBEDDING_CLIENT'] = None
+    body = client.get(f'/api/learning/problems/{problem_id}/comparison').get_json()
+    assert body['semantic_similarity']['available'] is False
+    assert 'GEMINI_API_KEY' in body['semantic_similarity']['reason']
+    weak = body['students'][0]
+    assert weak['individual']['similarity_to_master'] is not None
+    assert weak['individual']['semantic_similarity_to_master'] is None
+    skipped = client.get(f'/api/learning/problems/{problem_id}/comparison?semantic=false').get_json()
+    assert skipped['semantic_similarity']['reason'] == 'semantic=false が指定されました'
+
+
+def test_cosine_similarity():
+    assert chain.cosine_similarity([1, 0], [1, 0]) == 1.0
+    assert chain.cosine_similarity([1, 0], [0, 1]) == 0.0
+    assert chain.cosine_similarity([0, 0], [1, 0]) is None

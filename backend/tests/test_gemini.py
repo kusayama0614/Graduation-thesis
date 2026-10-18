@@ -11,7 +11,7 @@ from tests.test_api_core import client  # noqa: F401  (fixture の再利用)
 
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):
-    for name in ('GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GEMINI_MODEL', 'GEMINI_THINKING_LEVEL',
+    for name in ('GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GEMINI_MODEL', 'GEMINI_THINKING_LEVEL', 'GEMINI_EMBEDDING_MODEL',
                  'GOOGLE_GENAI_USE_VERTEXAI'):
         monkeypatch.delenv(name, raising=False)
 
@@ -130,3 +130,39 @@ def test_report_generator_uses_local_fallback_on_quota_error(monkeypatch):
     report = generator.generate_analysis_report(_report_data())
     assert report.startswith('【ローカル生成レポート】')
     assert 'Gemini API がクォータ不足' in report
+
+
+# ---------------------------------------------------------------- 埋め込み（意味の類似度）
+
+class _FakeEmbeddings:
+    def __init__(self):
+        self.calls = []
+
+    def embed_documents(self, texts, task_type=None):
+        self.calls.append((list(texts), task_type))
+        return [[1.0, 0.0] for _ in texts]
+
+
+def test_default_embedding_model_and_backend():
+    embeddings = gemini.build_embeddings(api_key='dummy')
+    assert embeddings.model.endswith('gemini-embedding-2')
+    assert embeddings.vertexai is False
+
+
+def test_embedding_2_uses_similarity_instruction(monkeypatch):
+    fake = _FakeEmbeddings()
+    monkeypatch.setattr(gemini, 'build_embeddings', lambda name, key: fake)
+    gemini.embed_for_similarity(['解説A'], 'gemini-embedding-2', 'dummy')
+    assert fake.calls == [(['task: sentence similarity | query: 解説A'], None)]
+
+
+def test_embedding_001_uses_task_type(monkeypatch):
+    fake = _FakeEmbeddings()
+    monkeypatch.setattr(gemini, 'build_embeddings', lambda name, key: fake)
+    gemini.embed_for_similarity(['解説A'], 'gemini-embedding-001', 'dummy')
+    assert fake.calls == [(['解説A'], 'SEMANTIC_SIMILARITY')]
+
+
+def test_embedding_model_can_be_configured(monkeypatch):
+    monkeypatch.setenv('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001')
+    assert gemini.gemini_embedding_model_name() == 'gemini-embedding-001'

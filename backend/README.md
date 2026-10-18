@@ -73,6 +73,7 @@ GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/serviceAccountKey.json
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-3.1-pro-preview
 GEMINI_THINKING_LEVEL=
+GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 SESSION_TYPE=filesystem
 PERMANENT_SESSION_LIFETIME=3600
 UPLOAD_FOLDER=uploads
@@ -89,6 +90,7 @@ LANGCHAIN_TRACING_V2=false
 
 - `GEMINI_MODEL`: 使うモデル（既定 `gemini-3.1-pro-preview`）。プレビュー版のため，名前が変わった場合はここを変更します。
 - `GEMINI_THINKING_LEVEL`: 任意。`low` にすると応答が速く安くなります。未設定ならモデルの既定。
+- `GEMINI_EMBEDDING_MODEL`: 解説どうしの意味の類似度（5.5節）に使う埋め込みモデル（既定 `gemini-embedding-2`）。`gemini-embedding-2` には意味的類似度の指示（`task: sentence similarity | query: `）を本文の前に付け，`gemini-embedding-001` を指定した場合は `task_type=SEMANTIC_SIMILARITY` を使います。
 - Gemini は常に API キー方式（Gemini Developer API）で接続し，Firebase・Cloud Vision 用の `GOOGLE_APPLICATION_CREDENTIALS` とは独立です。
 - Gemini 3 以降では temperature を指定しません（Google の推奨。指定すると推論の劣化やループの原因になるため）。
 
@@ -409,7 +411,7 @@ API はすべてログインが必要で，`/api/learning` 配下にあります
 - `POST /api/learning/problems/<id>/explanations`  `{"student_ids": [...], "include_master": true, "include_subtractive": true}` で生成（バックグラウンドのジョブ。`GET /api/learning/jobs/<job_id>` で進捗）。
   `student_ids` を省略するとプロファイルのある全生徒が対象です。問題に `correct_answer` を登録しておくと，解説の結論も照合します。
 - 生成結果は `GET /api/learning/explanations/<id>`。ステップごとの判断・検算・差し戻しの記録（`trace`）と，参照した定着度（`profile_snapshot`）が残ります。
-- 比較（5.5節 表10）: `GET /api/learning/problems/<id>/comparison` でマスター解説 (A)・引き算型 (B)・積み上げ型 (C) の指標と文字列の類似度（difflib）を返します。埋め込みによる意味の類似度は未実装です。
+- 比較（5.5節 表10）: `GET /api/learning/problems/<id>/comparison` でマスター解説 (A)・引き算型 (B)・積み上げ型 (C) の指標と，文字列の一致度（difflib）・意味の類似度（Gemini の埋め込み `gemini-embedding-2` によるコサイン類似度）を返します。埋め込みは解説ごとに保存し，2回目以降は再計算しません（`?semantic=false` で省略可）。
 
 LLM は Gemini で，環境変数 `GEMINI_API_KEY`（必須）と `GEMINI_MODEL`（既定 `gemini-3.1-pro-preview`）で設定します。未設定のときは LLM を使う API が 503 を返し，プロファイルの更新は LLM なしで動きます。
 

@@ -9,11 +9,14 @@ LLM には Gemini（既定 gemini-3.1-pro-preview）を用いる。設定は app
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
 from flask import current_app
 
-from app.utils.gemini import build_chat_model, gemini_api_key, gemini_model_name, message_text
+from app.utils.gemini import (
+    build_chat_model, embed_for_similarity, gemini_api_key, gemini_embedding_model_name, gemini_model_name,
+    message_text,
+)
 
 
 class LLMUnavailable(RuntimeError):
@@ -63,3 +66,29 @@ def get_llm_client(required: bool = False) -> Optional[LLMClient]:
     if required:
         raise LLMUnavailable('GEMINI_API_KEY が設定されていないため，LLM を使う処理を実行できません')
     return None
+
+
+class EmbeddingClient(Protocol):
+    model_name: str
+
+    def embed(self, texts: List[str]) -> List[List[float]]:
+        """文章ごとの埋め込みベクトルを返す。"""
+
+
+class GeminiEmbeddingClient:
+    """Gemini の埋め込みモデル（既定 gemini-embedding-2）。"""
+
+    def __init__(self, api_key: str, model_name: Optional[str] = None):
+        self.api_key = api_key
+        self.model_name = model_name or gemini_embedding_model_name()
+
+    def embed(self, texts):
+        return embed_for_similarity(list(texts), self.model_name, self.api_key)
+
+
+def get_embedding_client() -> Optional[EmbeddingClient]:
+    client = current_app.config.get('LEARNING_EMBEDDING_CLIENT')
+    if client is not None:
+        return client
+    api_key = gemini_api_key()
+    return GeminiEmbeddingClient(api_key) if api_key else None

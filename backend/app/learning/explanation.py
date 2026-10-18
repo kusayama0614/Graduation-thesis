@@ -14,6 +14,7 @@ Chain 4  説明中の「左辺 = 右辺」の計算を LLM が式として抜き
 from __future__ import annotations
 
 import difflib
+import math
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.learning import graph
@@ -417,6 +418,15 @@ def build_subtractive(problem: Dict[str, Any], master: Dict[str, Any], node_stat
 def text_similarity(a: str, b: str) -> float:
     """文字列の一致度（difflib）。"""
     return round(difflib.SequenceMatcher(None, a, b).ratio(), 3)
+
+
+def cosine_similarity(a: List[float], b: List[float]) -> Optional[float]:
+    """埋め込みベクトルのコサイン類似度（意味の類似度）。"""
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(y * y for y in b))
+    if not norm_a or not norm_b or len(a) != len(b):
+        return None
+    return round(sum(x * y for x, y in zip(a, b)) / (norm_a * norm_b), 3)
 
 
 def explanation_metrics(trace: Dict[str, Any], node_states: Dict[str, Any]) -> Dict[str, Any]:

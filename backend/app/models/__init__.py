@@ -216,6 +216,8 @@ class GeneratedExplanation(db.Model):
     model_name = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=utc_now)
 
+    embeddings = db.relationship('ExplanationEmbedding', lazy=True, cascade='all, delete-orphan')
+
     def __repr__(self):
         return f'<GeneratedExplanation {self.kind} {self.student_id}>'
 
@@ -239,3 +241,17 @@ class GenerationJob(db.Model):
 
     def __repr__(self):
         return f'<GenerationJob {self.id} {self.status}>'
+
+
+class ExplanationEmbedding(db.Model):
+    """解説の埋め込みベクトルのキャッシュ（意味の類似度，5.5節）。モデルごとに1行。"""
+
+    __tablename__ = 'explanation_embeddings'
+    __table_args__ = (db.UniqueConstraint('explanation_id', 'model_name', name='uq_explanation_embedding_model'),)
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    explanation_id = db.Column(db.String(36), db.ForeignKey('generated_explanations.id', ondelete='CASCADE'),
+                               nullable=False, index=True)
+    model_name = db.Column(db.String(100), nullable=False)
+    vector = db.Column(db.Text, nullable=False)  # JSON list[float]
+    created_at = db.Column(db.DateTime, default=utc_now)

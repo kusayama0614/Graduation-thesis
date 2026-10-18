@@ -11,10 +11,11 @@ from app import db
 from app.learning import explanation as chain
 from app.learning import graph
 from app.learning.jobs import job_to_dict, problem_to_chain_input, start_job
-from app.learning.llm import LLMUnavailable, get_llm_client
+from app.learning.llm import LLMUnavailable, get_embedding_client, get_llm_client
 from app.learning.profile import ExerciseError, apply_exercise, profile_to_dict, rebuild_profile
 from app.models import (
-    AnswerSheet, ExerciseRecord, GeneratedExplanation, GenerationJob, LearnerProfile, TestProblem,
+    AnswerSheet, ExerciseRecord, ExplanationEmbedding, GeneratedExplanation, GenerationJob, LearnerProfile,
+    TestProblem,
 )
 from app.routes.analysis import _resolve_teacher_ids
 from app.routes.auth import login_required
@@ -445,10 +446,31 @@ def get_explanation(explanation_id):
     return make_success_response({'explanation': _explanation_to_dict(row)})
 
 
+def _embedding_vectors(rows, client):
+    """解説の埋め込みベクトルを返す（保存済みはそれを使い，無いものだけまとめて計算して保存する）。"""
+    ids = [r.id for r in rows]
+    cached = {e.explanation_id: json.loads(e.vector) for e in ExplanationEmbedding.query.filter(
+        ExplanationEmbedding.explanation_id.in_(ids), ExplanationEmbedding.model_name == client.model_name).all()}
+    missing = [r for r in rows if r.id not in cached]
+    if missing:
+        vectors = client.embed([r.content or '' for r in missing])
+        for row, vector in zip(missing, vectors):
+            vector = [float(v) for v in vector]
+            cached[row.id] = vector
+            db.session.add(ExplanationEmbedding(explanation_id=row.id, model_name=client.model_name,
+                                                vector=json.dumps(vector)))
+        db.session.commit()
+    return cached
+
+
 @learning_bp.route('/problems/<problem_id>/comparison', methods=['GET'])
 @login_required
 def comparison(problem_id):
-    """マスター解説 (A)・引き算型 (B)・積み上げ型 (C) を表10の指標で比較する（各生徒の最新のものを使う）。"""
+    """マスター解説 (A)・引き算型 (B)・積み上げ型 (C) を表10の指標で比較する（各生徒の最新のものを使う）。
+
+    類似度は文字列の一致度（difflib）と，Gemini の埋め込みによる意味の類似度（コサイン類似度）の両方を返す。
+    ?semantic=false で意味の類似度を省略できる。
+    """
     problem = _get_problem(problem_id)
     if not problem:
         return make_error_response('LEARNING_PROBLEM_NOT_FOUND', 'Problem not found', 404)
@@ -458,6 +480,27 @@ def comparison(problem_id):
     for row in rows:
         latest.setdefault((row.kind, row.student_id), row)
     master = latest.get(('master', None))
+
+    semantic = {'available': False, 'model': None, 'reason': None}
+    vectors = {}
+    if request.args.get('semantic', 'true').lower() != 'false' and latest:
+        client = get_embedding_client()
+        if client is None:
+            semantic['reason'] = 'GEMINI_API_KEY が設定されていないため，意味の類似度は計算していません'
+        else:
+            try:
+                vectors = _embedding_vectors(list(latest.values()), client)
+                semantic.update(available=True, model=client.model_name)
+            except Exception as exc:
+                db.session.rollback()
+                semantic['reason'] = f'埋め込みの計算に失敗しました（{exc.__class__.__name__}: {exc}）'
+    elif latest:
+        semantic['reason'] = 'semantic=false が指定されました'
+
+    def semantic_sim(a, b):
+        if a.id in vectors and b.id in vectors:
+            return chain.cosine_similarity(vectors[a.id], vectors[b.id])
+        return None
 
     students = sorted({sid for (kind, sid) in latest if sid})
     per_student = []
@@ -475,23 +518,30 @@ def comparison(problem_id):
                 'explanation_id': row.id,
                 'metrics': chain.explanation_metrics(trace, node_states),
                 'similarity_to_master': chain.text_similarity(row.content or '', master.content or '') if master else None,
+                'semantic_similarity_to_master': semantic_sim(row, master) if master else None,
             }
         if master:
             entry['master_metrics'] = chain.explanation_metrics(json.loads(master.trace or '{}'), node_states)
         per_student.append(entry)
 
+    def mean(values):
+        values = [v for v in values if v is not None]
+        return round(sum(values) / len(values), 3) if values else None
+
     between_students = {}
     for kind in ('individual', 'subtractive'):
-        texts = [(sid, latest[(kind, sid)].content or '') for sid in students if (kind, sid) in latest]
-        pairs = [chain.text_similarity(a, b) for i, (_, a) in enumerate(texts) for (_, b) in texts[i + 1:]]
+        kind_rows = [latest[(kind, sid)] for sid in students if (kind, sid) in latest]
+        pairs = [(a, b) for i, a in enumerate(kind_rows) for b in kind_rows[i + 1:]]
         between_students[kind] = {
             'pair_count': len(pairs),
-            'mean_similarity': round(sum(pairs) / len(pairs), 3) if pairs else None,
+            'mean_similarity': mean([chain.text_similarity(a.content or '', b.content or '') for a, b in pairs]),
+            'mean_semantic_similarity': mean([semantic_sim(a, b) for a, b in pairs]),
         }
 
     return make_success_response({
         'problem_id': problem_id,
         'master_explanation_id': master.id if master else None,
+        'semantic_similarity': semantic,
         'students': per_student,
         'between_students': between_students,
     })

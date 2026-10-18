@@ -8,9 +8,14 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Tuple, Any
 
+from app.utils.math_verification import judge_answer
+
+# 解答部分に許す文字: 英数・かな・漢字・数式記号（分数 / 、√、冪 ^ ²、関係記号、カンマ、括弧など）
+_ANSWER_CHARS = r"A-Za-z0-9一-龥ぁ-んァ-ン\+\-\*/\.\^√²³°π×÷±=<>≦≧≠≤≥,、，\(\)（）．"
+
 ANSWER_LINE_PATTERNS = [
-    r"^(\d{1,3})[\).:\-\s]+([A-Za-z0-9一-龥ぁ-んァ-ン\+\-]+)$",
-    r"^(\d{1,3})\s+([A-Za-z0-9一-龥ぁ-んァ-ン\+\-]+)$",
+    rf"^(\d{{1,3}})[\).:\-\s]+([{_ANSWER_CHARS}]+)$",
+    rf"^(\d{{1,3}})\s+([{_ANSWER_CHARS}]+)$",
 ]
 
 
@@ -77,15 +82,15 @@ def score_with_key(ocr_text: str, answer_key: Dict[str, Any]) -> Dict[str, Any]:
     for q, expected in key_answers.items():
         actual = parsed.get(str(q)) or parsed.get(str(int(q)) if str(q).isdigit() else q) or ''
         is_correct = False
+        method = 'empty'
         if actual and expected is not None:
-            # 比較: 大文字小文字無視、全角/半角簡易正規化
-            act_norm = str(actual).strip().upper().translate(str.maketrans({'　': ' ', '％': '%'}))
-            exp_norm = str(expected).strip().upper().translate(str.maketrans({'　': ' ', '％': '%'}))
-            if act_norm == exp_norm:
-                is_correct = True
+            # 数学的同値性で判定（解釈できない解答は文字列一致にフォールバック）
+            verdict = judge_answer(expected, actual)
+            is_correct = verdict['is_correct']
+            method = verdict['method']
         if is_correct:
             correct += 1
-        details.append({'q': str(q), 'expected': expected, 'actual': actual, 'correct': is_correct})
+        details.append({'q': str(q), 'expected': expected, 'actual': actual, 'correct': is_correct, 'method': method})
 
     # 不正解パターン抽出（簡易）
     error_patterns = []

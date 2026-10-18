@@ -328,8 +328,30 @@ Content-Type: application/json
 | SQLite | 標準搭載 | デフォルトDB |
 | pytesseract | 0.3.10 | OCR処理 |
 | Pillow | 10.0.0 | 画像処理 |
+| sympy | >=1.12 | 採点時の数学的同値判定 |
 
 ---
+
+## 🧮 採点ロジック（数学的検証）
+
+`app/utils/scoring.py` の `score_with_key()` は、解答キーと生徒の解答を `app/utils/math_verification.py` の
+`judge_answer(expected, actual)` で比較します。文字列の完全一致ではなく、sympyによる数学的な同値判定です（LLMは使わず決定的）。
+
+| 例（解答キー → 生徒の解答） | 判定 | `method` |
+|---|---|---|
+| `1/√3` → `√3/3` | 正解 | `symbolic_equal` |
+| `x^2+2x+1` → `(x+1)²` | 正解 | `symbolic_equal` |
+| `23.6`（小数第1位）→ `23.62` / `23.7` | 正解 / 不正解 | `numeric_equal` / `numeric_mismatch` |
+| `16/3>m` → `m<16/3` | 正解 | `set_equal` |
+| `16/3>m` → `m≦16/3` | 不正解（境界が異なる） | `set_mismatch` |
+| `m=-6, 2` → `2, m=-6`（順不同） | 正解 | `list_equal` |
+| `m=-6, 2` → `m=-6` | 不正解 | `incomplete` |
+| `ア` → `ア`（選択式など数式でないもの） | 正解 | `string_exact`（文字列一致へフォールバック） |
+
+- 期待値が小数のときは、その桁数での四捨五入の範囲（±0.5×10^-桁）を許容します。小数でないときはほぼ厳密一致です。
+- 数式として解釈できない解答、または安全でない入力（`[ ] { } " ' ; : \ @ # $ & ` | ~`、`__`、属性アクセス、Pythonキーワード、200文字超）は
+  sympyに渡さず、大文字小文字・全角半角を正規化した文字列一致で判定します。
+- `score_with_key()` の `details` の各要素に、判定方法を示す `method` キーが含まれます（`empty` は未回答/キー無し）。
 
 ## 🔐 セキュリティに関する注意
 

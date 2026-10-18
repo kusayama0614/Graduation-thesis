@@ -467,3 +467,62 @@ def judge_answer(expected: Any, actual: Any) -> Dict[str, Any]:
         # 大文字小文字だけの差(x と X など)は従来の採点どおり正解とする
         return {'is_correct': True, 'method': 'string_exact', 'detail': '文字列として一致します'}
     return verdict
+
+
+# ---------------------------------------------------------------- 解説の検算 (Chain 4)
+
+_IDENTIFIER = re.compile(r'^[A-Za-z][A-Za-z0-9_]*$')
+
+
+def _format_value(expr: sp.Basic) -> str:
+    if expr.has(sp.Float):
+        return str(sp.N(expr, 6))
+    return str(sp.simplify(expr))
+
+
+def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """解説中の計算の主張「lhs = rhs」を検算する（卒業論文 3.5節，Chain 4）。
+
+    definitions: それまでに解説中で定義された文字 {名前: 式}（例: {'D': '64-12*m'}）。代入してから比較する。
+    戻り値 status:
+      ok           : 成り立つ（rhs が小数なら，その桁数での四捨五入の範囲で一致）
+      ng           : 成り立たない（true_value に左辺の正しい値）
+      definition   : 左辺が新しい文字の定義（D = b^2-4ac など）。呼び出し側で definitions に加える
+      unverifiable : 式として解釈できない，または両辺の文字が異なり恒等式として判定できない
+    """
+    lhs_text, rhs_text = str(lhs).strip(), str(rhs).strip()
+    result: Dict[str, Any] = {'status': 'unverifiable', 'true_value': None, 'detail': ''}
+    if not (_is_safe(lhs_text) and _is_safe(rhs_text)):
+        result['detail'] = '安全に解釈できない文字を含むため検算しませんでした'
+        return result
+    try:
+        lhs_pre, rhs_pre = _preprocess(lhs_text), _preprocess(rhs_text)
+        left, right = _to_expr(lhs_pre), _to_expr(rhs_pre)
+        substitutions = {}
+        for name, value in (definitions or {}).items():
+            if _IDENTIFIER.match(name) and _is_safe(str(value)):
+                substitutions[sp.Symbol(name)] = _to_expr(_preprocess(str(value)))
+    except _Unparseable as exc:
+        result['detail'] = f'式として解釈できませんでした（{exc}）'
+        return result
+    if not (isinstance(left, sp.Expr) and isinstance(right, sp.Expr)):
+        result['detail'] = '等式の両辺が値の式ではありません'
+        return result
+
+    if _IDENTIFIER.match(lhs_pre) and sp.Symbol(lhs_pre) not in substitutions \
+            and sp.Symbol(lhs_pre) not in right.free_symbols:
+        return {'status': 'definition', 'true_value': None, 'detail': f'{lhs_pre} の定義として記録しました'}
+
+    left, right = left.subs(substitutions), right.subs(substitutions)
+    if left.free_symbols != right.free_symbols:
+        result['detail'] = '両辺の文字が異なるため，恒等式として検算できません'
+        return result
+
+    ok, method, detail = _compare_exprs(right, left, _decimal_places(rhs_pre))
+    if ok:
+        return {'status': 'ok', 'true_value': None, 'detail': detail}
+    try:
+        true_value = _format_value(left)
+    except Exception:
+        true_value = None
+    return {'status': 'ng', 'true_value': true_value, 'detail': detail}

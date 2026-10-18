@@ -24,6 +24,8 @@ _LOOSE_SPACE = re.compile(rf"(?<![{_SPACE_NEIGHBORS}]) (?![{_SPACE_NEIGHBORS}])"
 # "1 -2" "1)-2" "1--2" のような、他の区切りの後ろで文字に付く "-" は負号として解答側に残す。
 _SEPARATOR = r"(?:[\).:）．：\s]|[-－](?=\s)|(?<=\d)[-－])"
 
+_KEY_META_FIELDS = ('total_questions', 'unit', 'nodes')
+
 ANSWER_LINE_PATTERN = re.compile(
     rf"^(\d{{1,3}}){_SEPARATOR}+([{_ANSWER_CHARS}](?:[{_ANSWER_CHARS}\s]*[{_ANSWER_CHARS}])?)$"
 )
@@ -88,7 +90,8 @@ def score_with_key(ocr_text: str, answer_key: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(answer_key, dict) and 'answers' in answer_key:
         key_answers = answer_key['answers']
     else:
-        key_answers = answer_key if isinstance(answer_key, dict) else {}
+        # 解答キーのメタ情報（単元・前提知識ノード）は問題番号として扱わない
+        key_answers = {k: v for k, v in answer_key.items() if k not in _KEY_META_FIELDS} if isinstance(answer_key, dict) else {}
 
     total = int(answer_key.get('total_questions') if isinstance(answer_key, dict) and 'total_questions' in answer_key else max(len(key_answers), len(parsed) if parsed else 0))
     if total == 0:

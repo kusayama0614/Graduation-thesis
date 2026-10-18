@@ -185,6 +185,10 @@ def upload_answer_sheet():
                     'total_questions': parsed.get('total_candidates', len(answers)),
                     'answers': answers
                 }
+                # 前提知識ノード（学習者プロファイル用，任意）
+                key_nodes = {str(item.get('question')): item['nodes'] for item in parsed.get('candidates', []) if item.get('nodes')}
+                if key_nodes:
+                    answer_key['nodes'] = key_nodes
             else:
                 # try JSON fallback
                 try:
@@ -196,6 +200,13 @@ def upload_answer_sheet():
         except Exception:
             answer_key = None
     
+    # 単元（学習者プロファイル用，任意）
+    unit = request.form.get('unit', '').strip()
+    if unit and isinstance(answer_key, dict):
+        if 'answers' not in answer_key:
+            answer_key = {'answers': answer_key}
+        answer_key.setdefault('unit', unit)
+
     # バリデーション
     if not test_name or not subject or not exam_date:
         return make_error_response('UPLOAD_REQUIRED_FIELDS', 'test_name, subject, and exam_date are required', 400)

@@ -124,3 +124,118 @@ class ProcessingLog(db.Model):
     
     def __repr__(self):
         return f'<ProcessingLog {self.step}>'
+
+
+# ==================== 個別最適化解説生成（卒業論文 3章） ====================
+
+class LearnerProfile(db.Model):
+    """学習者プロファイル（3.2節）。ExerciseRecord から決定的に再計算される集約。"""
+
+    __tablename__ = 'learner_profiles'
+    __table_args__ = (db.UniqueConstraint('teacher_id', 'student_id', name='uq_learner_profile_student'),)
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
+    student_id = db.Column(db.String(100), nullable=False)  # 匿名化した生徒ID
+    node_states = db.Column(db.Text)  # JSON: {node_id: {confidence, evidence_count, history: [...]}}
+    error_tendencies = db.Column(db.Text)  # JSON: {node_id: 誤りの回数}
+    judgment_counts = db.Column(db.Text)  # JSON: {判定ラベル: 件数}
+    exercise_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    def __repr__(self):
+        return f'<LearnerProfile {self.student_id}>'
+
+
+class ExerciseRecord(db.Model):
+    """演習ごとの記録（3.2節 表2）。演習プリントの小問1つにつき1行。"""
+
+    __tablename__ = 'exercise_records'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
+    student_id = db.Column(db.String(100), nullable=False)
+    answer_sheet_id = db.Column(db.String(64), nullable=False)
+    exercise_name = db.Column(db.String(200))
+    exercise_date = db.Column(db.Date)
+    unit = db.Column(db.String(50))
+    question = db.Column(db.String(32), nullable=False)
+    nodes = db.Column(db.Text)  # JSON list: この小問が依存する前提知識ノード
+    expected_answer = db.Column(db.Text)
+    initial_answer = db.Column(db.Text)  # 初答
+    corrected = db.Column(db.Boolean, default=False)  # 略解参照後の訂正の有無
+    judgment = db.Column(db.String(32), nullable=False)  # correct / wrong / incomplete / form_issue / blank ...
+    judge_method = db.Column(db.String(32))  # math_verification の method または teacher
+    error_node = db.Column(db.String(64))  # 誤りの種類（診断した前提知識ノード）
+    diagnosis_method = db.Column(db.String(32))  # single_node / llm / fallback_first_node
+    diagnosis_note = db.Column(db.Text)  # 診断の根拠（LLM の理由，フォールバックの理由）
+    created_at = db.Column(db.DateTime, default=utc_now)
+
+    def __repr__(self):
+        return f'<ExerciseRecord {self.student_id} {self.question}>'
+
+
+class TestProblem(db.Model):
+    """定期テストの問題（フェーズBの入力）と，Chain 1 による解答ステップへの分解結果。"""
+
+    __tablename__ = 'test_problems'
+    __test__ = False  # pytest に Test* クラスとして収集させない
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
+    unit = db.Column(db.String(50), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    problem_text = db.Column(db.Text, nullable=False)
+    correct_answer = db.Column(db.Text)  # 任意。教員が与えた最終的な答え（Chain 4 で解説の結論を照合）
+    steps = db.Column(db.Text)  # JSON list: [{id, title, description, result, nodes}]
+    steps_source = db.Column(db.String(20))  # chain1 / teacher
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    explanations = db.relationship('GeneratedExplanation', backref='problem', lazy=True, cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<TestProblem {self.title}>'
+
+
+class GeneratedExplanation(db.Model):
+    """生成した解説と，その根拠（Chain 2 の判断と Chain 4 の検算結果）。"""
+
+    __tablename__ = 'generated_explanations'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
+    problem_id = db.Column(db.String(36), db.ForeignKey('test_problems.id'), nullable=False)
+    student_id = db.Column(db.String(100))  # master（マスター解説）のときは None
+    kind = db.Column(db.String(20), default='individual')  # individual（積み上げ型）/ master / subtractive（引き算型）
+    status = db.Column(db.String(20), nullable=False)  # ok / needs_review
+    content = db.Column(db.Text)
+    trace = db.Column(db.Text)  # JSON: ステップごとの判断・検算・再生成の記録
+    profile_snapshot = db.Column(db.Text)  # JSON: 生成時に参照した定着度
+    model_name = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=utc_now)
+
+    def __repr__(self):
+        return f'<GeneratedExplanation {self.kind} {self.student_id}>'
+
+
+class GenerationJob(db.Model):
+    """解説生成のバックグラウンドジョブ（生徒数 × ステップ数の LLM 呼び出しになるため非同期で実行）。"""
+
+    __tablename__ = 'generation_jobs'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
+    problem_id = db.Column(db.String(36), db.ForeignKey('test_problems.id'), nullable=False)
+    status = db.Column(db.String(20), default='queued')  # queued / running / completed / failed
+    request = db.Column(db.Text)  # JSON: {student_ids, include_master, include_subtractive}
+    total = db.Column(db.Integer, default=0)
+    done = db.Column(db.Integer, default=0)
+    explanation_ids = db.Column(db.Text)  # JSON list
+    errors = db.Column(db.Text)  # JSON list
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    def __repr__(self):
+        return f'<GenerationJob {self.id} {self.status}>'

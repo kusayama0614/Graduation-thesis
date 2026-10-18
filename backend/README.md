@@ -360,6 +360,53 @@ OCRテキストからの解答抽出（`parse_answers_from_ocr()`）は、1行 =
   `1 -2`・`1)-2`・`1--2` のように他の区切りの後ろで文字に付く `-` は負号として解答に残します。
 - 解答内の空白は、演算子やカンマに隣接する場合だけ許します（`m=-6, 2`、`x = 2` はOK）。`1 A B` や `1 2 3` のように区切りが曖昧な行は読み取りません。
 
+## 🧠 学習者プロファイルと個別化した解説の生成（卒業論文 3章）
+
+`app/learning/` に，卒業論文草稿（`docs/thesis/卒業論文草稿_1013.docx`）3章の設計を実装しています。
+API はすべてログインが必要で，`/api/learning` 配下にあります。
+
+### 前提知識依存グラフ（3.3節）
+- `app/learning/data/prerequisite_graph.json`。ノードは草稿の表3（2次関数 11ノード）・表4（図形と計量 7ノード）のとおり。
+- 辺（前提関係）は草稿に記載がないため仮置きで，すべて `"status": "要確認"`。辺は現在の解説生成の判断には使っていません。
+- `GET /api/learning/graph` でグラフと詳しさの判断規則を取得できます。
+
+### フェーズA: 演習 → 学習者プロファイル（3.2節）
+1. 解答キーの各小問に前提知識ノードを付ける。
+   - アップロード時: CSV/Excel の `nodes` 列（`question,answer,nodes`，複数は `;` 区切り）または JSON の `nodes`，フォームの `unit`
+   - あとから: `PUT /api/learning/answer-data/<id>/node-tags`  `{"unit": "quadratic_functions", "nodes": {"1": ["inequality_manipulation", "exact_value"]}}`
+2. `POST /api/learning/answer-data/<id>/apply` で反映する（同じプリントの再反映は置き換えで，二重に更新されない）。
+   - 小問の判定は，教員が確認した採点結果（`PUT /api/analysis/answer-data/<id>/scored-results`）があればそれを優先し，なければ解答キーと OCR テキストを数学的検証チェーンで判定します。
+   - 教員確認の `question_results` には任意で `judgment`（`correct` / `correct_form_issue` / `wrong` / `incomplete` / `form_issue` / `blank` / `unreadable` / `unmarked`），初答 `answer`，訂正の有無 `corrected` を付けられます。
+   - 誤答の「誤りの種類」は，小問のノードが1つならそのノード，複数なら LLM が候補から1つ選びます（LLM 未設定時は最初のノード）。
+3. 定着度 `c_t = 0.3·r_t + 0.7·c_(t−1)`（初期値 0.5）。正解は小問の全ノードに，誤答は診断したノードだけに，空欄は全ノードに反映します。
+   - `GET /api/learning/profiles`，`GET /api/learning/profiles/<生徒ID>`（演習ごとの記録つき）
+
+### フェーズB: 定期テスト問題 → 生徒ごとの解説（3.4節・3.5節）
+| チェーン | 実装 | 担い手 |
+|---|---|---|
+| Chain 1 | `POST /api/learning/problems`（`steps` 省略時）で問題文を解答ステップに分解。ノードは JSON Schema の選択肢に制約。教員は `PUT /api/learning/problems/<id>` で修正可 | LLM |
+| Chain 2 | 定着度から含める要素を決め（下表），その指示で説明を書く | 判断はプログラム，文章は LLM |
+| Chain 3 | ステップの説明を順に結合 | プログラム |
+| Chain 4 | 説明中の「左辺 = 右辺」を抜き出して sympy で検算。誤りは正しい値を添えて Chain 2 に差し戻し，3回で直らなければ `needs_review`（教員確認）。計算が抜き出されないステップは警告 | 抜き出しは LLM，判定は sympy |
+
+詳しさの決め方（3.4節の方式(1)，ステップが依存するノードのうち最も弱いものの定着度 c で判断）:
+
+| 要素 | 含める条件 |
+|---|---|
+| 結果と使う公式 | 常に |
+| 途中の式変形を省略しない説明 | c < 0.5（草稿の閾値） |
+| 前提知識の定義・公式の意味の復習 | c < 0.35 |
+| 類題での確認 | c < 0.2 |
+| その生徒の誤りの傾向への注意 | 誤りの記録があるノードの定着度 < 0.7 |
+
+- `GET /api/learning/problems/<id>/plan?student_id=...` で，LLM を呼ばずに判断とその理由（例:「double_root の定着度 0.35 が閾値 0.5 を下回るため…」）を確認できます。
+- `POST /api/learning/problems/<id>/explanations`  `{"student_ids": [...], "include_master": true, "include_subtractive": true}` で生成（バックグラウンドのジョブ。`GET /api/learning/jobs/<job_id>` で進捗）。
+  `student_ids` を省略するとプロファイルのある全生徒が対象です。問題に `correct_answer` を登録しておくと，解説の結論も照合します。
+- 生成結果は `GET /api/learning/explanations/<id>`。ステップごとの判断・検算・差し戻しの記録（`trace`）と，参照した定着度（`profile_snapshot`）が残ります。
+- 比較（5.5節 表10）: `GET /api/learning/problems/<id>/comparison` でマスター解説 (A)・引き算型 (B)・積み上げ型 (C) の指標と文字列の類似度（difflib）を返します。埋め込みによる意味の類似度は未実装です。
+
+LLM は環境変数 `OPENAI_API_KEY`（必須）と `OPENAI_MODEL`（既定 `gpt-4o-mini`）で設定します。未設定のときは LLM を使う API が 503 を返し，プロファイルの更新は LLM なしで動きます。
+
 ## 🔐 セキュリティに関する注意
 
 ⚠️ **開発環境では簡易実装です。本番環境では以下を実装してください：**

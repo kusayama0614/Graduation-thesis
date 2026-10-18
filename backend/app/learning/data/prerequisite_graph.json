@@ -1,0 +1,55 @@
+{
+  "version": "2026-10-draft",
+  "note": "ノードは卒業論文草稿の表3・表4に基づく。辺（前提関係）は草稿に記載がないため仮に置いたもので、要確認。辺は現在の解説生成の判断（Chain 2）には用いていない。",
+  "units": {
+    "quadratic_functions": {
+      "label": "2次関数",
+      "scope": "2次方程式の実数解の個数と判別式〜絶対値を含む関数のグラフ（数学Ⅰ）",
+      "nodes": [
+        {"id": "discriminant_setup", "label": "判別式に代入する係数の読み取りと立式", "evidence": "No.1（係数の読み取りの誤り3件，−4(−m+3)の展開の誤り4件）"},
+        {"id": "discriminant_sign", "label": "判別式の符号と実数解の個数・共有点の個数の対応", "evidence": "No.1（個数の誤判定5件），No.2"},
+        {"id": "double_root", "label": "重解の条件と重解 x=−b/2a の計算", "evidence": "No.1（符号の誤り6件，求めていない7件）"},
+        {"id": "intersection", "label": "放物線と直線の共有点（連立して解く）", "evidence": "No.2"},
+        {"id": "inequality_solution", "label": "2次不等式の解とグラフの対応（判別式が負・0の場合を含む）", "evidence": "No.3，No.4"},
+        {"id": "inequality_manipulation", "label": "不等号の向き（負の数で割る）と等号の有無", "evidence": "No.1（向きの誤り5件，等号の誤り4件）"},
+        {"id": "exact_value", "label": "分数・無理数を近似せずに扱う", "evidence": "No.1（16/3を5などとした誤り5件）"},
+        {"id": "system_inequality", "label": "連立不等式の共通範囲（数直線）", "evidence": "No.5，No.6"},
+        {"id": "word_problem_modeling", "label": "文章題の立式と変数の範囲", "evidence": "No.6"},
+        {"id": "root_location", "label": "解の配置（判別式・軸・端点の値の条件）", "evidence": "No.6"},
+        {"id": "absolute_value_cases", "label": "絶対値を含む関数の場合分けとグラフ", "evidence": "No.7"}
+      ],
+      "edges": [
+        {"from": "discriminant_setup", "to": "discriminant_sign", "status": "要確認"},
+        {"from": "discriminant_sign", "to": "double_root", "status": "要確認"},
+        {"from": "discriminant_sign", "to": "intersection", "status": "要確認"},
+        {"from": "discriminant_sign", "to": "inequality_solution", "status": "要確認"},
+        {"from": "inequality_manipulation", "to": "inequality_solution", "status": "要確認"},
+        {"from": "inequality_solution", "to": "system_inequality", "status": "要確認"},
+        {"from": "system_inequality", "to": "word_problem_modeling", "status": "要確認"},
+        {"from": "discriminant_sign", "to": "root_location", "status": "要確認"},
+        {"from": "inequality_solution", "to": "root_location", "status": "要確認"}
+      ]
+    },
+    "trigonometry": {
+      "label": "図形と計量",
+      "scope": "三角比〜三角比の相互関係（数学Ⅰ）",
+      "nodes": [
+        {"id": "side_identification", "label": "対辺・隣辺・斜辺の特定（図の向きによらない）", "evidence": "No.8（図が回転した三角形での取り違え7件）"},
+        {"id": "special_angle_values", "label": "30°・45°・60°の三角比の値", "evidence": "No.8（有名角の値の混同6件）"},
+        {"id": "trig_table_reading", "label": "三角比の表の読み取りと桁の扱い", "evidence": "No.8（読み違い6件，粗い丸め4件）"},
+        {"id": "inverse_table_lookup", "label": "三角比の値から角度を求める", "evidence": "No.8（書き方の問題，空欄）"},
+        {"id": "application_modeling", "label": "仰角・傾斜などの場面の図示と立式", "evidence": "No.8（塔・坂の問題での誤り10件）"},
+        {"id": "mutual_relations", "label": "sin²θ+cos²θ=1 などの相互関係", "evidence": "No.9（誤答なし）"},
+        {"id": "complementary_angle", "label": "90°−θ の三角比", "evidence": "No.9（誤答4件はすべてこのノード）"}
+      ],
+      "edges": [
+        {"from": "side_identification", "to": "special_angle_values", "status": "要確認"},
+        {"from": "side_identification", "to": "application_modeling", "status": "要確認"},
+        {"from": "trig_table_reading", "to": "inverse_table_lookup", "status": "要確認"},
+        {"from": "trig_table_reading", "to": "application_modeling", "status": "要確認"},
+        {"from": "side_identification", "to": "mutual_relations", "status": "要確認"},
+        {"from": "side_identification", "to": "complementary_angle", "status": "要確認"}
+      ]
+    }
+  }
+}

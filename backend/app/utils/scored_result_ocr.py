@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.learning.judgments import ALL_JUDGMENTS, RESULT_OF_JUDGMENT
+
 
 _QUESTION_MARK_RE = re.compile(
     r"(?:問|Q)?\s*(\d{1,3})\s*[.．、:：)）\-]?\s*"
@@ -81,7 +83,7 @@ def extract_scored_result_suggestions(ocr_text: str) -> dict[str, Any]:
     }
 
 
-def normalize_question_results(value: Any) -> list[dict[str, str]]:
+def normalize_question_results(value: Any) -> list[dict[str, Any]]:
     """Validate and normalize teacher-confirmed per-question results."""
     if not isinstance(value, list):
         raise ValueError("question_results must be a list")
@@ -100,5 +102,26 @@ def normalize_question_results(value: Any) -> list[dict[str, str]]:
         if result not in ("correct", "incorrect", "unmarked"):
             raise ValueError("Question result must be correct, incorrect, or unmarked")
         seen_questions.add(question)
-        normalized.append({"question": question, "result": result})
+        entry = {"question": question, "result": result}
+
+        # 任意: 学習者プロファイル用の詳細（判定ラベル・初答・訂正の有無）
+        judgment = item.get("judgment")
+        if judgment is not None:
+            if judgment not in ALL_JUDGMENTS:
+                raise ValueError(f"judgment must be one of: {', '.join(ALL_JUDGMENTS)}")
+            if RESULT_OF_JUDGMENT[judgment] != result:
+                raise ValueError(f"judgment '{judgment}' is inconsistent with result '{result}' (question {question})")
+            entry["judgment"] = judgment
+        answer = item.get("answer")
+        if answer is not None:
+            answer = str(answer).strip()
+            if len(answer) > 200:
+                raise ValueError(f"answer is too long (question {question})")
+            entry["answer"] = answer
+        corrected = item.get("corrected")
+        if corrected is not None:
+            if not isinstance(corrected, bool):
+                raise ValueError(f"corrected must be a boolean (question {question})")
+            entry["corrected"] = corrected
+        normalized.append(entry)
     return normalized

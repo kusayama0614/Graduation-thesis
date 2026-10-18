@@ -1,6 +1,7 @@
 import json
 import csv
 import os
+import re
 from typing import Tuple, Dict, Any, List
 
 try:
@@ -16,6 +17,30 @@ def _normalize_key_dict(d: Dict[Any, Any]) -> Dict[str, str]:
     return out
 
 
+def _split_nodes(value: Any) -> List[str]:
+    """前提知識ノードの列（"discriminant_setup; exact_value" など）を分割する。"""
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()]
+    if value is None:
+        return []
+    return [part for part in re.split(r'[;,|、\s]+', str(value).strip()) if part]
+
+
+def _rows_with_header(rows: List[List[str]]) -> List[Dict[str, Any]]:
+    first = [c.strip().lower() for c in rows[0]]
+    qidx = first.index('question')
+    aidx = first.index('answer')
+    nidx = first.index('nodes') if 'nodes' in first else (first.index('node') if 'node' in first else None)
+    candidates = []
+    for r in rows[1:]:
+        if len(r) > max(qidx, aidx):
+            item = {'question': r[qidx].strip(), 'answer': r[aidx].strip()}
+            if nidx is not None and len(r) > nidx and _split_nodes(r[nidx]):
+                item['nodes'] = _split_nodes(r[nidx])
+            candidates.append(item)
+    return candidates
+
+
 def parse_csv(filepath: str) -> Dict[str, Any]:
     candidates = []
     with open(filepath, newline='', encoding='utf-8') as csvfile:
@@ -26,11 +51,7 @@ def parse_csv(filepath: str) -> Dict[str, Any]:
     if rows:
         first = [c.strip().lower() for c in rows[0]]
         if 'question' in first and 'answer' in first:
-            qidx = first.index('question')
-            aidx = first.index('answer')
-            for r in rows[1:]:
-                if len(r) > max(qidx, aidx):
-                    candidates.append({'question': r[qidx].strip(), 'answer': r[aidx].strip()})
+            candidates = _rows_with_header(rows)
             return {'success': True, 'candidates': candidates, 'total_candidates': len(candidates)}
 
     # Fallback: assume two columns question,answer
@@ -55,11 +76,7 @@ def parse_xlsx(filepath: str) -> Dict[str, Any]:
     if rows:
         first = [c.strip().lower() for c in rows[0]]
         if 'question' in first and 'answer' in first:
-            qidx = first.index('question')
-            aidx = first.index('answer')
-            for r in rows[1:]:
-                if len(r) > max(qidx, aidx):
-                    candidates.append({'question': r[qidx].strip(), 'answer': r[aidx].strip()})
+            candidates = _rows_with_header(rows)
             return {'success': True, 'candidates': candidates, 'total_candidates': len(candidates)}
 
     for r in rows:
@@ -87,7 +104,10 @@ def parse_json(filepath: str) -> Dict[str, Any]:
         candidates = []
         for item in data:
             if isinstance(item, dict) and 'question' in item and 'answer' in item:
-                candidates.append({'question': item['question'], 'answer': item['answer']})
+                candidate = {'question': item['question'], 'answer': item['answer']}
+                if _split_nodes(item.get('nodes')):
+                    candidate['nodes'] = _split_nodes(item.get('nodes'))
+                candidates.append(candidate)
         return {'success': True, 'candidates': candidates, 'total_candidates': len(candidates)}
 
     return {'success': False, 'error': 'Unrecognized JSON format', 'candidates': [], 'total_candidates': 0}

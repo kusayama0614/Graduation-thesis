@@ -6,17 +6,38 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Dict, List, Tuple, Any
 
 from app.utils.math_verification import judge_answer
 
-# 解答部分に許す文字: 英数・かな・漢字・数式記号（分数 / 、√、冪 ^ ²、関係記号、カンマ、括弧など）
-_ANSWER_CHARS = r"A-Za-z0-9一-龥ぁ-んァ-ン\+\-\*/\.\^√²³°π×÷±=<>≦≧≠≤≥,、，\(\)（）．"
+# 解答部分に許す文字: 英数（全角含む）・かな・漢字・数式記号（分数 / 、√、冪 ^ ²、関係記号、カンマ、括弧など）
+_ANSWER_CHARS = (
+    r"A-Za-z0-9Ａ-Ｚａ-ｚ０-９一-龥ぁ-んァ-ヶー"
+    r"\+\-\*/\.\^＋－−＊／．＾√²³¹⁰⁴-⁹⁻°π×÷±=<>＝＜＞≦≧≠≤≥,、，\(\)（）"
+)
+# 解答内の空白は、演算子・カンマに隣接する場合だけ許す（"m=-6, 2" や "x = 2" はOK、"A B" はNG）
+_SPACE_NEIGHBORS = r"=<>＝＜＞≦≧≠≤≥,、，\+\-＋－−\*/＊／×÷±"
+_LOOSE_SPACE = re.compile(rf"(?<![{_SPACE_NEIGHBORS}]) (?![{_SPACE_NEIGHBORS}])")
 
-ANSWER_LINE_PATTERNS = [
-    rf"^(\d{{1,3}})[\).:\-\s]+([{_ANSWER_CHARS}]+)$",
-    rf"^(\d{{1,3}})\s+([{_ANSWER_CHARS}]+)$",
-]
+# 問番号と解答の区切り。"-" は番号の数字に直接付く（"1-A"）か後ろが空白（"1 - A"）の場合だけ区切りとみなし、
+# "1 -2" "1)-2" "1--2" のような、他の区切りの後ろで文字に付く "-" は負号として解答側に残す。
+_SEPARATOR = r"(?:[\).:）．：\s]|[-－](?=\s)|(?<=\d)[-－])"
+
+ANSWER_LINE_PATTERN = re.compile(
+    rf"^(\d{{1,3}}){_SEPARATOR}+([{_ANSWER_CHARS}](?:[{_ANSWER_CHARS}\s]*[{_ANSWER_CHARS}])?)$"
+)
+
+
+def _parse_answer_line(line: str) -> Tuple[str, str] | None:
+    m = ANSWER_LINE_PATTERN.match(line)
+    if not m:
+        return None
+    answer = re.sub(r"\s+", " ", m.group(2)).strip()
+    if _LOOSE_SPACE.search(answer):
+        return None
+    question = unicodedata.normalize('NFKC', m.group(1))
+    return question, answer
 
 
 def parse_answers_from_ocr(ocr_text: str) -> Dict[str, str]:
@@ -27,13 +48,10 @@ def parse_answers_from_ocr(ocr_text: str) -> Dict[str, str]:
     answers: Dict[str, str] = {}
     lines = [ln.strip() for ln in ocr_text.splitlines() if ln.strip()]
     for ln in lines:
-        for pat in ANSWER_LINE_PATTERNS:
-            m = re.match(pat, ln)
-            if m:
-                q = m.group(1)
-                a = m.group(2).strip()
-                answers[q] = a
-                break
+        parsed = _parse_answer_line(ln)
+        if parsed:
+            q, a = parsed
+            answers[q] = a
     return answers
 
 

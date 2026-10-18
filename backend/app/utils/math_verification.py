@@ -61,14 +61,12 @@ _FORBIDDEN_WORDS = re.compile(
     r'yield|del|global|assert|try|raise|from|as|return|pass|None|True|False)\b'
 )
 _ATTRIBUTE_ACCESS = re.compile(r'\.\s*[A-Za-z_]')
-_ALLOWED_AFTER_PREPROCESS = re.compile(r'^[0-9A-Za-z+\-*/^().,=<>! _]*$')
+_ALLOWED_AFTER_PREPROCESS = re.compile(r'^[0-9A-Za-z+\-*/^().,=<>! _±]*$')
 _RELATION_SPLIT = re.compile(r'(<=|>=|!=|==|=|<|>)')
 _DECIMAL_LITERAL = re.compile(r'^[+-]?\d+\.(\d+)$')
 
-_SUPERSCRIPTS = {
-    '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
-    '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
-}
+_SUPERSCRIPT_RUN = re.compile('[⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+')
+_SUPERSCRIPT_MAP = str.maketrans('⁻⁰¹²³⁴⁵⁶⁷⁸⁹', '-0123456789')
 _CHAR_MAP = str.maketrans({
     '−': '-', '–': '-', '—': '-', '―': '-', '‐': '-',
     '×': '*', '⋅': '*', '÷': '/',
@@ -105,8 +103,8 @@ def _is_safe(raw: str) -> bool:
 def _preprocess(raw: str) -> str:
     """表記ゆれを統一して、sympyに渡せるASCII式に変換する。"""
     text = raw
-    for sup, digit in _SUPERSCRIPTS.items():
-        text = text.replace(sup, '^' + digit)
+    # 上付き文字: x² → x^(2), x¹⁰ → x^(10), x⁻¹ → x^(-1)
+    text = _SUPERSCRIPT_RUN.sub(lambda m: '^(' + m.group().translate(_SUPERSCRIPT_MAP) + ')', text)
     text = unicodedata.normalize('NFKC', text).translate(_CHAR_MAP)
     text = text.strip()
 
@@ -237,7 +235,9 @@ def _split_top_level(text: str) -> List[str]:
 # ---------------------------------------------------------------- 判定 (層3)
 
 def _decimal_places(expected_text: str) -> Optional[int]:
-    match = _DECIMAL_LITERAL.match(expected_text.strip())
+    """期待値が小数(「x=23.6」のような単純な等式を含む)なら小数点以下の桁数を返す。"""
+    value_text = re.sub(r'^[A-Za-z]\w*\s*=\s*', '', expected_text.strip())
+    match = _DECIMAL_LITERAL.match(value_text)
     return len(match.group(1)) if match else None
 
 
@@ -372,6 +372,36 @@ def _compare_items(exp_item: Tuple[str, Any], act_item: Tuple[str, Any],
     return _compare_relations(exp_obj, act_obj)
 
 
+def _max_matching(compatible: List[List[bool]], k: int) -> int:
+    """二部グラフ(生徒の答え × 期待値)の最大マッチング数を増加路法で求める。"""
+    owner: List[Optional[int]] = [None] * k
+
+    def assign(j: int, seen: List[bool]) -> bool:
+        for i in range(k):
+            if compatible[j][i] and not seen[i]:
+                seen[i] = True
+                if owner[i] is None or assign(owner[i], seen):
+                    owner[i] = j
+                    return True
+        return False
+
+    return sum(1 for j in range(len(compatible)) if assign(j, [False] * k))
+
+
+def _expand_plus_minus(items: List[str]) -> List[str]:
+    """「x=±√3」を「x=+√3」「x=-√3」の2つの答えに展開する。"""
+    expanded: List[str] = []
+    for item in items:
+        count = item.count('±')
+        if count == 0:
+            expanded.append(item)
+        elif count == 1:
+            expanded.extend([item.replace('±', '+'), item.replace('±', '-')])
+        else:
+            raise _Unparseable('± が複数ある')
+    return expanded
+
+
 def _judge_math(expected: str, actual: str) -> Optional[Dict[str, Any]]:
     """数式として判定する。解釈できない場合は None(呼び出し側で文字列一致へ)。"""
     if not (_is_safe(expected) and _is_safe(actual)):
@@ -380,30 +410,28 @@ def _judge_math(expected: str, actual: str) -> Optional[Dict[str, Any]]:
         exp_text, act_text = _preprocess(expected), _preprocess(actual)
         if not (_looks_mathy(exp_text) and _looks_mathy(act_text)):
             return None
-        exp_items = [_parse_item(t) for t in _split_top_level(exp_text)]
-        act_items = [_parse_item(t) for t in _split_top_level(act_text)]
+        exp_texts = _expand_plus_minus(_split_top_level(exp_text))
+        act_texts = _expand_plus_minus(_split_top_level(act_text))
+        exp_items = [_parse_item(t) for t in exp_texts]
+        act_items = [_parse_item(t) for t in act_texts]
     except _Unparseable:
         return None
     if not exp_items or not act_items:
         return None
 
-    places = _decimal_places(exp_text) if len(exp_items) == 1 else None
+    exp_places = [_decimal_places(t) for t in exp_texts]
 
     if len(exp_items) == 1 and len(act_items) == 1:
-        ok, method, detail = _compare_items(exp_items[0], act_items[0], places)
+        ok, method, detail = _compare_items(exp_items[0], act_items[0], exp_places[0])
         return {'is_correct': ok, 'method': method, 'detail': detail}
 
-    # 組の答え: 順不同でペア照合
-    unused = list(range(len(exp_items)))
-    matched = 0
-    for act_item in act_items:
-        for idx in unused:
-            ok, _, _ = _compare_items(exp_items[idx], act_item, None)
-            if ok:
-                unused.remove(idx)
-                matched += 1
-                break
+    # 組の答え: 順不同でペア照合（許容誤差つきの一致は推移的でないため、貪欲ではなく最大マッチングで数える）
     k, n = len(exp_items), len(act_items)
+    compatible = [
+        [_compare_items(exp_items[i], act_items[j], exp_places[i])[0] for i in range(k)]
+        for j in range(n)
+    ]
+    matched = _max_matching(compatible, k)
     if matched == k and n == k:
         return {'is_correct': True, 'method': 'list_equal', 'detail': f'{k}個すべて一致しました'}
     if n < k and matched == n:

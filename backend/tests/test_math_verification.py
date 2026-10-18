@@ -161,3 +161,73 @@ def test_ocr_parser_keeps_math_answers():
     from app.utils.scoring import parse_answers_from_ocr
     parsed = parse_answers_from_ocr('1 A\n2 3/6\n3 √3/3\n4 m<16/3\n5 (1,2)\n6 x^2+1')
     assert parsed == {'1': 'A', '2': '3/6', '3': '√3/3', '4': 'm<16/3', '5': '(1,2)', '6': 'x^2+1'}
+
+
+# ---- OCR行パーサ: 負の答え・解答内の空白 -----------------------------------
+
+@pytest.mark.parametrize('line, expected', [
+    ('1 -2', ('1', '-2')),              # 空白 + "-" + 数字 は負号
+    ('1. -3', ('1', '-3')),
+    ('1) -3', ('1', '-3')),
+    ('1 - -3', ('1', '-3')),
+    ('1)-2', ('1', '-2')),
+    ('1.-2', ('1', '-2')),
+    ('1--2', ('1', '-2')),
+    ('1 −1/2', ('1', '−1/2')),          # Unicodeのマイナス
+    ('1-A', ('1', 'A')),                # 番号に直接付く "-" は区切り（従来どおり）
+    ('1 - 4', ('1', '4')),              # 後ろが空白の "-" は区切り（従来どおり）
+    ('1 m=-6, 2', ('1', 'm=-6, 2')),    # 演算子・カンマの隣の空白は解答の一部
+    ('1 x = 2', ('1', 'x = 2')),
+    ('1 m < 16/3', ('1', 'm < 16/3')),
+    ('1 (1, 2)', ('1', '(1, 2)')),
+    ('1 x=±√3', ('1', 'x=±√3')),
+    ('１０．　５', ('10', '５')),       # 全角の番号・区切り
+])
+def test_ocr_parser_line_formats(line, expected):
+    from app.utils.scoring import parse_answers_from_ocr
+    q, a = expected
+    assert parse_answers_from_ocr(line) == {q: a}
+
+
+@pytest.mark.parametrize('line', ['1 A B', '1 2 3', '2024年度 期末'])
+def test_ocr_parser_rejects_ambiguous_lines(line):
+    from app.utils.scoring import parse_answers_from_ocr
+    assert parse_answers_from_ocr(line) == {}
+
+
+def test_score_with_key_handles_negative_and_spaced_answers():
+    ocr_text = '1 -2\n2 m=-6, 2\n3 2\n4 x = ±√3'
+    key = {'1': '-2', '2': '2, m=-6', '3': '-2', '4': 'x=√3, x=-√3'}
+    by_q = {d['q']: d for d in score_with_key(ocr_text, key)['details']}
+    assert by_q['1']['correct'] is True
+    assert by_q['2']['correct'] is True and by_q['2']['method'] == 'list_equal'
+    assert by_q['3']['correct'] is False   # 符号の付け忘れは不正解
+    assert by_q['4']['correct'] is True
+
+
+# ---- 判定エンジンの追加ケース ---------------------------------------------
+
+def test_plus_minus_expands_to_two_answers():
+    assert verdict('x=±√3', '√3, -√3') == (True, 'list_equal')
+    assert verdict('x=±√3', 'x=√3') == (False, 'incomplete')
+    assert verdict('±2', '2,-2')[0] is True
+
+
+def test_multi_digit_and_negative_superscripts():
+    assert verdict('x^10', 'x¹⁰') == (True, 'symbolic_equal')
+    assert verdict('1/x', 'x⁻¹') == (True, 'symbolic_equal')
+
+
+def test_unicode_minus_and_fullwidth_digits():
+    assert verdict('-2', '−2')[0] is True
+    assert verdict('5', '５')[0] is True
+
+
+def test_decimal_tolerance_inside_equation_and_lists():
+    assert verdict('x=23.6', '23.62') == (True, 'numeric_equal')
+    assert verdict('1.4, 2.2', '2.24, 1.41') == (True, 'list_equal')
+
+
+def test_list_matching_is_not_greedy():
+    # 1.45 は 1.4 にも 1.45 にも許容誤差内で一致するが、全体として1対1に対応付けられる
+    assert verdict('1.4, 1.45', '1.45, 1.4') == (True, 'list_equal')

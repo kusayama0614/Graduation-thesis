@@ -1137,19 +1137,19 @@ def generate_report():
             'API configuration error',
             500,
             details=str(e),
-            extra={'hint': 'OPENAI_API_KEY environment variable must be set'}
+            extra={'hint': 'GEMINI_API_KEY environment variable must be set'}
         )
 
     except Exception as e:
         error_message = str(e)
 
-        if 'API key not valid' in error_message or 'API_KEY_INVALID' in error_message or 'Incorrect API key' in error_message or '401' in error_message:
+        if 'API key not valid' in error_message or 'API_KEY_INVALID' in error_message or 'PERMISSION_DENIED' in error_message or '401' in error_message:
             return make_error_response(
-                'ANALYSIS_INVALID_OPENAI_KEY',
+                'ANALYSIS_INVALID_GEMINI_KEY',
                 'Failed to generate report',
                 500,
-                details='OPENAI_API_KEY is invalid for the OpenAI API.',
-                extra={'hint': 'Use a valid API key from OpenAI and replace the current OPENAI_API_KEY value.'}
+                details='GEMINI_API_KEY is invalid for the Gemini API.',
+                extra={'hint': 'Use a valid API key from Google AI Studio and replace the current GEMINI_API_KEY value.'}
             )
     
         # その他のエラー

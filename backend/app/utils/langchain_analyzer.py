@@ -3,27 +3,27 @@
 LangChain を用いた AI 分析・レポート生成モジュール
 """
 import os
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
 import json
 from typing import Dict, Any, Optional
 
+from app.utils.gemini import DEFAULT_MODEL, build_chat_model, gemini_api_key, message_text
+
 class ReportGenerator:
-    """レポート生成クラス"""
+    """レポート生成クラス（LLM: Gemini）"""
     
     def __init__(self):
         """初期化"""
-        api_key = os.getenv('OPENAI_API_KEY')
+        api_key = gemini_api_key()
         if not api_key:
-            raise ValueError("OPENAI_API_KEY is not set in environment variables")
+            raise ValueError("GEMINI_API_KEY is not set in environment variables")
 
-        configured_model = os.getenv('OPENAI_MODEL', '').strip()
+        configured_model = os.getenv('GEMINI_MODEL', '').strip()
         fallback_models = [
             configured_model,
-            'gpt-4o-mini',
-            'gpt-4.1-mini',
-            'gpt-4o',
+            DEFAULT_MODEL,
+            'gemini-2.5-pro',
+            'gemini-2.5-flash',
         ]
         self.model_candidates = []
         for model_name in fallback_models:
@@ -31,24 +31,18 @@ class ReportGenerator:
                 self.model_candidates.append(model_name)
 
         self.api_key = api_key
-        self.output_parser = StrOutputParser()
 
     def _build_llm(self, model_name: str):
-        return ChatOpenAI(
-            model=model_name,
-            openai_api_key=self.api_key,
-            temperature=0.7,
-            max_tokens=2000
-        )
+        return build_chat_model(model_name, api_key=self.api_key, temperature=0.7)
 
     def _invoke_with_model_fallback(self, prompt_template: PromptTemplate, inputs: Dict[str, Any]) -> str:
         last_error = None
+        prompt_text = prompt_template.format(**inputs)
 
         for model_name in self.model_candidates:
             try:
                 llm = self._build_llm(model_name)
-                chain = prompt_template | llm | self.output_parser
-                return chain.invoke(inputs)
+                return message_text(llm.invoke(prompt_text))
             except Exception as e:
                 last_error = e
                 error_text = str(e)
@@ -81,7 +75,7 @@ class ReportGenerator:
                 f"対象: {student_name} / {subject} / {test_name}\n"
                 f"スコア: {score}/100\n"
                 f"正答率: {accuracy}%\n\n"
-                f"OpenAI API がクォータ不足のため利用できませんでした。\n"
+                f"Gemini API がクォータ不足のため利用できませんでした。\n"
                 f"そのため、ルールベースで学習計画を生成しています。\n\n"
                 f"1. 短期目標（1週間）\n"
                 f"- {weak_areas}\n"
@@ -99,7 +93,7 @@ class ReportGenerator:
                 f"- できたことを記録する\n\n"
                 f"5. 次回目標\n"
                 f"- 現在より5〜10点の向上を目指す\n\n"
-                f"補足: このレポートは OpenAI ではなくローカル生成です。\n"
+                f"補足: このレポートは Gemini ではなくローカル生成です。\n"
                 f"理由: {reason}"
             )
 
@@ -108,7 +102,7 @@ class ReportGenerator:
             f"対象: {student_name} / {subject} / {test_name}\n"
             f"スコア: {score}/100\n"
             f"正答率: {accuracy}%\n\n"
-            f"OpenAI API がクォータ不足のため利用できませんでした。\n"
+            f"Gemini API がクォータ不足のため利用できませんでした。\n"
             f"そのため、ルールベースで分析レポートを生成しています。\n\n"
             f"1. 全体評価\n"
             f"- 得点は一定の到達度を示していますが、安定性の向上が必要です。\n"
@@ -126,7 +120,7 @@ class ReportGenerator:
             f"- 週末にまとめて再テストする\n\n"
             f"5. 目標設定\n"
             f"- 次回は現状より5〜10点の上積みを狙う\n\n"
-            f"補足: このレポートは OpenAI ではなくローカル生成です。\n"
+            f"補足: このレポートは Gemini ではなくローカル生成です。\n"
             f"理由: {reason}"
         )
 
@@ -181,7 +175,7 @@ class ReportGenerator:
         else:
             error_text = "特に顕著なエラーパターンは検出されていません"
         
-        # レポート生成（利用可能な OpenAI モデルを順に試す）
+        # レポート生成（利用可能な Gemini モデルを順に試す）
         result = self._invoke_with_model_fallback(prompt_template, {
             'student_name': student_data.get('student_name', '未名の生徒'),
             'subject': student_data.get('subject', '未指定'),

@@ -3,21 +3,21 @@
 本システムで LLM が担うのは，(a) 構造化された出力（Chain 1 の分解，誤りの診断，計算の抜き出し）と
 (b) 決められた方針に沿った文章の作成（Chain 2）だけである。正誤や詳しさの決定は LLM に任せない。
 
+LLM には Gemini（既定 gemini-3.1-pro-preview）を用いる。設定は app/utils/gemini.py を参照。
 テストや API キーのない環境では，Flask の設定 `LEARNING_LLM_CLIENT` に同じインターフェースを持つ
 オブジェクトを入れて差し替える。
 """
 from __future__ import annotations
 
-import os
 from typing import Any, Dict, Optional, Protocol
 
 from flask import current_app
 
-DEFAULT_MODEL = 'gpt-4o-mini'
+from app.utils.gemini import build_chat_model, gemini_api_key, gemini_model_name, message_text
 
 
 class LLMUnavailable(RuntimeError):
-    """LLM が設定されていない（OPENAI_API_KEY が無い）。"""
+    """LLM が設定されていない（GEMINI_API_KEY が無い）。"""
 
 
 class LLMClient(Protocol):
@@ -25,43 +25,41 @@ class LLMClient(Protocol):
 
     def generate_json(self, *, system: str, user: str, schema: Dict[str, Any],
                       schema_name: str, temperature: float = 0.0) -> Dict[str, Any]:
-        """JSON Schema（strict）に従った出力を dict で返す。"""
+        """JSON Schema に従った出力を dict で返す。"""
 
     def generate_text(self, *, system: str, user: str, temperature: float = 0.3) -> str:
         """自由記述の文章を返す。"""
 
 
-class OpenAIChatClient:
-    """LangChain の ChatOpenAI を用いた実装。"""
+class GeminiChatClient:
+    """LangChain の ChatGoogleGenerativeAI を用いた実装。
+
+    temperature は Gemini 2.x 以前のモデルにだけ渡す（Gemini 3 以降はモデルの既定値を使う）。
+    """
 
     def __init__(self, api_key: str, model_name: Optional[str] = None):
         self.api_key = api_key
-        self.model_name = model_name or os.getenv('OPENAI_MODEL', '').strip() or DEFAULT_MODEL
+        self.model_name = model_name or gemini_model_name()
 
     def _chat(self, temperature: float):
-        from langchain_openai import ChatOpenAI
-
-        return ChatOpenAI(model=self.model_name, api_key=self.api_key, temperature=temperature)
+        return build_chat_model(self.model_name, api_key=self.api_key, temperature=temperature)
 
     def generate_json(self, *, system, user, schema, schema_name, temperature=0.0):
-        structured = self._chat(temperature).with_structured_output(
-            {'name': schema_name, 'schema': schema, 'strict': True},
-            method='json_schema',
-        )
+        # Gemini では JSON Schema が response_json_schema として送られ，出力がスキーマに制約される
+        structured = self._chat(temperature).with_structured_output(schema, method='json_schema')
         return structured.invoke([('system', system), ('human', user)])
 
     def generate_text(self, *, system, user, temperature=0.3):
-        message = self._chat(temperature).invoke([('system', system), ('human', user)])
-        return str(message.content)
+        return message_text(self._chat(temperature).invoke([('system', system), ('human', user)]))
 
 
 def get_llm_client(required: bool = False) -> Optional[LLMClient]:
     client = current_app.config.get('LEARNING_LLM_CLIENT')
     if client is not None:
         return client
-    api_key = os.getenv('OPENAI_API_KEY', '').strip()
+    api_key = gemini_api_key()
     if api_key:
-        return OpenAIChatClient(api_key)
+        return GeminiChatClient(api_key)
     if required:
-        raise LLMUnavailable('OPENAI_API_KEY が設定されていないため，LLM を使う処理を実行できません')
+        raise LLMUnavailable('GEMINI_API_KEY が設定されていないため，LLM を使う処理を実行できません')
     return None

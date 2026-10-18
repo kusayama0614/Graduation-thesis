@@ -36,7 +36,7 @@ Graduation-thesis/
 
 - Flask & Flask-CORS
 - SQLAlchemy & Flask-SQLAlchemy
-- Langchain & OpenAI
+- Langchain & Gemini（langchain-google-genai）
 - Python-dotenv
 - その他19個のパッケージ
 
@@ -208,10 +208,10 @@ Graduation-thesis/
 
 ```bash
 # Langchain のテスト
-python -c "from langchain.llms import OpenAI; print('✅ Langchain OK')"
+python -c "import langchain_core; print('✅ Langchain OK')"
 
-# OpenAI API の確認
-python -c "import openai; print('✅ OpenAI module OK')"
+# Gemini（langchain-google-genai）の確認
+python -c "import langchain_google_genai; print('✅ Gemini module OK')"
 ```
 
 ---

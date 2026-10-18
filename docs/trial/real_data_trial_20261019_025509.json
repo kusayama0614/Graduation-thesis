@@ -1,0 +1,2240 @@
+{
+ "meta": {
+  "started_at": "2026-10-19 02:55",
+  "model": "gemini-3.1-pro-preview",
+  "thinking_level": null,
+  "embedding_model": "gemini-embedding-2",
+  "diagnosis": "Gemini が候補ノードから選択",
+  "elapsed_sec": 3167
+ },
+ "sections": [
+  {
+   "problem": {
+    "unit": "quadratic_functions",
+    "title": "判別式と定数の範囲",
+    "problem_text": "2次方程式 2x^2 + 5x + m - 3 = 0 が異なる2つの実数解をもつような定数 m の値の範囲を求めよ。",
+    "correct_answer": "m<49/8",
+    "exercise": "No.1",
+    "steps": [
+     {
+      "id": 1,
+      "title": "判別式の立式",
+      "description": "与えられた2次方程式の判別式をDとおき、係数を用いてDをmの式で表す。",
+      "result": "D = 49 - 8m",
+      "nodes": [
+       "discriminant_setup"
+      ]
+     },
+     {
+      "id": 2,
+      "title": "異なる2つの実数解をもつ条件",
+      "description": "2次方程式が異なる2つの実数解をもつための判別式Dの符号の条件を立式する。",
+      "result": "49 - 8m > 0",
+      "nodes": [
+       "discriminant_sign"
+      ]
+     },
+     {
+      "id": 3,
+      "title": "不等式の解",
+      "description": "mについての1次不等式を解き、mの値の範囲を求める。",
+      "result": "m < 49/8",
+      "nodes": [
+       "inequality_manipulation"
+      ]
+     }
+    ]
+   },
+   "steps": [
+    {
+     "id": 1,
+     "title": "判別式の立式",
+     "description": "与えられた2次方程式の判別式をDとおき、係数を用いてDをmの式で表す。",
+     "result": "D = 49 - 8m",
+     "nodes": [
+      "discriminant_setup"
+     ]
+    },
+    {
+     "id": 2,
+     "title": "異なる2つの実数解をもつ条件",
+     "description": "2次方程式が異なる2つの実数解をもつための判別式Dの符号の条件を立式する。",
+     "result": "49 - 8m > 0",
+     "nodes": [
+      "discriminant_sign"
+     ]
+    },
+    {
+     "id": 3,
+     "title": "不等式の解",
+     "description": "mについての1次不等式を解き、mの値の範囲を求める。",
+     "result": "m < 49/8",
+     "nodes": [
+      "inequality_manipulation"
+     ]
+    }
+   ],
+   "master": {
+    "kind": "master",
+    "status": "ok",
+    "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式\n\nまず、このステップで必要となる前提知識を短く復習します。2次方程式 $ax^2 + bx + c = 0$ の判別式 $D$ は、$D = b^2 - 4ac$ という公式で定義されます。この公式を使うためには、与えられた方程式から $x^2$ の係数 $a$、$x$ の係数 $b$、そして定数項 $c$ を正確に読み取って代入することが大切です。\n\n次に、このステップの考え方と得られる結果を示します。与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の判別式を $D$ とおき、先ほどの公式に係数を当てはめて計算することで、$D = 49 - 8m$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\n方程式から $a=2$、$b=5$、$c=m-3$ と読み取り、判別式の公式に代入します。\n$D = 5^2 - 4 \\times 2 \\times (m - 3)$\n\n5の2乗を計算し、4と2を掛け合わせます。\n$D = 25 - 8(m - 3)$\n\nかっこを展開して、-8をかっこ内のそれぞれの項に掛けます。\n$D = 25 - 8m + 24$\n\n定数項の25と24を足し合わせてまとめます。\n$D = 49 - 8m$\n\n## ステップ2　異なる2つの実数解をもつ条件\n\nまず、このステップで必要となる前提知識を短く復習します。2次方程式の判別式 $D$ の符号は、実数解の個数や、対応する2次関数のグラフと $x$ 軸との共有点の個数を決定します。$D > 0$ のときは異なる2つの実数解（共有点2個）、$D = 0$ のときはただ1つの実数解（重解、共有点1個）、$D < 0$ のときは実数解をもたない（共有点0個）という対応関係があります。\n\n次に、このステップの考え方と得られる結果を示します。問題文の「異なる2つの実数解をもつ」という条件から、$D > 0$ という不等式を立てます。この不等式にステップ1で求めた $D$ の式を代入することで、$49 - 8m > 0$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\n2次方程式が異なる2つの実数解をもつ条件を不等式で表します。\n$D > 0$\n\nステップ1で求めた $D = 49 - 8m$ を左辺に代入します。\n$49 - 8m > 0$\n\n## ステップ3　不等式の解\n\nまず、このステップで必要となる前提知識を短く復習します。不等式の両辺を負の数で掛けたり割ったりすると、不等号の向きが逆になるという性質があります。また、計算途中で不等式に等号を勝手に付け足したり外したりしてはいけないため、元の不等式に等号が含まれていない場合、変形後の不等式にも等号は付きません。\n\n次に、このステップの考え方と得られる結果を示します。ステップ2で立てた不等式 $49 - 8m > 0$ を $m$ について解くことで、求める定数 $m$ の値の範囲である $m < 49/8$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\nステップ2で求めた不等式の定数項である49を右辺に移項します。\n$-8m > -49$\n\n両辺を負の数である $-8$ で割ります。このとき、不等号の向きが逆になることに注意して計算します。\n$m < 49/8$\n",
+    "steps": [
+     {
+      "step_id": 1,
+      "title": "判別式の立式",
+      "nodes": [
+       "discriminant_setup"
+      ],
+      "decision": {
+       "step_id": 1,
+       "title": "判別式の立式",
+       "nodes": [
+        "discriminant_setup"
+       ],
+       "elements": [
+        "result",
+        "reasoning",
+        "definition_review"
+       ],
+       "weakest_node": null,
+       "confidence": null,
+       "evidence_count": null,
+       "node_confidences": {},
+       "cautions": [],
+       "reasons": [
+        "マスター解説: 生徒によらず行間を全て埋めて書く"
+       ]
+      },
+      "text": "まず、このステップで必要となる前提知識を短く復習します。2次方程式 $ax^2 + bx + c = 0$ の判別式 $D$ は、$D = b^2 - 4ac$ という公式で定義されます。この公式を使うためには、与えられた方程式から $x^2$ の係数 $a$、$x$ の係数 $b$、そして定数項 $c$ を正確に読み取って代入することが大切です。\n\n次に、このステップの考え方と得られる結果を示します。与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の判別式を $D$ とおき、先ほどの公式に係数を当てはめて計算することで、$D = 49 - 8m$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\n方程式から $a=2$、$b=5$、$c=m-3$ と読み取り、判別式の公式に代入します。\n$D = 5^2 - 4 \\times 2 \\times (m - 3)$\n\n5の2乗を計算し、4と2を掛け合わせます。\n$D = 25 - 8(m - 3)$\n\nかっこを展開して、-8をかっこ内のそれぞれの項に掛けます。\n$D = 25 - 8m + 24$\n\n定数項の25と24を足し合わせてまとめます。\n$D = 49 - 8m$",
+      "status": "ok",
+      "attempt_count": 1,
+      "attempts": [
+       {
+        "attempt": 1,
+        "text": "まず、このステップで必要となる前提知識を短く復習します。2次方程式 $ax^2 + bx + c = 0$ の判別式 $D$ は、$D = b^2 - 4ac$ という公式で定義されます。この公式を使うためには、与えられた方程式から $x^2$ の係数 $a$、$x$ の係数 $b$、そして定数項 $c$ を正確に読み取って代入することが大切です。\n\n次に、このステップの考え方と得られる結果を示します。与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の判別式を $D$ とおき、先ほどの公式に係数を当てはめて計算することで、$D = 49 - 8m$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\n方程式から $a=2$、$b=5$、$c=m-3$ と読み取り、判別式の公式に代入します。\n$D = 5^2 - 4 \\times 2 \\times (m - 3)$\n\n5の2乗を計算し、4と2を掛け合わせます。\n$D = 25 - 8(m - 3)$\n\nかっこを展開して、-8をかっこ内のそれぞれの項に掛けます。\n$D = 25 - 8m + 24$\n\n定数項の25と24を足し合わせてまとめます。\n$D = 49 - 8m$",
+        "ok": true,
+        "claims": [
+         {
+          "lhs": "a*x^2 + b*x + c",
+          "rhs": "0",
+          "lhs_text": "ax^2 + bx + c",
+          "rhs_text": "0",
+          "status": "unverifiable",
+          "true_value": null,
+          "detail": "両辺の文字が異なるため，恒等式として検算できません"
+         },
+         {
+          "lhs": "D",
+          "rhs": "b^2 - 4*a*c",
+          "lhs_text": "D",
+          "rhs_text": "b^2 - 4ac",
+          "status": "definition",
+          "true_value": null,
+          "detail": "D の定義として記録しました"
+         },
+         {
+          "lhs": "2*x^2 + 5*x + m - 3",
+          "rhs": "0",
+          "lhs_text": "2x^2 + 5x + m - 3",
+          "rhs_text": "0",
+          "status": "unverifiable",
+          "true_value": null,
+          "detail": "両辺の文字が異なるため，恒等式として検算できません"
+         },
+         {
+          "lhs": "D",
+          "rhs": "49 - 8*m",
+          "lhs_text": "D",
+          "rhs_text": "49 - 8m",
+          "status": "unverifiable",
+          "true_value": null,
+          "detail": "両辺の文字が異なるため，恒等式として検算できません"
+         },
+         {
+          "lhs": "a",
+          "rhs": "2",
+          "lhs_text": "a",
+          "rhs_text": "2",
+          "status": "definition",
+          "true_value": null,
+          "detail": "a の定義として記録しました"
+         },
+         {
+          "lhs": "b",
+          "rhs": "5",
+          "lhs_text": "b",
+          "rhs_text": "5",
+          "status": "definition",
+          "true_value": null,
+          "detail": "b の定義として記録しました"
+         },
+         {
+          "lhs": "c",
+          "rhs": "m - 3",
+          "lhs_text": "c",
+          "rhs_text": "m-3",
+          "status": "definition",
+          "true_value": null,
+          "detail": "c の定義として記録しました"
+         },
+         {
+          "lhs": "D",
+          "rhs": "5^2 - 4*2*(m - 3)",
+          "lhs_text": "D",
+          "rhs_text": "5^2 - 4 \\times 2 \\times (m - 3)",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "D",
+          "rhs": "25 - 8*(m - 3)",
+          "lhs_text": "D",
+          "rhs_text": "25 - 8(m - 3)",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "D",
+          "rhs": "25 - 8*m + 24",
+          "lhs_text": "D",
+          "rhs_text": "25 - 8m + 24",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "D",
+          "rhs": "49 - 8*m",
+          "lhs_text": "D",
+          "rhs_text": "49 - 8m",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         }
+        ],
+        "counts": {
+         "ok": 4,
+         "ng": 0,
+         "definition": 4,
+         "unverifiable": 3
+        },
+        "final_check": null,
+        "feedback": null
+       }
+      ],
+      "warnings": []
+     },
+     {
+      "step_id": 2,
+      "title": "異なる2つの実数解をもつ条件",
+      "nodes": [
+       "discriminant_sign"
+      ],
+      "decision": {
+       "step_id": 2,
+       "title": "異なる2つの実数解をもつ条件",
+       "nodes": [
+        "discriminant_sign"
+       ],
+       "elements": [
+        "result",
+        "reasoning",
+        "definition_review"
+       ],
+       "weakest_node": null,
+       "confidence": null,
+       "evidence_count": null,
+       "node_confidences": {},
+       "cautions": [],
+       "reasons": [
+        "マスター解説: 生徒によらず行間を全て埋めて書く"
+       ]
+      },
+      "text": "まず、このステップで必要となる前提知識を短く復習します。2次方程式の判別式 $D$ の符号は、実数解の個数や、対応する2次関数のグラフと $x$ 軸との共有点の個数を決定します。$D > 0$ のときは異なる2つの実数解（共有点2個）、$D = 0$ のときはただ1つの実数解（重解、共有点1個）、$D < 0$ のときは実数解をもたない（共有点0個）という対応関係があります。\n\n次に、このステップの考え方と得られる結果を示します。問題文の「異なる2つの実数解をもつ」という条件から、$D > 0$ という不等式を立てます。この不等式にステップ1で求めた $D$ の式を代入することで、$49 - 8m > 0$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\n2次方程式が異なる2つの実数解をもつ条件を不等式で表します。\n$D > 0$\n\nステップ1で求めた $D = 49 - 8m$ を左辺に代入します。\n$49 - 8m > 0$",
+      "status": "ok",
+      "attempt_count": 1,
+      "attempts": [
+       {
+        "attempt": 1,
+        "text": "まず、このステップで必要となる前提知識を短く復習します。2次方程式の判別式 $D$ の符号は、実数解の個数や、対応する2次関数のグラフと $x$ 軸との共有点の個数を決定します。$D > 0$ のときは異なる2つの実数解（共有点2個）、$D = 0$ のときはただ1つの実数解（重解、共有点1個）、$D < 0$ のときは実数解をもたない（共有点0個）という対応関係があります。\n\n次に、このステップの考え方と得られる結果を示します。問題文の「異なる2つの実数解をもつ」という条件から、$D > 0$ という不等式を立てます。この不等式にステップ1で求めた $D$ の式を代入することで、$49 - 8m > 0$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\n2次方程式が異なる2つの実数解をもつ条件を不等式で表します。\n$D > 0$\n\nステップ1で求めた $D = 49 - 8m$ を左辺に代入します。\n$49 - 8m > 0$",
+        "ok": true,
+        "claims": [
+         {
+          "lhs": "D",
+          "rhs": "49 - 8*m",
+          "lhs_text": "D",
+          "rhs_text": "49 - 8m",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         }
+        ],
+        "counts": {
+         "ok": 1,
+         "ng": 0,
+         "definition": 0,
+         "unverifiable": 0
+        },
+        "final_check": null,
+        "feedback": null
+       }
+      ],
+      "warnings": []
+     },
+     {
+      "step_id": 3,
+      "title": "不等式の解",
+      "nodes": [
+       "inequality_manipulation"
+      ],
+      "decision": {
+       "step_id": 3,
+       "title": "不等式の解",
+       "nodes": [
+        "inequality_manipulation"
+       ],
+       "elements": [
+        "result",
+        "reasoning",
+        "definition_review"
+       ],
+       "weakest_node": null,
+       "confidence": null,
+       "evidence_count": null,
+       "node_confidences": {},
+       "cautions": [],
+       "reasons": [
+        "マスター解説: 生徒によらず行間を全て埋めて書く"
+       ]
+      },
+      "text": "まず、このステップで必要となる前提知識を短く復習します。不等式の両辺を負の数で掛けたり割ったりすると、不等号の向きが逆になるという性質があります。また、計算途中で不等式に等号を勝手に付け足したり外したりしてはいけないため、元の不等式に等号が含まれていない場合、変形後の不等式にも等号は付きません。\n\n次に、このステップの考え方と得られる結果を示します。ステップ2で立てた不等式 $49 - 8m > 0$ を $m$ について解くことで、求める定数 $m$ の値の範囲である $m < 49/8$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\nステップ2で求めた不等式の定数項である49を右辺に移項します。\n$-8m > -49$\n\n両辺を負の数である $-8$ で割ります。このとき、不等号の向きが逆になることに注意して計算します。\n$m < 49/8$",
+      "status": "ok",
+      "attempt_count": 2,
+      "attempts": [
+       {
+        "attempt": 1,
+        "text": "まず、このステップで必要となる前提知識を短く復習します。不等式の性質として、両辺に同じ数を足したり引いたりしても不等号の向きは変わりませんが、両辺を負の数で掛けたり割ったりすると、不等号の向きが逆になります。また、もとの不等式に等号が含まれていない場合、計算の最後まで等号を含まない不等号のままとなります。\n\n次に、このステップの考え方と得られる結果を示します。ステップ2で導いた1次不等式 $49 - 8m > 0$ を $m$ について解くことで、求める定数 $m$ の値の範囲である $m < \\frac{49}{8}$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\n定数項の49を右辺へ移項します。\n$-8m > -49$\n\n両辺を $-8$ で割ります。負の数で割るため、不等号の向きを逆にします。\n$\\frac{-8m}{-8} < \\frac{-49}{-8}$\n\n左辺を約分し、右辺のマイナスの符号同士をプラスにしてまとめます。\n$m < \\frac{49}{8}$",
+        "ok": false,
+        "claims": [],
+        "counts": {
+         "ok": 0,
+         "ng": 0,
+         "definition": 0,
+         "unverifiable": 0
+        },
+        "final_check": {
+         "final_answer": "m < \\frac{49}{8}",
+         "correct_answer": "m<49/8",
+         "is_correct": false,
+         "method": "string_mismatch",
+         "detail": "文字列として一致しません"
+        },
+        "feedback": "結論の「m < \\frac{49}{8}」は正しい答え「m<49/8」と一致しません。"
+       },
+       {
+        "attempt": 2,
+        "text": "まず、このステップで必要となる前提知識を短く復習します。不等式の両辺を負の数で掛けたり割ったりすると、不等号の向きが逆になるという性質があります。また、計算途中で不等式に等号を勝手に付け足したり外したりしてはいけないため、元の不等式に等号が含まれていない場合、変形後の不等式にも等号は付きません。\n\n次に、このステップの考え方と得られる結果を示します。ステップ2で立てた不等式 $49 - 8m > 0$ を $m$ について解くことで、求める定数 $m$ の値の範囲である $m < 49/8$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\nステップ2で求めた不等式の定数項である49を右辺に移項します。\n$-8m > -49$\n\n両辺を負の数である $-8$ で割ります。このとき、不等号の向きが逆になることに注意して計算します。\n$m < 49/8$",
+        "ok": true,
+        "claims": [],
+        "counts": {
+         "ok": 0,
+         "ng": 0,
+         "definition": 0,
+         "unverifiable": 0
+        },
+        "final_check": {
+         "final_answer": "m < 49/8",
+         "correct_answer": "m<49/8",
+         "is_correct": true,
+         "method": "set_equal",
+         "detail": "解集合が一致します"
+        },
+        "feedback": null
+       }
+      ],
+      "warnings": [
+       "ステップ3: 計算が一つも抜き出されなかったため，このステップは検算されていません"
+      ]
+     }
+    ],
+    "warnings": [
+     "ステップ3: 計算が一つも抜き出されなかったため，このステップは検算されていません"
+    ],
+    "model_name": "gemini-3.1-pro-preview"
+   },
+   "students": {
+    "Q136": {
+     "individual": {
+      "kind": "individual",
+      "status": "ok",
+      "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式\n\nこのステップでは、与えられた2次方程式から判別式を $D$ とおき、$m$ の式で表すことで、$D = 49 - 8m$ という結果を導きます。2次方程式 $ax^2 + bx + c = 0$ の判別式 $D = b^2 - 4ac$ の公式を使います。\n\n与えられた方程式 $2x^2 + 5x + m - 3 = 0$ の係数を読み取ると、$a = 2$、$b = 5$、$c = m - 3$ となります。ここで、定数項 $c$ は $m$ だけでなく $m - 3$ 全体であることに注意してください。公式に代入する際は、符号や項の範囲を混同しないように必ずカッコをつけて立式しましょう。\n\nそれでは、判別式 $D$ を計算していきます。\n\n公式に $a = 2$、$b = 5$、$c = m - 3$ を代入します。\n$D = 5^2 - 4 \\times 2 \\times (m - 3)$\n\n2乗の部分と、数字のかけ算を計算します。\n$D = 25 - 8(m - 3)$\n\n分配法則を使ってカッコを展開します。\n$D = 25 - 8m + 24$\n\n定数項を足し合わせてまとめます。\n$D = 49 - 8m$\n\n## ステップ2　異なる2つの実数解をもつ条件\n\nこのステップでは、2次方程式が異なる2つの実数解をもつための条件から、$49 - 8m > 0$ という不等式を立てます。2次方程式が異なる2つの実数解をもつのは、判別式 $D$ が $D > 0$ となるときです。したがって、先ほど求めた $D$ の式をあてはめて、$49 - 8m > 0$ となります。\n\n## ステップ3　不等式の解\n\nこのステップでは、$m$ についての1次不等式を解き、$m < 49/8$ という結果を導きます。不等式の性質である移項や、両辺を同じ数で割る操作を使って、$m$ の値の範囲を求めていきます。\n\nそれでは、ステップ2で立てた不等式を解いていきましょう。\n\nまず、不等式を書きます。\n$49 - 8m > 0$\n\n左辺の定数項である $49$ を右辺に移項します。\n$-8m > -49$\n\n両辺を $m$ の係数である $-8$ で割ります。ここで、負の数で両辺を割るため不等号の向きが逆になることに注意してください。また、元の不等式に等号がついていないので、ここでも等号はつけません。混同しないように気をつけてくださいね。\n$m < -49 / (-8)$\n\n右辺のマイナスどうしの割り算をプラスにして整理します。\n$m < 49/8$\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "判別式の立式",
+        "nodes": [
+         "discriminant_setup"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "判別式の立式",
+         "nodes": [
+          "discriminant_setup"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "discriminant_setup",
+         "confidence": 0.35,
+         "evidence_count": 2,
+         "node_confidences": {
+          "discriminant_setup": {
+           "confidence": 0.35,
+           "evidence_count": 2
+          }
+         },
+         "cautions": [
+          {
+           "node": "discriminant_setup",
+           "label": "判別式に代入する係数の読み取りと立式",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "discriminant_setup（判別式に代入する係数の読み取りと立式）の定着度 0.35（根拠 2 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "discriminant_setup（判別式に代入する係数の読み取りと立式）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "このステップでは、与えられた2次方程式から判別式を $D$ とおき、$m$ の式で表すことで、$D = 49 - 8m$ という結果を導きます。2次方程式 $ax^2 + bx + c = 0$ の判別式 $D = b^2 - 4ac$ の公式を使います。\n\n与えられた方程式 $2x^2 + 5x + m - 3 = 0$ の係数を読み取ると、$a = 2$、$b = 5$、$c = m - 3$ となります。ここで、定数項 $c$ は $m$ だけでなく $m - 3$ 全体であることに注意してください。公式に代入する際は、符号や項の範囲を混同しないように必ずカッコをつけて立式しましょう。\n\nそれでは、判別式 $D$ を計算していきます。\n\n公式に $a = 2$、$b = 5$、$c = m - 3$ を代入します。\n$D = 5^2 - 4 \\times 2 \\times (m - 3)$\n\n2乗の部分と、数字のかけ算を計算します。\n$D = 25 - 8(m - 3)$\n\n分配法則を使ってカッコを展開します。\n$D = 25 - 8m + 24$\n\n定数項を足し合わせてまとめます。\n$D = 49 - 8m$",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "このステップでは、与えられた2次方程式から判別式を $D$ とおき、$m$ の式で表すことで、$D = 49 - 8m$ という結果を導きます。2次方程式 $ax^2 + bx + c = 0$ の判別式 $D = b^2 - 4ac$ の公式を使います。\n\n与えられた方程式 $2x^2 + 5x + m - 3 = 0$ の係数を読み取ると、$a = 2$、$b = 5$、$c = m - 3$ となります。ここで、定数項 $c$ は $m$ だけでなく $m - 3$ 全体であることに注意してください。公式に代入する際は、符号や項の範囲を混同しないように必ずカッコをつけて立式しましょう。\n\nそれでは、判別式 $D$ を計算していきます。\n\n公式に $a = 2$、$b = 5$、$c = m - 3$ を代入します。\n$D = 5^2 - 4 \\times 2 \\times (m - 3)$\n\n2乗の部分と、数字のかけ算を計算します。\n$D = 25 - 8(m - 3)$\n\n分配法則を使ってカッコを展開します。\n$D = 25 - 8m + 24$\n\n定数項を足し合わせてまとめます。\n$D = 49 - 8m$",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "D",
+            "rhs": "49 - 8*m",
+            "lhs_text": "D",
+            "rhs_text": "49 - 8m",
+            "status": "definition",
+            "true_value": null,
+            "detail": "D の定義として記録しました"
+           },
+           {
+            "lhs": "a*x^2 + b*x + c",
+            "rhs": "0",
+            "lhs_text": "ax^2 + bx + c",
+            "rhs_text": "0",
+            "status": "unverifiable",
+            "true_value": null,
+            "detail": "両辺の文字が異なるため，恒等式として検算できません"
+           },
+           {
+            "lhs": "D",
+            "rhs": "b^2 - 4*a*c",
+            "lhs_text": "D",
+            "rhs_text": "b^2 - 4ac",
+            "status": "unverifiable",
+            "true_value": null,
+            "detail": "両辺の文字が異なるため，恒等式として検算できません"
+           },
+           {
+            "lhs": "2*x^2 + 5*x + m - 3",
+            "rhs": "0",
+            "lhs_text": "2x^2 + 5x + m - 3",
+            "rhs_text": "0",
+            "status": "unverifiable",
+            "true_value": null,
+            "detail": "両辺の文字が異なるため，恒等式として検算できません"
+           },
+           {
+            "lhs": "a",
+            "rhs": "2",
+            "lhs_text": "a",
+            "rhs_text": "2",
+            "status": "definition",
+            "true_value": null,
+            "detail": "a の定義として記録しました"
+           },
+           {
+            "lhs": "b",
+            "rhs": "5",
+            "lhs_text": "b",
+            "rhs_text": "5",
+            "status": "definition",
+            "true_value": null,
+            "detail": "b の定義として記録しました"
+           },
+           {
+            "lhs": "c",
+            "rhs": "m - 3",
+            "lhs_text": "c",
+            "rhs_text": "m - 3",
+            "status": "definition",
+            "true_value": null,
+            "detail": "c の定義として記録しました"
+           },
+           {
+            "lhs": "D",
+            "rhs": "5^2 - 4*2*(m - 3)",
+            "lhs_text": "D",
+            "rhs_text": "5^2 - 4 \\times 2 \\times (m - 3)",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "D",
+            "rhs": "25 - 8*(m - 3)",
+            "lhs_text": "D",
+            "rhs_text": "25 - 8(m - 3)",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "D",
+            "rhs": "25 - 8*m + 24",
+            "lhs_text": "D",
+            "rhs_text": "25 - 8m + 24",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "D",
+            "rhs": "49 - 8*m",
+            "lhs_text": "D",
+            "rhs_text": "49 - 8m",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           }
+          ],
+          "counts": {
+           "ok": 4,
+           "ng": 0,
+           "definition": 4,
+           "unverifiable": 3
+          },
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "異なる2つの実数解をもつ条件",
+        "nodes": [
+         "discriminant_sign"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "異なる2つの実数解をもつ条件",
+         "nodes": [
+          "discriminant_sign"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_sign",
+         "confidence": 0.5,
+         "evidence_count": 0,
+         "node_confidences": {
+          "discriminant_sign": {
+           "confidence": 0.5,
+           "evidence_count": 0
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）の定着度 0.50（根拠 0 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "このステップでは、2次方程式が異なる2つの実数解をもつための条件から、$49 - 8m > 0$ という不等式を立てます。2次方程式が異なる2つの実数解をもつのは、判別式 $D$ が $D > 0$ となるときです。したがって、先ほど求めた $D$ の式をあてはめて、$49 - 8m > 0$ となります。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "このステップでは、2次方程式が異なる2つの実数解をもつための条件から、$49 - 8m > 0$ という不等式を立てます。2次方程式が異なる2つの実数解をもつのは、判別式 $D$ が $D > 0$ となるときです。したがって、先ほど求めた $D$ の式をあてはめて、$49 - 8m > 0$ となります。",
+          "ok": true,
+          "claims": [],
+          "counts": {
+           "ok": 0,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": [
+         "ステップ2: 計算が一つも抜き出されなかったため，このステップは検算されていません"
+        ]
+       },
+       {
+        "step_id": 3,
+        "title": "不等式の解",
+        "nodes": [
+         "inequality_manipulation"
+        ],
+        "decision": {
+         "step_id": 3,
+         "title": "不等式の解",
+         "nodes": [
+          "inequality_manipulation"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "inequality_manipulation",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "inequality_manipulation": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [
+          {
+           "node": "inequality_manipulation",
+           "label": "不等号の向き（負の数で割る）と等号の有無",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "このステップでは、$m$ についての1次不等式を解き、$m < 49/8$ という結果を導きます。不等式の性質である移項や、両辺を同じ数で割る操作を使って、$m$ の値の範囲を求めていきます。\n\nそれでは、ステップ2で立てた不等式を解いていきましょう。\n\nまず、不等式を書きます。\n$49 - 8m > 0$\n\n左辺の定数項である $49$ を右辺に移項します。\n$-8m > -49$\n\n両辺を $m$ の係数である $-8$ で割ります。ここで、負の数で両辺を割るため不等号の向きが逆になることに注意してください。また、元の不等式に等号がついていないので、ここでも等号はつけません。混同しないように気をつけてくださいね。\n$m < -49 / (-8)$\n\n右辺のマイナスどうしの割り算をプラスにして整理します。\n$m < 49/8$",
+        "status": "ok",
+        "attempt_count": 2,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "このステップでは、先ほど立てた1次不等式を解き、$m < \\frac{49}{8}$ という結果を導きます。1次不等式の解き方の手順にしたがって、移項して $m$ の係数で割ることで求めます。\n\nそれでは、不等式を解いていきましょう。\n\n元の不等式です。\n$49 - 8m > 0$\n\n定数項の $49$ を右辺に移項します。\n$-8m > -49$\n\n両辺を $m$ の係数である $-8$ で割ります。ここで、負の数で両辺を割るため、不等号の向きが逆になることに注意してください。また、元の条件の不等号には等号が含まれていないので、ここでも等号をつけてしまわないように気をつけましょう。\n$m < \\frac{-49}{-8}$\n\n右辺の分数の符号を整理して、最終的な答えを求めます。\n$m < \\frac{49}{8}$",
+          "ok": false,
+          "claims": [],
+          "counts": {
+           "ok": 0,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "final_check": {
+           "final_answer": "m < \\frac{49}{8}",
+           "correct_answer": "m<49/8",
+           "is_correct": false,
+           "method": "string_mismatch",
+           "detail": "文字列として一致しません"
+          },
+          "feedback": "結論の「m < \\frac{49}{8}」は正しい答え「m<49/8」と一致しません。"
+         },
+         {
+          "attempt": 2,
+          "text": "このステップでは、$m$ についての1次不等式を解き、$m < 49/8$ という結果を導きます。不等式の性質である移項や、両辺を同じ数で割る操作を使って、$m$ の値の範囲を求めていきます。\n\nそれでは、ステップ2で立てた不等式を解いていきましょう。\n\nまず、不等式を書きます。\n$49 - 8m > 0$\n\n左辺の定数項である $49$ を右辺に移項します。\n$-8m > -49$\n\n両辺を $m$ の係数である $-8$ で割ります。ここで、負の数で両辺を割るため不等号の向きが逆になることに注意してください。また、元の不等式に等号がついていないので、ここでも等号はつけません。混同しないように気をつけてくださいね。\n$m < -49 / (-8)$\n\n右辺のマイナスどうしの割り算をプラスにして整理します。\n$m < 49/8$",
+          "ok": true,
+          "claims": [],
+          "counts": {
+           "ok": 0,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "final_check": {
+           "final_answer": "m < 49/8",
+           "correct_answer": "m<49/8",
+           "is_correct": true,
+           "method": "set_equal",
+           "detail": "解集合が一致します"
+          },
+          "feedback": null
+         }
+        ],
+        "warnings": [
+         "ステップ3: 計算が一つも抜き出されなかったため，このステップは検算されていません"
+        ]
+       }
+      ],
+      "warnings": [
+       "ステップ2: 計算が一つも抜き出されなかったため，このステップは検算されていません",
+       "ステップ3: 計算が一つも抜き出されなかったため，このステップは検算されていません"
+      ],
+      "model_name": "gemini-3.1-pro-preview"
+     },
+     "subtractive": {
+      "kind": "subtractive",
+      "status": "ok",
+      "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式\n\nまず、このステップで必要となる前提知識を短く復習します。2次方程式 $ax^2 + bx + c = 0$ の判別式 $D$ は、$D = b^2 - 4ac$ という公式で定義されます。この公式を使うためには、与えられた方程式から $x^2$ の係数 $a$、$x$ の係数 $b$、そして定数項 $c$ を正確に読み取って代入することが大切です。\n\n次に、このステップの考え方と得られる結果を示します。与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の判別式を $D$ とおき、先ほどの公式に係数を当てはめて計算することで、$D = 49 - 8m$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\n方程式から $a=2$、$b=5$、$c=m-3$ と読み取り、判別式の公式に代入します。\n$D = 5^2 - 4 \\times 2 \\times (m - 3)$\n\n5の2乗を計算し、4と2を掛け合わせます。\n$D = 25 - 8(m - 3)$\n\nかっこを展開して、-8をかっこ内のそれぞれの項に掛けます。\n$D = 25 - 8m + 24$\n\n定数項の25と24を足し合わせてまとめます。\n$D = 49 - 8m$\n\n## ステップ2　異なる2つの実数解をもつ条件\n\n49 - 8m > 0\n\n## ステップ3　不等式の解\n\nまず、このステップで必要となる前提知識を短く復習します。不等式の両辺を負の数で掛けたり割ったりすると、不等号の向きが逆になるという性質があります。また、計算途中で不等式に等号を勝手に付け足したり外したりしてはいけないため、元の不等式に等号が含まれていない場合、変形後の不等式にも等号は付きません。\n\n次に、このステップの考え方と得られる結果を示します。ステップ2で立てた不等式 $49 - 8m > 0$ を $m$ について解くことで、求める定数 $m$ の値の範囲である $m < 49/8$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\nステップ2で求めた不等式の定数項である49を右辺に移項します。\n$-8m > -49$\n\n両辺を負の数である $-8$ で割ります。このとき、不等号の向きが逆になることに注意して計算します。\n$m < 49/8$\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "判別式の立式",
+        "nodes": [
+         "discriminant_setup"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "判別式の立式",
+         "nodes": [
+          "discriminant_setup"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "discriminant_setup",
+         "confidence": 0.35,
+         "evidence_count": 2,
+         "node_confidences": {
+          "discriminant_setup": {
+           "confidence": 0.35,
+           "evidence_count": 2
+          }
+         },
+         "cautions": [
+          {
+           "node": "discriminant_setup",
+           "label": "判別式に代入する係数の読み取りと立式",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "discriminant_setup（判別式に代入する係数の読み取りと立式）の定着度 0.35（根拠 2 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "discriminant_setup（判別式に代入する係数の読み取りと立式）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "まず、このステップで必要となる前提知識を短く復習します。2次方程式 $ax^2 + bx + c = 0$ の判別式 $D$ は、$D = b^2 - 4ac$ という公式で定義されます。この公式を使うためには、与えられた方程式から $x^2$ の係数 $a$、$x$ の係数 $b$、そして定数項 $c$ を正確に読み取って代入することが大切です。\n\n次に、このステップの考え方と得られる結果を示します。与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の判別式を $D$ とおき、先ほどの公式に係数を当てはめて計算することで、$D = 49 - 8m$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\n方程式から $a=2$、$b=5$、$c=m-3$ と読み取り、判別式の公式に代入します。\n$D = 5^2 - 4 \\times 2 \\times (m - 3)$\n\n5の2乗を計算し、4と2を掛け合わせます。\n$D = 25 - 8(m - 3)$\n\nかっこを展開して、-8をかっこ内のそれぞれの項に掛けます。\n$D = 25 - 8m + 24$\n\n定数項の25と24を足し合わせてまとめます。\n$D = 49 - 8m$",
+        "status": "ok",
+        "kept_from_master": true,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "異なる2つの実数解をもつ条件",
+        "nodes": [
+         "discriminant_sign"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "異なる2つの実数解をもつ条件",
+         "nodes": [
+          "discriminant_sign"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_sign",
+         "confidence": 0.5,
+         "evidence_count": 0,
+         "node_confidences": {
+          "discriminant_sign": {
+           "confidence": 0.5,
+           "evidence_count": 0
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）の定着度 0.50（根拠 0 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "49 - 8m > 0",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "不等式の解",
+        "nodes": [
+         "inequality_manipulation"
+        ],
+        "decision": {
+         "step_id": 3,
+         "title": "不等式の解",
+         "nodes": [
+          "inequality_manipulation"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "inequality_manipulation",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "inequality_manipulation": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [
+          {
+           "node": "inequality_manipulation",
+           "label": "不等号の向き（負の数で割る）と等号の有無",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "まず、このステップで必要となる前提知識を短く復習します。不等式の両辺を負の数で掛けたり割ったりすると、不等号の向きが逆になるという性質があります。また、計算途中で不等式に等号を勝手に付け足したり外したりしてはいけないため、元の不等式に等号が含まれていない場合、変形後の不等式にも等号は付きません。\n\n次に、このステップの考え方と得られる結果を示します。ステップ2で立てた不等式 $49 - 8m > 0$ を $m$ について解くことで、求める定数 $m$ の値の範囲である $m < 49/8$ という結果を導きます。\n\nそれでは、式変形を順に見ていきましょう。\n\nステップ2で求めた不等式の定数項である49を右辺に移項します。\n$-8m > -49$\n\n両辺を負の数である $-8$ で割ります。このとき、不等号の向きが逆になることに注意して計算します。\n$m < 49/8$",
+        "status": "ok",
+        "kept_from_master": true,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.1-pro-preview"
+     }
+    },
+    "Q001": {
+     "individual": {
+      "kind": "individual",
+      "status": "ok",
+      "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式\n\n与えられた2次方程式の判別式を $D$ とおきます。2次方程式 $ax^2 + bx + c = 0$ の判別式の公式 $D = b^2 - 4ac$ に各係数を代入して整理すると、次の結果が得られます。\n\n$D = 49 - 8m$\n\n## ステップ2　異なる2つの実数解をもつ条件\n\n2次方程式が異なる2つの実数解をもつための条件は、判別式 $D$ が $D > 0$ となることです。これに先ほど求めた判別式を代入すると、次の不等式が得られます。\n\n$49 - 8m > 0$\n\n## ステップ3　不等式の解\n\n1次不等式を解いて、求める $m$ の値の範囲を導きます。両辺を負の数で割ると不等号の向きが変わることに注意すると、次の結果が得られます。\n\n$m < 49/8$\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "判別式の立式",
+        "nodes": [
+         "discriminant_setup"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "判別式の立式",
+         "nodes": [
+          "discriminant_setup"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_setup",
+         "confidence": 0.65,
+         "evidence_count": 2,
+         "node_confidences": {
+          "discriminant_setup": {
+           "confidence": 0.65,
+           "evidence_count": 2
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_setup（判別式に代入する係数の読み取りと立式）の定着度 0.65（根拠 2 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "与えられた2次方程式の判別式を $D$ とおきます。2次方程式 $ax^2 + bx + c = 0$ の判別式の公式 $D = b^2 - 4ac$ に各係数を代入して整理すると、次の結果が得られます。\n\n$D = 49 - 8m$",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "与えられた2次方程式の判別式を $D$ とおきます。2次方程式 $ax^2 + bx + c = 0$ の判別式の公式 $D = b^2 - 4ac$ に各係数を代入して整理すると、次の結果が得られます。\n\n$D = 49 - 8m$",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "D",
+            "rhs": "b^2 - 4*a*c",
+            "lhs_text": "$D$",
+            "rhs_text": "$b^2 - 4ac$",
+            "status": "definition",
+            "true_value": null,
+            "detail": "D の定義として記録しました"
+           },
+           {
+            "lhs": "D",
+            "rhs": "49 - 8*m",
+            "lhs_text": "$D$",
+            "rhs_text": "$49 - 8m$",
+            "status": "unverifiable",
+            "true_value": null,
+            "detail": "両辺の文字が異なるため，恒等式として検算できません"
+           }
+          ],
+          "counts": {
+           "ok": 0,
+           "ng": 0,
+           "definition": 1,
+           "unverifiable": 1
+          },
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "異なる2つの実数解をもつ条件",
+        "nodes": [
+         "discriminant_sign"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "異なる2つの実数解をもつ条件",
+         "nodes": [
+          "discriminant_sign"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_sign",
+         "confidence": 0.65,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_sign": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）の定着度 0.65（根拠 1 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "2次方程式が異なる2つの実数解をもつための条件は、判別式 $D$ が $D > 0$ となることです。これに先ほど求めた判別式を代入すると、次の不等式が得られます。\n\n$49 - 8m > 0$",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "2次方程式が異なる2つの実数解をもつための条件は、判別式 $D$ が $D > 0$ となることです。これに先ほど求めた判別式を代入すると、次の不等式が得られます。\n\n$49 - 8m > 0$",
+          "ok": true,
+          "claims": [],
+          "counts": {
+           "ok": 0,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": [
+         "ステップ2: 計算が一つも抜き出されなかったため，このステップは検算されていません"
+        ]
+       },
+       {
+        "step_id": 3,
+        "title": "不等式の解",
+        "nodes": [
+         "inequality_manipulation"
+        ],
+        "decision": {
+         "step_id": 3,
+         "title": "不等式の解",
+         "nodes": [
+          "inequality_manipulation"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "inequality_manipulation",
+         "confidence": 0.65,
+         "evidence_count": 1,
+         "node_confidences": {
+          "inequality_manipulation": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）の定着度 0.65（根拠 1 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "1次不等式を解いて、求める $m$ の値の範囲を導きます。両辺を負の数で割ると不等号の向きが変わることに注意すると、次の結果が得られます。\n\n$m < 49/8$",
+        "status": "ok",
+        "attempt_count": 2,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "両辺を負の数で割ると不等号の向きが変わることに注意して、この1次不等式を解きます。これにより、求める $m$ の値の範囲は $m < \\frac{49}{8}$ となります。",
+          "ok": false,
+          "claims": [],
+          "counts": {
+           "ok": 0,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "final_check": {
+           "final_answer": "m < \\frac{49}{8}",
+           "correct_answer": "m<49/8",
+           "is_correct": false,
+           "method": "string_mismatch",
+           "detail": "文字列として一致しません"
+          },
+          "feedback": "結論の「m < \\frac{49}{8}」は正しい答え「m<49/8」と一致しません。"
+         },
+         {
+          "attempt": 2,
+          "text": "1次不等式を解いて、求める $m$ の値の範囲を導きます。両辺を負の数で割ると不等号の向きが変わることに注意すると、次の結果が得られます。\n\n$m < 49/8$",
+          "ok": true,
+          "claims": [],
+          "counts": {
+           "ok": 0,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "final_check": {
+           "final_answer": "m < 49/8",
+           "correct_answer": "m<49/8",
+           "is_correct": true,
+           "method": "set_equal",
+           "detail": "解集合が一致します"
+          },
+          "feedback": null
+         }
+        ],
+        "warnings": [
+         "ステップ3: 計算が一つも抜き出されなかったため，このステップは検算されていません"
+        ]
+       }
+      ],
+      "warnings": [
+       "ステップ2: 計算が一つも抜き出されなかったため，このステップは検算されていません",
+       "ステップ3: 計算が一つも抜き出されなかったため，このステップは検算されていません"
+      ],
+      "model_name": "gemini-3.1-pro-preview"
+     },
+     "subtractive": {
+      "kind": "subtractive",
+      "status": "ok",
+      "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式\n\nD = 49 - 8m\n\n## ステップ2　異なる2つの実数解をもつ条件\n\n49 - 8m > 0\n\n## ステップ3　不等式の解\n\nm < 49/8\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "判別式の立式",
+        "nodes": [
+         "discriminant_setup"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "判別式の立式",
+         "nodes": [
+          "discriminant_setup"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_setup",
+         "confidence": 0.65,
+         "evidence_count": 2,
+         "node_confidences": {
+          "discriminant_setup": {
+           "confidence": 0.65,
+           "evidence_count": 2
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_setup（判別式に代入する係数の読み取りと立式）の定着度 0.65（根拠 2 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "D = 49 - 8m",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "異なる2つの実数解をもつ条件",
+        "nodes": [
+         "discriminant_sign"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "異なる2つの実数解をもつ条件",
+         "nodes": [
+          "discriminant_sign"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_sign",
+         "confidence": 0.65,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_sign": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）の定着度 0.65（根拠 1 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "49 - 8m > 0",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "不等式の解",
+        "nodes": [
+         "inequality_manipulation"
+        ],
+        "decision": {
+         "step_id": 3,
+         "title": "不等式の解",
+         "nodes": [
+          "inequality_manipulation"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "inequality_manipulation",
+         "confidence": 0.65,
+         "evidence_count": 1,
+         "node_confidences": {
+          "inequality_manipulation": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）の定着度 0.65（根拠 1 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "m < 49/8",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.1-pro-preview"
+     }
+    }
+   },
+   "comparison": {
+    "per_student": [
+     {
+      "student_id": "Q136",
+      "individual": {
+       "weak_step_count": 2,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 1,
+       "mastered_steps_chars": 154,
+       "total_chars": 1039,
+       "text_sim_to_master": 0.402,
+       "semantic_sim_to_master": 0.981
+      },
+      "subtractive": {
+       "weak_step_count": 2,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 1,
+       "mastered_steps_chars": 11,
+       "total_chars": 939,
+       "text_sim_to_master": 0.829,
+       "semantic_sim_to_master": 0.994
+      },
+      "master": {
+       "weak_step_count": 2,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 1,
+       "mastered_steps_chars": 431,
+       "total_chars": 1359
+      }
+     },
+     {
+      "student_id": "Q001",
+      "individual": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 3,
+       "mastered_steps_chars": 295,
+       "total_chars": 295,
+       "text_sim_to_master": 0.183,
+       "semantic_sim_to_master": 0.946
+      },
+      "subtractive": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 3,
+       "mastered_steps_chars": 30,
+       "total_chars": 30,
+       "text_sim_to_master": 0.116,
+       "semantic_sim_to_master": 0.92
+      },
+      "master": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 3,
+       "mastered_steps_chars": 1359,
+       "total_chars": 1359
+      }
+     }
+    ],
+    "between_students": {
+     "individual": {
+      "pairs": 1,
+      "mean_text_sim": 0.187,
+      "mean_semantic_sim": 0.959
+     },
+     "subtractive": {
+      "pairs": 1,
+      "mean_text_sim": 0.189,
+      "mean_semantic_sim": 0.929
+     }
+    },
+    "semantic_error": null,
+    "embedding_model": "gemini-embedding-2"
+   },
+   "profile_summary": {
+    "students": 142,
+    "nodes": {
+     "discriminant_setup": {
+      "mean": 0.635,
+      "below": 2,
+      "with_errors": 10
+     },
+     "discriminant_sign": {
+      "mean": 0.643,
+      "below": 3,
+      "with_errors": 2
+     },
+     "double_root": {
+      "mean": 0.595,
+      "below": 24,
+      "with_errors": 17
+     },
+     "inequality_manipulation": {
+      "mean": 0.629,
+      "below": 9,
+      "with_errors": 9
+     },
+     "exact_value": {
+      "mean": 0.638,
+      "below": 5,
+      "with_errors": 5
+     }
+    }
+   },
+   "diagnosis_summary": {
+    "total": 43,
+    "by_method": {
+     "llm": 43
+    },
+    "by_node": {
+     "double_root": 17,
+     "inequality_manipulation": 9,
+     "discriminant_setup": 10,
+     "discriminant_sign": 2,
+     "exact_value": 5
+    }
+   },
+   "selected_profiles": {
+    "Q136": {
+     "node_states": {
+      "discriminant_setup": {
+       "confidence": 0.35,
+       "evidence_count": 2,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 0.0,
+         "question_count": 2,
+         "confidence": 0.35
+        }
+       ]
+      },
+      "inequality_manipulation": {
+       "confidence": 0.35,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 0.0,
+         "question_count": 1,
+         "confidence": 0.35
+        }
+       ]
+      },
+      "double_root": {
+       "confidence": 0.35,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 0.0,
+         "question_count": 1,
+         "confidence": 0.35
+        }
+       ]
+      }
+     },
+     "error_tendencies": {
+      "discriminant_setup": 1,
+      "inequality_manipulation": 1
+     },
+     "judgment_counts": {
+      "wrong": 2,
+      "blank": 1
+     },
+     "exercise_count": 1
+    },
+    "Q001": {
+     "node_states": {
+      "discriminant_setup": {
+       "confidence": 0.65,
+       "evidence_count": 2,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 1.0,
+         "question_count": 2,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "discriminant_sign": {
+       "confidence": 0.65,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 1.0,
+         "question_count": 1,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "inequality_manipulation": {
+       "confidence": 0.65,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 1.0,
+         "question_count": 1,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "exact_value": {
+       "confidence": 0.65,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 1.0,
+         "question_count": 1,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "double_root": {
+       "confidence": 0.35,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 0.0,
+         "question_count": 1,
+         "confidence": 0.35
+        }
+       ]
+      }
+     },
+     "error_tendencies": {
+      "double_root": 1
+     },
+     "judgment_counts": {
+      "correct": 2,
+      "incomplete": 1
+     },
+     "exercise_count": 1
+    }
+   }
+  }
+ ],
+ "diagnoses": {
+  "No.1": [
+   {
+    "student_id": "Q001",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=-1",
+    "judgment": "incomplete",
+    "corrected": true,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "重解となるmの値を一つしか求めておらず、もう一つのmの値に対する重解の計算を行っていないため。"
+   },
+   {
+    "student_id": "Q005",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "16/3>=m",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解の不等式には等号が含まれていないにもかかわらず、生徒の解答では等号を含めてしまっているため。"
+   },
+   {
+    "student_id": "Q009",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2，m=-6 のとき x=3",
+    "judgment": "incomplete",
+    "corrected": true,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "生徒は判別式から正しいmの値を求めているが、それぞれのmの値に対する重解xの値を正しく計算できていないため。"
+   },
+   {
+    "student_id": "Q016",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6 のとき x=3，m=2 のとき x=1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値は正しく求められているが、m=2のときの重解の計算で符号などの計算ミスをしているため。"
+   },
+   {
+    "student_id": "Q017",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "D<16/3",
+    "judgment": "form_issue",
+    "corrected": false,
+    "source_result": "form_issue",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "最終的な答えの変数としてmではなく判別式を表す記号Dを用いてしまっているため。"
+   },
+   {
+    "student_id": "Q022",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 0, 0",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "discriminant_sign",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "判別式の値が0となる場合に実数解や共有点の個数を1個ではなく0個と誤って判断しているため。"
+   },
+   {
+    "student_id": "Q026",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6，m=2",
+    "judgment": "incomplete",
+    "corrected": false,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "定数mの値を求めることには成功しているが、そのときの重解xの値を計算していないため。"
+   },
+   {
+    "student_id": "Q027",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m<5",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "exact_value",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解の境界値である分数16/3を、正確に扱わずに近似または整数に丸めて5としてしまっているため。"
+   },
+   {
+    "student_id": "Q027",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=0，m=12",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong_m",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "生徒は重解を持つためのmの値を誤っているため、判別式の立式や係数の読み取りを間違えたと考えられる。"
+   },
+   {
+    "student_id": "Q029",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 1, 1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "共有点が0個となる問題で1個と答えていることから、判別式に代入する係数の読み取りや立式を誤り、判別式の値が0になると計算してしまったと考えられるため。"
+   },
+   {
+    "student_id": "Q030",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=-1，m=-6",
+    "judgment": "incomplete",
+    "corrected": false,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "生徒はm=-6のときの重解xの値を答えておらず重解の計算を最後まで完了していないため。"
+   },
+   {
+    "student_id": "Q031",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m>16/3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "数値は正解と一致しているが不等号の向きが逆になっており、負の数で割る際などの不等式の操作を誤ったと考えられるため。"
+   },
+   {
+    "student_id": "Q034",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=1+2*sqrt(3)，m=1-2*sqrt(3)",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_m",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "生徒は判別式を用いた方程式の立式や係数の読み取りを誤り、間違ったmの値を算出しているため。"
+   },
+   {
+    "student_id": "Q037",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m>16/3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解と比較して数値は一致しているものの不等号の向きが逆になっており、不等式を解く過程で負の数で割る際に不等号の向きを反転させ忘れたと考えられるため。"
+   },
+   {
+    "student_id": "Q048",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=1，m=-6 のとき x=-3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値は正しく求められているが重解xの符号が逆になっており重解の公式の計算を誤っているため。"
+   },
+   {
+    "student_id": "Q049",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=11/4",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong_m",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "判別式の立式を誤って誤ったmの値を導いており、また重解xの値を求める計算も行っていないため。"
+   },
+   {
+    "student_id": "Q050",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m<5",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "exact_value",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解の分数である16/3を近似または切り捨てて5と答えているため。"
+   },
+   {
+    "student_id": "Q057",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=6，m=-2",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong_m",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値を求める際の符号に誤りがあるだけでなく、求めるべき重解の値を全く解答しておらず、重解の計算方法を理解していないと考えられるため。"
+   },
+   {
+    "student_id": "Q058",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2，m=-6",
+    "judgment": "incomplete",
+    "corrected": true,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "生徒はmの値を求めているが、そのときの重解の値を計算して答えていないため。"
+   },
+   {
+    "student_id": "Q060",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m<5.3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "exact_value",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "生徒は正解の分数16/3を近似して小数5.3で解答しているため。"
+   },
+   {
+    "student_id": "Q062",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6 のとき x=3",
+    "judgment": "incomplete",
+    "corrected": true,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "重解の条件から得られる定数mの2次方程式の解の1つを見落としているため。"
+   },
+   {
+    "student_id": "Q063",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 2, 1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "判別式の計算において係数の代入や符号を誤り、値が正であると判定してしまったと考えられるため。"
+   },
+   {
+    "student_id": "Q063",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m>16/3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解と数値は一致していますが不等号の向きが逆になっているため、不等式の処理における誤りです。"
+   },
+   {
+    "student_id": "Q066",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=-1，m=3 のとき x=3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_m",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解のmの値が-6であるところをm=3と誤答しているため、判別式の立式や係数の読み取りに誤りがあると考えられるため。"
+   },
+   {
+    "student_id": "Q067",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m>16/3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解と数値は一致しているが不等号の向きが逆になっており、不等式の処理において負の数で割る際の反転などを忘れたと考えられるため。"
+   },
+   {
+    "student_id": "Q068",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m>16/3",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解と値は一致しているが不等号の向きが逆になっており、負の数で割る際などに不等号の向きを変え忘れたと考えられるため。"
+   },
+   {
+    "student_id": "Q083",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m<=16/3",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解では等号を含まない不等号を用いるべきところを生徒は等号を含めた不等号を用いて解答しているため。"
+   },
+   {
+    "student_id": "Q095",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=-1，m=-6 のとき x=-6",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値に応じた重解の計算を誤っているため。"
+   },
+   {
+    "student_id": "Q097",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 2, 1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "判別式への係数の代入や計算を誤ったことで判別式の値が正となり、共有点の個数を2個と判断してしまったと考えられるため。"
+   },
+   {
+    "student_id": "Q098",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6，m=2",
+    "judgment": "incomplete",
+    "corrected": true,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値は正しく求めているが、そのときの重解xの値を求めていないため。"
+   },
+   {
+    "student_id": "Q103",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=1，m=-6 のとき x=3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値は正しく求められているが，m=2のときの重解の符号を誤っているため。"
+   },
+   {
+    "student_id": "Q104",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "Eq(m,16/3)",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解が不等式であるのに対し、等式として答えているため。"
+   },
+   {
+    "student_id": "Q104",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6 のとき x=3，m=2 のとき x=1",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "m=2のときの重解の符号を誤って計算しているため。"
+   },
+   {
+    "student_id": "Q105",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "(1<=m)&(m<=5)",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "exact_value",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解の境界値である分数16/3をそのまま用いず、近似して整数の範囲で答えてしまっているため。"
+   },
+   {
+    "student_id": "Q106",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "(0<=m)&(m<=5)",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "exact_value",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "生徒は境界値である分数16/3をそのまま扱わず、整数などに近似して答えているため。"
+   },
+   {
+    "student_id": "Q113",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-2，m=6",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_m",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "生徒は判別式を立式する際の係数の読み取りや計算で符号を間違えたため、求めたmの値の符号が正解と逆になっているから。"
+   },
+   {
+    "student_id": "Q118",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6 のとき x=3，m=2 のとき x=1",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "判別式から求めたmの値は正しいが、m=2のときの重解xの符号を誤って計算しているため。"
+   },
+   {
+    "student_id": "Q121",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=-1，m=-6 のとき x=3+2*sqrt(3)",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値は正しく求めているが、m=-6のときの重解の計算を誤っているため。"
+   },
+   {
+    "student_id": "Q122",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=1，m=-6 のとき x=3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値は正しく求められているがm=2のときの重解xの符号を間違えているため重解を求める計算で誤ったと考えられる。"
+   },
+   {
+    "student_id": "Q133",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-1 のとき x=2，m=3 のとき x=6",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_m",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解のmの値とxの値を入れ違えて解答しており、重解を求める過程で変数を混同していると考えられるため。"
+   },
+   {
+    "student_id": "Q136",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 2, 1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "2番目の問題において判別式に代入する係数の符号などを誤って正の値を導き、実数解の個数を2個と判定してしまったと考えられるため。"
+   },
+   {
+    "student_id": "Q136",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "Eq(m,16/3)",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解が不等式であるのに対し生徒は等式で答えており、不等式の等号の有無や扱いの誤りであるため。"
+   },
+   {
+    "student_id": "Q137",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 1, 1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "discriminant_sign",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解が0個となる問題に対して1個と答えており、判別式の符号が負の場合の実数解または共有点の個数との対応関係を誤っていると考えられるため。"
+   }
+  ]
+ }
+}

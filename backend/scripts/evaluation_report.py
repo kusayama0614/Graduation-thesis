@@ -32,7 +32,8 @@ sys.path.insert(0, BACKEND_DIR)
 from app.learning import evaluation as ev  # noqa: E402
 from app.learning import explanation as chain  # noqa: E402
 
-KIND_LABELS = {'master': '(A) マスター解説', 'subtractive': '(B) 引き算型', 'individual': '(C) 積み上げ型'}
+KIND_LABELS = {'master': 'マスター解説', 'individual': '積み上げ型（個別化）'}
+STUDENT_KINDS = ('individual',)  # 生徒ごとの解説（引き算型は比較の対象にしないため，古い記録にあっても読まない）
 OUTCOME_LABELS = {'first_ok': '初回で検算OK', 'fixed': '差し戻しで修正', 'needs_review': '教員の確認へ'}
 
 
@@ -44,7 +45,7 @@ def latest_trial(directory: str) -> Optional[str]:
 # ---------------------------------------------------------------- 読み込み
 
 def problems_from_trial(path: str) -> Dict[str, Any]:
-    """試行の記録を，問題ごとの {title, master, students: {sid: {individual, subtractive, node_states}}} にそろえる。"""
+    """試行の記録を，問題ごとの {title, master, students: {sid: {individual, node_states}}} にそろえる。"""
     with open(path, encoding='utf-8') as f:
         data = json.load(f)
     problems = []
@@ -55,9 +56,8 @@ def problems_from_trial(path: str) -> Dict[str, Any]:
             students[sid] = {
                 'node_states': section['selected_profiles'][sid]['node_states'],
                 'individual': pair.get('individual'),
-                'subtractive': pair.get('subtractive'),
                 'semantic': {kind: (semantic.get(sid, {}).get(kind) or {}).get('semantic_sim_to_master')
-                             for kind in ('individual', 'subtractive')},
+                             for kind in STUDENT_KINDS},
             }
         problems.append({'title': section['problem']['title'], 'unit': section['problem']['unit'],
                          'master': section['master'], 'students': students})
@@ -100,9 +100,9 @@ def problems_from_db() -> Dict[str, Any]:
 
             master_row = latest.get(('master', None))
             students = {}
-            for sid in sorted({sid for (_, sid) in latest if sid}):
-                pair = {kind: latest.get((kind, sid)) for kind in ('individual', 'subtractive')}
-                snapshot_row = pair['individual'] or pair['subtractive']
+            for sid in sorted({sid for (kind, sid) in latest if sid and kind in STUDENT_KINDS}):
+                pair = {kind: latest.get((kind, sid)) for kind in STUDENT_KINDS}
+                snapshot_row = pair['individual']
                 semantic = {}
                 for kind, row in pair.items():
                     semantic[kind] = (chain.cosine_similarity(vec[row.id], vec[master_row.id])
@@ -110,7 +110,6 @@ def problems_from_db() -> Dict[str, Any]:
                 students[sid] = {
                     'node_states': json.loads(snapshot_row.profile_snapshot or '{}').get('node_states', {}),
                     'individual': as_trace(pair['individual']) if pair['individual'] else None,
-                    'subtractive': as_trace(pair['subtractive']) if pair['subtractive'] else None,
                     'semantic': semantic,
                 }
             problems.append({'title': problem.title, 'unit': problem.unit,
@@ -130,12 +129,11 @@ def summarize(loaded: Dict[str, Any]) -> Dict[str, Any]:
         problem_traces = [master] if master else []
         problem_rows = []
         for sid, student in problem['students'].items():
-            for kind in ('individual', 'subtractive'):
+            for kind in STUDENT_KINDS:
                 trace = student.get(kind)
                 if not trace:
                     continue
-                if kind == 'individual':
-                    problem_traces.append(trace)
+                problem_traces.append(trace)
                 problem_rows.append({'problem': problem['title'], **ev.table10_row(
                     sid, kind, trace, trace['content'], student['node_states'], master_content,
                     student['semantic'].get(kind))})
@@ -143,7 +141,7 @@ def summarize(loaded: Dict[str, Any]) -> Dict[str, Any]:
                 problem_rows.append({'problem': problem['title'], **ev.table10_row(
                     sid, 'master', master, master_content, student['node_states'])})
         between = {}
-        for kind in ('individual', 'subtractive'):
+        for kind in STUDENT_KINDS:
             contents = {sid: s[kind]['content'] for sid, s in problem['students'].items() if s.get(kind)}
             pairs = ev.pairwise_similarity(contents)
             between[kind] = {'pairs': len(pairs), 'mean_text_sim': ev.mean(p['text_sim'] for p in pairs)}
@@ -164,7 +162,7 @@ def _round(value: Optional[float]) -> Optional[int]:
 
 def means_by_kind(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     result = {}
-    for kind in ('master', 'subtractive', 'individual'):
+    for kind in ('master', 'individual'):
         subset = [r for r in rows if r['kind'] == kind]
         if not subset:
             continue
@@ -201,7 +199,7 @@ def write_markdown(path: str, loaded: Dict[str, Any], summary: Dict[str, Any], c
         f'- データ: {loaded["source"]}',
         f'- 生成モデル: {loaded["model"] or "—"}',
         f'- 作成: {datetime.now().strftime("%Y-%m-%d %H:%M")}',
-        '- 引き算型 (B) は LLM で生成・検算しないため，整合率の対象外', '',
+        '',
         '## 数学的整合率（5.4節(4)）', '',
         '| | 件数 | 初回で検算OK (a) | 差し戻しで修正 (b) | 教員の確認へ (c) |',
         '|---|---|---|---|---|',
@@ -233,8 +231,7 @@ def write_markdown(path: str, loaded: Dict[str, Any], summary: Dict[str, Any], c
         out += [f'## {p["title"]}（生徒 {p["students"]} 名）', '',
                 f'- 整合率: 解説 {pc["explanation_count"]} 件のうち 初回OK {_pct(pc["explanations"]["first_ok"])}，'
                 f'差し戻しで修正 {_pct(pc["explanations"]["fixed"])}，教員の確認へ {_pct(pc["explanations"]["needs_review"])}',
-                f'- 生徒どうしの文字列一致度（平均）: 積み上げ型 {_fmt(p["between_students"]["individual"]["mean_text_sim"])}，'
-                f'引き算型 {_fmt(p["between_students"]["subtractive"]["mean_text_sim"])}', '',
+                f'- 生徒どうしの文字列一致度（平均）: 積み上げ型 {_fmt(p["between_students"]["individual"]["mean_text_sim"])}', '',
                 '| 生徒 | 方式 | 検算 | 未定着ステップ（詳しく書いた割合） | 定着済みステップ（文字数） | 全体の文字数 | 注意を含むステップ | '
                 '文字列一致度 | 意味の類似度 |',
                 '|---|---|---|---|---|---|---|---|---|']

@@ -143,8 +143,7 @@
                         <button class="button button-light button-small" onclick="selectStudents(false)">選択を解除</button>
                     </div>
                     <div id="studentChecks" style="margin: 10px 0; max-height: 180px; overflow-y: auto;"></div>
-                    <label class="checkbox"><input type="checkbox" id="includeMaster"> マスター解説 (A) も生成する</label>
-                    <label class="checkbox"><input type="checkbox" id="includeSubtractive"> 引き算型 (B) も作る（比較用）</label>
+                    <label class="checkbox"><input type="checkbox" id="includeMaster"> マスター解説も生成する（比較用）</label>
                     <div class="button-row">
                         <button class="button" id="generateButton" onclick="generate()">解説を生成</button>
                     </div>
@@ -179,7 +178,7 @@
     <script src="learning-common.js"></script>
     <script>
         const L = window.Learning;
-        const KIND_LABELS = { individual: '積み上げ型 (C)', master: 'マスター (A)', subtractive: '引き算型 (B)' };
+        const KIND_LABELS = { individual: '積み上げ型（個別化）', master: 'マスター解説', common: '全員共通の解説' };
         let graph = null;
         let labels = {};
         let problems = [];
@@ -664,7 +663,6 @@
         async function generate() {
             const studentIds = Array.from(document.querySelectorAll('.student-check:checked')).map((box) => box.value);
             const includeMaster = document.getElementById('includeMaster').checked;
-            const includeSubtractive = document.getElementById('includeSubtractive').checked;
             if (!studentIds.length && !includeMaster) {
                 L.toast('生徒を選ぶか，マスター解説の生成を選んでください', 'error');
                 return;
@@ -672,7 +670,7 @@
             try {
                 document.getElementById('generateButton').disabled = true;
                 const payload = await L.api('POST', `/learning/problems/${current.id}/explanations`, {
-                    student_ids: studentIds, include_master: includeMaster, include_subtractive: includeSubtractive,
+                    student_ids: studentIds, include_master: includeMaster,
                 });
                 showJob(payload.job);
             } catch (error) {
@@ -725,7 +723,7 @@
             try {
                 const c = await L.api('GET', `/learning/problems/${current.id}/comparison`);
                 const fmt = (v) => (v === null || v === undefined ? '—' : v);
-                const rows = c.students.flatMap((s) => ['individual', 'subtractive'].filter((k) => s[k]).map((k) => `<tr>
+                const rows = c.students.flatMap((s) => ['individual'].filter((k) => s[k]).map((k) => `<tr>
                     <td class="nowrap">${L.escapeHtml(s.student_id)}</td>
                     <td class="nowrap">${KIND_LABELS[k]}</td>
                     <td>${fmt(s[k].metrics.weak_steps_detailed_ratio)}</td>

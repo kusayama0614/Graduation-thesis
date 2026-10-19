@@ -133,18 +133,18 @@ def test_exam_generation_pauses_on_quota_and_resumes(client):  # noqa: F811
     assert client.get(f'/api/learning/exam-generation-jobs/{job["id"]}').get_json()['job']['done'] == 3
 
 
-def test_master_and_subtractive_for_exam(client):  # noqa: F811
+def test_master_for_exam(client):  # noqa: F811
     llm = FakeLLM(writer=correct_writer)
     exam_id = _setup(client, llm)
     only = [_pid(client, exam_id, '2(1)')]
-    job = _job(client, exam_id, student_ids=['1-1-1'], include_subtractive=True, problem_ids=only)
+    job = _job(client, exam_id, student_ids=['1-1-1'], include_master=True, problem_ids=only)
     assert job['status'] == 'completed'
     with client.application.app_context():
         kinds = sorted(r.kind for r in GeneratedExplanation.query.all())
-    assert kinds == ['individual', 'master', 'subtractive']
+    assert kinds == ['individual', 'master']  # 引き算型は作らない
     # マスター解説も指紋が同じなら作り直さない
     calls = len(llm.calls)
-    _job(client, exam_id, student_ids=['1-1-2'], include_subtractive=True, problem_ids=only)
+    _job(client, exam_id, student_ids=['1-1-2'], include_master=True, problem_ids=only)
     with client.application.app_context():
         assert GeneratedExplanation.query.filter_by(kind='master').count() == 1
     assert len(llm.calls) == calls

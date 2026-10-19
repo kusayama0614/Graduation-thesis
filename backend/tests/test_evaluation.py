@@ -33,7 +33,7 @@ def _trace(kind, steps, content='本文'):
     return {'kind': kind, 'status': status, 'steps': steps, 'content': content}
 
 
-def test_consistency_counts_outcomes_and_skips_subtractive():
+def test_consistency_counts_outcomes_and_skips_other_kinds():
     traces = [
         _trace('master', [_step(1), _step(2)]),
         _trace('individual', [_step(1), _step(2, attempts=2)]),
@@ -67,23 +67,23 @@ def test_table10_row_caution_only_for_individual():
     node_states = {'discriminant_sign': {'confidence': 0.3, 'evidence_count': 1}}
     steps = [_step(1, elements=('result', 'reasoning', 'error_caution'))]
     individual = ev.table10_row('S1', 'individual', _trace('individual', steps), 'あいう', node_states, 'あいえ', 0.9)
-    subtractive = ev.table10_row('S1', 'subtractive', _trace('subtractive', steps), 'あいう', node_states, 'あいえ')
+    master = ev.table10_row('S1', 'master', _trace('master', steps), 'あいう', node_states)
     assert individual['caution_steps'] == [1] and individual['weak_steps_detailed_ratio'] == 1.0
     assert individual['outcome'] == 'first_ok' and individual['semantic_sim_to_master'] == 0.9
-    assert subtractive['caution_steps'] == [] and subtractive['outcome'] is None
+    assert master['caution_steps'] == [] and master['text_sim_to_master'] is None
     assert individual['text_sim_to_master'] is not None
 
 
 def test_evaluation_report_from_trial(tmp_path):
     master = _trace('master', [_step(1, elements=('result', 'reasoning'))], content='マスター解説の本文')
     individual = _trace('individual', [_step(1, elements=('result', 'reasoning', 'error_caution'))], content='個別の本文')
-    subtractive = _trace('subtractive', [_step(1, attempts=0, claims=())], content='マスター解説の本文')
+    old_subtractive = _trace('subtractive', [_step(1, attempts=0, claims=())], content='マスター解説の本文')
     trial = {
         'meta': {'model': 'fake-llm'},
         'sections': [{
             'problem': {'title': '問題1', 'unit': 'quadratic_functions'},
             'master': master,
-            'students': {'S1': {'individual': individual, 'subtractive': subtractive}},
+            'students': {'S1': {'individual': individual, 'subtractive': old_subtractive}},  # 古い記録の引き算型は読まない
             'selected_profiles': {'S1': {'node_states': {'discriminant_sign': {'confidence': 0.3, 'evidence_count': 1}}}},
             'comparison': {'per_student': [{'student_id': 'S1', 'individual': {'semantic_sim_to_master': 0.95}}]},
         }],
@@ -94,11 +94,11 @@ def test_evaluation_report_from_trial(tmp_path):
     out = tmp_path / 'out'
     assert evaluation_report.main(['--trial', str(path), '--out', str(out)]) == 0
     md = next(out.glob('evaluation_*.md')).read_text(encoding='utf-8')
-    assert '数学的整合率' in md and '(C) 積み上げ型' in md
+    assert '数学的整合率' in md and '積み上げ型（個別化）' in md and '引き算' not in md
     with open(next(out.glob('*_table10.csv')), encoding='utf-8-sig') as f:
         rows = list(csv.DictReader(f))
-    assert {r['方式'] for r in rows} == {'(A) マスター解説', '(B) 引き算型', '(C) 積み上げ型'}
-    c_row = next(r for r in rows if r['方式'] == '(C) 積み上げ型')
+    assert {r['方式'] for r in rows} == {'マスター解説', '積み上げ型（個別化）'}
+    c_row = next(r for r in rows if r['方式'] == '積み上げ型（個別化）')
     assert c_row['誤りへの注意を含むステップ'] == '1' and c_row['マスターとの意味の類似度'] == '0.95'
 
 

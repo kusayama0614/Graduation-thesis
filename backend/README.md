@@ -409,10 +409,10 @@ API はすべてログインが必要で，`/api/learning` 配下にあります
 | その生徒の誤りの傾向への注意 | 誤りの記録があるノードの定着度 < 0.7 |
 
 - `GET /api/learning/problems/<id>/plan?student_id=...` で，LLM を呼ばずに判断とその理由（例:「double_root の定着度 0.35 が閾値 0.5 を下回るため…」）を確認できます。
-- `POST /api/learning/problems/<id>/explanations`  `{"student_ids": [...], "include_master": true, "include_subtractive": true}` で生成（バックグラウンドのジョブ。`GET /api/learning/jobs/<job_id>` で進捗）。
+- `POST /api/learning/problems/<id>/explanations`  `{"student_ids": [...], "include_master": true}` で生成（バックグラウンドのジョブ。`GET /api/learning/jobs/<job_id>` で進捗）。
   `student_ids` を省略するとプロファイルのある全生徒が対象です。問題に `correct_answer` を登録しておくと，解説の結論も照合します。
 - 生成結果は `GET /api/learning/explanations/<id>`。ステップごとの判断・検算・差し戻しの記録（`trace`）と，参照した定着度（`profile_snapshot`）が残ります。
-- 比較（5.5節 表10）: `GET /api/learning/problems/<id>/comparison` でマスター解説 (A)・引き算型 (B)・積み上げ型 (C) の指標と，文字列の一致度（difflib）・意味の類似度（Gemini の埋め込み `gemini-embedding-2` によるコサイン類似度）を返します。埋め込みは解説ごとに保存し，2回目以降は再計算しません（`?semantic=false` で省略可）。
+- 比較（5.5節 表10）: `GET /api/learning/problems/<id>/comparison` でマスター解説と積み上げ型（個別化した解説）の指標と，文字列の一致度（difflib）・意味の類似度（Gemini の埋め込み `gemini-embedding-2` によるコサイン類似度）を返します。埋め込みは解説ごとに保存し，2回目以降は再計算しません（`?semantic=false` で省略可）。
 
 LLM は Gemini で，環境変数 `GEMINI_API_KEY`（必須）と `GEMINI_MODEL`（既定 `gemini-3.8-flash`）で設定します。未設定のときは LLM を使う API が 503 を返し，プロファイルの更新は LLM なしで動きます。
 
@@ -447,7 +447,7 @@ LLM は Gemini で，環境変数 `GEMINI_API_KEY`（必須）と `GEMINI_MODEL`
 試験の全問題 × 選んだ生徒（クラス単位）の解説をまとめて生成し，教員が要確認のものを確かめてから，生徒ごとの冊子として印刷します（3.1節「試験の返却と同時に全員へ解説を配布」）。
 
 - **見積もり** `GET /api/learning/exams/<exam_id>/generation-plan?classes=1-1&reuse=true`：LLM を呼ばずに，問題ごとの「生成・使い回し・省略」の件数と Gemini の呼び出し回数の目安を返します。
-- **生成** `POST /api/learning/exams/<exam_id>/generation-jobs` `{"classes": ["1-1"] | "student_ids": [...], "problem_ids"?: [...], "reuse": true, "include_master": false, "include_subtractive": false}`。進み具合は `GET /api/learning/exam-generation-jobs/<job_id>`。
+- **生成** `POST /api/learning/exams/<exam_id>/generation-jobs` `{"classes": ["1-1"] | "student_ids": [...], "problem_ids"?: [...], "reuse": true, "include_master": false}`。進み具合は `GET /api/learning/exam-generation-jobs/<job_id>`。
 - **使い回し（指紋）**：LLM に渡す指示は「問題・ステップ・Chain 2 の判断（含める要素と誤りへの注意）・モデル」だけで決まるため，これらの指紋（signature）が同じ生徒には1回だけ生成した解説を使い回します（`reused_from` に元の解説）。判断の理由と定着度の記録はその生徒自身のものに置き換えます。判断が前回から変わっていない生徒は作り直しません（省略）。`reuse: false` で生徒ごとに生成できます（同じ判断の生徒どうしの類似度（表10）は，使い回すと 1.0 になる点に注意）。
 - **解答ステップがない問題**（Chain 1 で分解できなかったグラフの問題など）：生徒ごとの判断ができないため，個別化しない**全員共通の解説**（`kind: "common"`）を1問につき1件だけ生成し，全員の冊子に載せます。書き方は，教員が参考に示した参考書（チャート式）の解答編の構成と文体に合わせています（「> **指針**」「> **CHART**」の枠 → 「### 解答」（である調，式番号 ……①，場合分け [1][2]，条件の確認，「← 」の補足，答えは太字）→ 必要なら「### 別解」「### 検討」）。規則は `app/learning/explanation.py` の `COMMON_STYLE` にあり，変えたときは `COMMON_STYLE_VERSION` を上げると既存の共通の解説が次の生成で作り直されます。途中の式変形を省略せずに書かせ，個別の解説と同じく Chain 4 で検算して，直らなければ要確認として教員に回します。Chain 1 の実行中の問題は生成しません。
 - **一時停止と再開**：Gemini の利用上限（429 / RESOURCE_EXHAUSTED）に達するとジョブは `paused` になります。`POST /api/learning/exam-generation-jobs/<job_id>/resume` で続きから生成します（済んだ解説は指紋が同じなので省略されます）。並列数は `EXPLANATION_CONCURRENCY`（既定 3）。
@@ -462,11 +462,13 @@ LLM は Gemini で，環境変数 `GEMINI_API_KEY`（必須）と `GEMINI_MODEL`
 - `POST /api/learning/exam-imports/<exam_id>/template`（multipart の `file`，または `{"tex": "..."}`）。大問・小問の番号（例 `1(1)`，小問のない大問は `2`）で③の問題と対応させます。大問の冒頭の共通部分（大問4の考え方など）は最初の小問に含めます。`DELETE` で外せます。
 - 対応した問題は，**テンプレートの「手順」をそのまま解答ステップ**にし，各手順が依存する前提知識ノードだけを Gemini が付けます（Chain 1 の分解の代わり。③で直せます）。
 - 個別の解説（Chain 2）は，各手順の本文を土台に，Chain 2 の判断に応じて内容だけを変えます：定着が弱い手順は途中式を補う，定着済みの手順は簡潔にする，`\fukushu{...}`（前提知識の復習），その生徒の誤りに向けた `chui` 環境の注意，`\ruidai{...}`（類題）。**答・考え方・手順の見出し・図（tikz）・表・テンプレートの注意はプログラムがテンプレートのまま組み立て**ます（Chain 3）。図は ⟦図1⟧ の印に置き換えて LLM に渡さず，必ず元の位置に戻します。手順ごとの計算の検算（Chain 4）はこれまでどおりです（答はテンプレートの「答」なので，最後の結論の照合はしません）。
-- 比較用のマスター解説 (A) はテンプレートそのもの（LLM を呼ばない），引き算型 (B) はテンプレートの手順のうち定着済みのものを最後の式だけに縮めたものです。手順のない小問は，テンプレートの部分をそのまま全員共通の解説にします。
+- 比較用のマスター解説はテンプレートそのもの（LLM を呼ばない）です。手順のない小問は，テンプレートの部分をそのまま全員共通の解説にします。
 - `GET /api/learning/exams/<exam_id>/booklet.tex?classes=1-1`：テンプレートと同じプリアンブル・表題で，生徒ごとに改ページした1つの TeX 文書を返します（表題の「□組□番」に組・番を記入。`\fukushu`・`\ruidai` は `\providecommand` で補うので，テンプレート側で定義すればその見た目になります）。xelatex などテンプレートと同じ方法でコンパイルします。画面の表示・冊子では TeX を見出しや枠に直して表示します（図は「印刷用の TeX を参照」）。
 - テンプレートを読み込み直す・内容を変えると，指紋が変わるため次の生成で作り直されます。
 
 ### 評価の集計（5.4節・5.5節）
+
+比較はマスター解説と積み上げ型（個別化した解説）の2つで行います（引き算型は比較の対象から外しました。以前に作った引き算型の解説はデータベースに残っていても，一覧・比較・集計には出しません）。
 
 記録から決定的に集計します（LLM は呼びません）。出力先は `docs/evaluation/`（手順は同フォルダの README）。
 
@@ -477,7 +479,7 @@ LLM は Gemini で，環境変数 `GEMINI_API_KEY`（必須）と `GEMINI_MODEL`
 .venv_local/bin/python scripts/diagnosis_agreement.py score  # 研究者のラベルとの一致率・κ
 ```
 
-- 数学的整合率: (a) 初回で全ての計算が検算OK，(b) 差し戻しで修正，(c) 上限に達して教員の確認へ，の割合（解説単位・ステップ単位）。引き算型は LLM で生成しないため対象外。
+- 数学的整合率: (a) 初回で全ての計算が検算OK，(b) 差し戻しで修正，(c) 上限に達して教員の確認へ，の割合（解説単位・ステップ単位）。
 - 表10: 未定着ステップを詳しく書いた割合，定着済みステップの文字数，誤りへの注意を含むステップ，マスター解説との文字列一致度・意味の類似度。CSV の「固有の内容（研究者判定）」列は研究者が記入します。
 - 一致率: Gemini が候補ノードから選んだ行（診断方法 `llm`）が対象。候補が一つの小問は参考として別に数えます。
 

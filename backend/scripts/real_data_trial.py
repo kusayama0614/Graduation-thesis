@@ -2,7 +2,7 @@
 
 プロトタイプの書き起こしデータ（docs/thesis/prototype/transcription.py）を数学的検証チェーン
 （verify_chain.py）で判定した結果から学習者プロファイルを作り，定期テストを想定した問題について
-Chain 1〜4 で個別化した解説・マスター解説・引き算型の解説を生成して，比較の指標とともに
+Chain 1〜4 で個別化した解説とマスター解説を生成して，比較の指標とともに
 レポート（Markdown）と全記録（JSON）を書き出す。
 
 使い方（backend ディレクトリで）:
@@ -216,7 +216,6 @@ def comparison(results: Dict[str, Any], node_states_of: Dict[str, Dict[str, Any]
     texts = {'master': master['content']}
     for sid, pair in results['students'].items():
         texts[f'individual:{sid}'] = pair['individual']['content']
-        texts[f'subtractive:{sid}'] = pair['subtractive']['content']
     vectors = {}
     semantic_error = None
     if embedder is not None:
@@ -237,14 +236,11 @@ def comparison(results: Dict[str, Any], node_states_of: Dict[str, Dict[str, Any]
             'individual': {**chain.explanation_metrics(pair['individual'], node_states),
                            'text_sim_to_master': chain.text_similarity(pair['individual']['content'], master['content']),
                            'semantic_sim_to_master': sem(f'individual:{sid}', 'master')},
-            'subtractive': {**chain.explanation_metrics(pair['subtractive'], node_states),
-                            'text_sim_to_master': chain.text_similarity(pair['subtractive']['content'], master['content']),
-                            'semantic_sim_to_master': sem(f'subtractive:{sid}', 'master')},
             'master': chain.explanation_metrics(master, node_states),
         })
     between = {}
     sids = list(results['students'])
-    for kind in ('individual', 'subtractive'):
+    for kind in ('individual',):
         pairs = [(a, b) for i, a in enumerate(sids) for b in sids[i + 1:]]
         text = [chain.text_similarity(results['students'][a][kind]['content'], results['students'][b][kind]['content'])
                 for a, b in pairs]
@@ -323,20 +319,19 @@ def write_report(path: str, meta: Dict[str, Any], sections: List[Dict[str, Any]]
         out += ['### Chain 1: 解答ステップ', '']
         for step in section['steps']:
             out.append(f'{step["id"]}. **{step["title"]}** — {step["description"]}（結果の目安: {step["result"]}；ノード: {", ".join(step["nodes"]) or "なし"}）')
-        out += ['', '### マスター解説 (A)', '', _verification_summary(section['master']), '', _demote(section['master']['content']), '']
+        out += ['', '### マスター解説', '', _verification_summary(section['master']), '', _demote(section['master']['content']), '']
         for sid, pair in section['students'].items():
             individual = pair['individual']
             out += [f'### 生徒 {sid}', '', '**Chain 2 の判断**', '', _plan_table(individual), '',
                     '**検算（Chain 4）**', '', _verification_summary(individual), '']
             if individual['warnings']:
                 out += ['警告: ' + ' / '.join(individual['warnings']), '']
-            out += ['<details><summary>積み上げ型の解説 (C)</summary>', '', _demote(individual['content']), '', '</details>', '',
-                    '<details><summary>引き算型の解説 (B)</summary>', '', _demote(pair['subtractive']['content']), '', '</details>', '']
+            out += ['<details><summary>積み上げ型の解説</summary>', '', _demote(individual['content']), '', '</details>', '']
         comp = section['comparison']
         out += ['### 比較（表10）', '', '| 生徒 | 方式 | 未定着ステップのうち詳しく書いた割合 | 定着済みステップの文字数 | 全体の文字数 | マスターとの文字列類似度 | マスターとの意味の類似度 |',
                 '|---|---|---|---|---|---|---|']
         for row in comp['per_student']:
-            for kind, label in (('individual', '積み上げ型 (C)'), ('subtractive', '引き算型 (B)'), ('master', 'マスター (A)')):
+            for kind, label in (('individual', '積み上げ型'), ('master', 'マスター')):
                 m = row[kind]
                 out.append(f'| {row["student_id"]} | {label} | {m["weak_steps_detailed_ratio"]} | {m["mastered_steps_chars"]} | '
                            f'{m["total_chars"]} | {m.get("text_sim_to_master", "—")} | {m.get("semantic_sim_to_master", "—")} |')
@@ -442,15 +437,14 @@ def main(argv=None) -> int:
         students = select_students(problem['steps'], profiles, args.students)
         log(f'  選んだ生徒: {", ".join(students)}')
 
-        log('  マスター解説 (A) を生成')
+        log('  マスター解説を生成')
         master = chain.generate_explanation(llm, problem, kind='master')
         results = {'master': master, 'students': {}}
         for sid in students:
-            log(f'  生徒 {sid}: 積み上げ型 (C) を生成')
+            log(f'  生徒 {sid}: 積み上げ型を生成')
             p = profiles[sid]
             individual = chain.generate_explanation(llm, problem, p['node_states'], p['error_tendencies'])
-            subtractive = chain.build_subtractive(problem, master, p['node_states'], p['error_tendencies'])
-            results['students'][sid] = {'individual': individual, 'subtractive': subtractive}
+            results['students'][sid] = {'individual': individual}
 
         log('  比較の指標を計算')
         comp = comparison(results, {sid: profiles[sid]['node_states'] for sid in students}, embedder)

@@ -181,12 +181,11 @@ def _row_result(row) -> Dict[str, Any]:
 
 
 def _save(job, problem_id: str, student_id: Optional[str], result: Dict[str, Any], snapshot, sig: Optional[str],
-          reused_from: Optional[str] = None, extra_trace: Optional[Dict[str, Any]] = None):
+          reused_from: Optional[str] = None):
     from app import db
     from app.models import GeneratedExplanation
 
-    trace = {'steps': result['steps'], 'warnings': result['warnings'], 'format': result.get('format', 'markdown'),
-             **(extra_trace or {})}
+    trace = {'steps': result['steps'], 'warnings': result['warnings'], 'format': result.get('format', 'markdown')}
     row = GeneratedExplanation(
         teacher_id=job.teacher_id, problem_id=problem_id, student_id=student_id, kind=result['kind'],
         status=result['status'], content=result['content'], trace=json.dumps(trace, ensure_ascii=False),
@@ -270,17 +269,14 @@ def _run(app, job_id: str) -> None:
             db.session.commit()
             continue
 
-        # マスター解説（比較用。引き算型の元にもなる）
-        master = None
-        if request.get('include_master') or request.get('include_subtractive'):
+        # マスター解説（比較用）
+        if request.get('include_master'):
             master_sig = master_signature(problem_input, model_name)
             existing = latest.get(('master', None))
-            if existing is not None and existing.signature == master_sig:
-                master = existing
-            else:
+            if existing is None or existing.signature != master_sig:
                 try:
                     result = chain.generate_explanation(llm, problem_input, kind='master')
-                    master = _save(job, problem.id, None, result, None, master_sig)
+                    _save(job, problem.id, None, result, None, master_sig)
                     job.generated += 1
                     db.session.commit()
                 except Exception as exc:
@@ -309,9 +305,6 @@ def _run(app, job_id: str) -> None:
             own = with_own_decisions(result, decisions)
             row = _save(job, problem.id, student_id, own, snapshot, sig,
                         reused_from=source_row.id if reused and source_row is not None else None)
-            if master is not None and request.get('include_subtractive'):
-                subtractive = chain.build_subtractive(problem_input, _row_result(master), *profiles[student_id])
-                _save(job, problem.id, student_id, subtractive, snapshot, sig, extra_trace={'master_id': master.id})
             return row
 
         pending: Dict[str, List[str]] = {}

@@ -712,28 +712,6 @@ def generate_common_explanation(llm: LLMClient, problem: Dict[str, Any]) -> Dict
             'steps': [trace], 'warnings': warnings, 'model_name': getattr(llm, 'model_name', None)}
 
 
-def build_subtractive(problem: Dict[str, Any], master: Dict[str, Any], node_states: Dict[str, Any],
-                      error_tendencies: Dict[str, int]) -> Dict[str, Any]:
-    """引き算型の解説（比較用 (B)）: マスター解説から，定着済みのステップを結果だけに縮める。LLM は呼ばない。"""
-    steps = problem['steps']
-    template = problem.get('template')
-    master_texts = {s['step_id']: s['text'] for s in master['steps']}
-    decisions = plan_explanation(steps, node_states, error_tendencies)
-    texts, traces = [], []
-    for step, decision in zip(steps, decisions):
-        keep = 'reasoning' in decision['elements']
-        short = (f'\\[ {step["result"]} \\]' if template and step.get('result') else step.get('result')) or '（省略）'
-        text = master_texts.get(step['id'], '') if keep else short
-        texts.append(text)
-        traces.append({'step_id': step['id'], 'title': step['title'], 'nodes': step.get('nodes', []),
-                       'decision': decision, 'text': text, 'status': 'ok',
-                       'kept_from_master': keep, 'attempt_count': 0, 'attempts': [], 'warnings': []})
-    content = tex_template.assemble(template, texts) if template else _assemble(problem, steps, texts)
-    return {'kind': 'subtractive', 'status': master['status'], 'content': content,
-            'format': 'latex' if template else 'markdown',
-            'steps': traces, 'warnings': [], 'model_name': master.get('model_name')}
-
-
 # ---------------------------------------------------------------- 比較の指標（5.5節 表10）
 
 def text_similarity(a: str, b: str) -> float:

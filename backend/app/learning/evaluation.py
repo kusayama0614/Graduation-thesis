@@ -14,7 +14,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from app.learning import explanation as chain
 
-# 引き算型 (B) はマスター解説を縮めたもので LLM による生成・検算を行わないため，整合率の対象外
+# 整合率の対象（LLM で生成・検算した解説）
 GENERATED_KINDS = ('individual', 'master')
 
 
@@ -134,7 +134,7 @@ def table10_row(student_id: Optional[str], kind: str, trace: Dict[str, Any], con
                 node_states: Dict[str, Any], master_content: Optional[str] = None,
                 semantic_to_master: Optional[float] = None) -> Dict[str, Any]:
     metrics = chain.explanation_metrics(trace, node_states)
-    # 引き算型はマスター解説の文章を縮めるだけなので，判断に注意が含まれても本文には現れない
+    # マスター解説は生徒によらないので，固有の内容は積み上げ型だけで数える
     unique = unique_content(trace) if kind == 'individual' else {'caution_steps': [], 'similar_check_steps': []}
     return {
         'student_id': student_id,

@@ -449,20 +449,20 @@ def test_step_without_extracted_calculation_is_warned(client):
     assert any('ステップ2: 計算・式の変形が一つも抜き出されなかった' in w for w in detail['trace']['warnings'])
 
 
-def test_master_subtractive_and_comparison(client):
+def test_master_and_comparison(client):
     problem_id = _setup_problem_and_profiles(client, FakeLLM(writer=correct_writer))
     job = client.post(f'/api/learning/problems/{problem_id}/explanations', json={
-        'student_ids': ['S001', 'S002'], 'include_master': True, 'include_subtractive': True,
+        'student_ids': ['S001', 'S002'], 'include_master': True,
     }).get_json()['job']
     assert job['total'] == 3 and job['errors'] == []
     kinds = [e['kind'] for e in client.get(f'/api/learning/problems/{problem_id}/explanations')
              .get_json()['explanations']]
-    assert sorted(kinds) == ['individual', 'individual', 'master', 'subtractive', 'subtractive']
+    assert sorted(kinds) == ['individual', 'individual', 'master']
 
     comparison = client.get(f'/api/learning/problems/{problem_id}/comparison').get_json()
     weak = next(s for s in comparison['students'] if s['student_id'] == 'S001')
     assert weak['individual']['metrics']['weak_steps_detailed_ratio'] == 1.0
-    assert weak['subtractive']['metrics']['weak_steps_detailed_ratio'] == 1.0
+    assert 'subtractive' not in weak and set(comparison['between_students']) == {'individual'}
     assert weak['master_metrics']['weak_step_count'] == weak['individual']['metrics']['weak_step_count']
     assert comparison['between_students']['individual']['pair_count'] == 1
 
@@ -503,7 +503,7 @@ class FakeEmbedding:
 def test_comparison_includes_semantic_similarity_and_caches_vectors(client):
     problem_id = _setup_problem_and_profiles(client, FakeLLM(writer=correct_writer))
     client.post(f'/api/learning/problems/{problem_id}/explanations', json={
-        'student_ids': ['S001', 'S002'], 'include_master': True, 'include_subtractive': True})
+        'student_ids': ['S001', 'S002'], 'include_master': True})
     embedding = FakeEmbedding()
     client.application.config['LEARNING_EMBEDDING_CLIENT'] = embedding
 
@@ -512,7 +512,7 @@ def test_comparison_includes_semantic_similarity_and_caches_vectors(client):
     weak = next(s for s in first['students'] if s['student_id'] == 'S001')
     assert 0 < weak['individual']['semantic_similarity_to_master'] <= 1
     assert first['between_students']['individual']['mean_semantic_similarity'] is not None
-    assert len(embedding.calls) == 1 and len(embedding.calls[0]) == 5  # master + 2人 × (individual, subtractive)
+    assert len(embedding.calls) == 1 and len(embedding.calls[0]) == 3  # master + 2人
 
     second = client.get(f'/api/learning/problems/{problem_id}/comparison').get_json()
     assert len(embedding.calls) == 1  # 保存済みのベクトルを使い，再計算しない
@@ -520,7 +520,7 @@ def test_comparison_includes_semantic_similarity_and_caches_vectors(client):
 
     from app.models import ExplanationEmbedding
     with client.application.app_context():
-        assert ExplanationEmbedding.query.count() == 5
+        assert ExplanationEmbedding.query.count() == 3
     assert client.delete(f'/api/learning/problems/{problem_id}').status_code == 200
     with client.application.app_context():
         assert ExplanationEmbedding.query.count() == 0  # 問題を削除するとベクトルも消える

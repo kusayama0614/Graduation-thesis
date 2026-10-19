@@ -23,7 +23,6 @@
             <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px;">
                 <label class="checkbox"><input type="checkbox" id="optReuse" checked> 判断が同じ生徒の解説を使い回す（Gemini の呼び出しを減らす）</label>
                 <label class="checkbox"><input type="checkbox" id="optMaster"> マスター解説も作る（比較用）</label>
-                <label class="checkbox"><input type="checkbox" id="optSubtractive"> 引き算型も作る（比較用）</label>
             </div>
             <div class="button-row">
                 <button class="button button-light" id="planButton" onclick="loadPlan()">見積もる（Gemini は呼びません）</button>
@@ -298,7 +297,6 @@
                     classes: classes ? [classes] : undefined,
                     reuse: document.getElementById('optReuse').checked,
                     include_master: document.getElementById('optMaster').checked,
-                    include_subtractive: document.getElementById('optSubtractive').checked,
                 });
                 showJob(payload.job);
                 L.toast('解説の生成を始めました', 'ok');

@@ -508,7 +508,7 @@ def plan(problem_id):
 def generate(problem_id):
     """個別化した解説を生成する（ジョブとして実行）。
 
-    body: {student_ids?: [...]（省略時はプロファイルのある全生徒）, include_master?: bool, include_subtractive?: bool}
+    body: {student_ids?: [...]（省略時はプロファイルのある全生徒）, include_master?: bool}
     """
     problem = _get_problem(problem_id)
     if not problem:
@@ -527,7 +527,6 @@ def generate(problem_id):
     if len(student_ids) > MAX_STUDENTS_PER_JOB:
         return make_error_response('LEARNING_INVALID_STUDENTS', f'一度に生成できるのは {MAX_STUDENTS_PER_JOB} 人までです', 400)
     include_master = bool(payload.get('include_master', False))
-    include_subtractive = bool(payload.get('include_subtractive', False))
     if not student_ids and not include_master:
         return make_error_response('LEARNING_INVALID_STUDENTS', '生成の対象となる生徒がいません', 400)
 
@@ -538,9 +537,8 @@ def generate(problem_id):
 
     job = GenerationJob(
         teacher_id=teacher_db_id, problem_id=problem.id, status='queued',
-        request=json.dumps({'student_ids': student_ids, 'include_master': include_master,
-                            'include_subtractive': include_subtractive}, ensure_ascii=False),
-        total=len(student_ids) + (1 if include_master or include_subtractive else 0),
+        request=json.dumps({'student_ids': student_ids, 'include_master': include_master}, ensure_ascii=False),
+        total=len(student_ids) + (1 if include_master else 0),
         done=0, explanation_ids='[]', errors='[]',
     )
     db.session.add(job)
@@ -588,7 +586,9 @@ def list_explanations(problem_id):
     problem = _get_problem(problem_id)
     if not problem:
         return make_error_response('LEARNING_PROBLEM_NOT_FOUND', 'Problem not found', 404)
-    query = GeneratedExplanation.query.filter_by(problem_id=problem.id)
+    # 以前作った引き算型（比較の対象から外した）は一覧に出さない
+    query = GeneratedExplanation.query.filter(GeneratedExplanation.problem_id == problem.id,
+                                              GeneratedExplanation.kind != 'subtractive')
     if request.args.get('student_id'):
         query = query.filter_by(student_id=request.args['student_id'])
     if request.args.get('kind'):
@@ -661,7 +661,7 @@ def _embedding_vectors(rows, client):
 @learning_bp.route('/problems/<problem_id>/comparison', methods=['GET'])
 @login_required
 def comparison(problem_id):
-    """マスター解説 (A)・引き算型 (B)・積み上げ型 (C) を表10の指標で比較する（各生徒の最新のものを使う）。
+    """マスター解説と積み上げ型（個別化した解説）を表10の指標で比較する（各生徒の最新のものを使う）。
 
     類似度は文字列の一致度（difflib）と，Gemini の埋め込みによる意味の類似度（コサイン類似度）の両方を返す。
     ?semantic=false で意味の類似度を省略できる。
@@ -669,7 +669,8 @@ def comparison(problem_id):
     problem = _get_problem(problem_id)
     if not problem:
         return make_error_response('LEARNING_PROBLEM_NOT_FOUND', 'Problem not found', 404)
-    rows = (GeneratedExplanation.query.filter_by(problem_id=problem.id)
+    rows = (GeneratedExplanation.query.filter(GeneratedExplanation.problem_id == problem.id,
+                                              GeneratedExplanation.kind.in_(('master', 'individual')))
             .order_by(GeneratedExplanation.created_at.desc()).all())
     latest = {}
     for row in rows:
@@ -700,11 +701,11 @@ def comparison(problem_id):
     students = sorted({sid for (kind, sid) in latest if sid})
     per_student = []
     for sid in students:
-        snapshot_row = latest.get(('individual', sid)) or latest.get(('subtractive', sid))
+        snapshot_row = latest.get(('individual', sid))
         node_states = (json.loads(snapshot_row.profile_snapshot or '{}').get('node_states', {})
                        if snapshot_row else {})
         entry = {'student_id': sid}
-        for kind in ('individual', 'subtractive'):
+        for kind in ('individual',):
             row = latest.get((kind, sid))
             if row is None:
                 continue
@@ -724,7 +725,7 @@ def comparison(problem_id):
         return round(sum(values) / len(values), 3) if values else None
 
     between_students = {}
-    for kind in ('individual', 'subtractive'):
+    for kind in ('individual',):
         kind_rows = [latest[(kind, sid)] for sid in students if (kind, sid) in latest]
         pairs = [(a, b) for i, a in enumerate(kind_rows) for b in kind_rows[i + 1:]]
         between_students[kind] = {
@@ -949,7 +950,6 @@ def _current_model_name():
 def _exam_job_options(payload):
     return {
         'include_master': bool(payload.get('include_master', False)),
-        'include_subtractive': bool(payload.get('include_subtractive', False)),
         'reuse': bool(payload.get('reuse', True)),
     }
 
@@ -999,7 +999,7 @@ def exam_generation_plan(exam_id):
 def start_exam_generation(exam_id):
     """試験の全問題（または選んだ問題）× 生徒の解説をまとめて生成する。
 
-    body: {student_ids? | classes?, problem_ids?, include_master?, include_subtractive?, reuse?（既定 true）}
+    body: {student_ids? | classes?, problem_ids?, include_master?, reuse?（既定 true）}
     """
     exam = _get_exam(exam_id)
     if exam is None:

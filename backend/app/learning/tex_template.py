@@ -98,7 +98,7 @@ def restore_figures(body: str, figures: Dict[str, str]) -> str:
 
 
 def _last_math(body: str) -> str:
-    """手順の本文の最後の式（引き算型で「結果だけ」にするときと，ステップの結果の目安に使う）。"""
+    """手順の本文の最後の式（ステップの結果の目安に使う）。"""
     inline = re.findall(r'\$([^$]+)\$', body)
     pick = None
     last_pos = -1

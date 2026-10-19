@@ -61,7 +61,7 @@ def run_job(job_id: str, llm: LLMClient) -> None:
         db.session.commit()
 
     master = None
-    if request.get('include_master') or request.get('include_subtractive'):
+    if request.get('include_master'):
         try:
             master = chain.generate_explanation(llm, problem_input, kind='master')
             explanation_ids.append(_save(job.teacher_id, problem.id, None, master, None).id)
@@ -82,9 +82,6 @@ def run_job(job_id: str, llm: LLMClient) -> None:
         try:
             result = chain.generate_explanation(llm, problem_input, node_states, tendencies)
             explanation_ids.append(_save(job.teacher_id, problem.id, student_id, result, snapshot).id)
-            if master is not None and request.get('include_subtractive'):
-                subtractive = chain.build_subtractive(problem_input, master, node_states, tendencies)
-                explanation_ids.append(_save(job.teacher_id, problem.id, student_id, subtractive, snapshot).id)
         except Exception as exc:
             db.session.rollback()
             errors.append({'student_id': student_id, 'kind': 'individual', 'error': f'{exc.__class__.__name__}: {exc}'})

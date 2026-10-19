@@ -232,11 +232,15 @@ def _verification_summary(trace: Dict[str, Any]) -> str:
         final_text = ''
         if final:
             final_text = f'，結論の照合: {"一致" if final.get("is_correct") else ("不一致" if final.get("is_correct") is False else "抜き出せず")}'
+        rel = last.get('relation_counts') or {}
+        retried = [a for a in step['attempts'] if not a.get('ok')]
+        reasons = ' '.join((a.get('feedback') or '').replace('\n', ' ') for a in retried)
         lines.append(f'| {step["step_id"]} | {step["title"]} | {step["status"]} | {step["attempt_count"]} | '
                      f'{counts.get("ok", 0)} / {counts.get("ng", 0)} / {counts.get("definition", 0)} / '
-                     f'{counts.get("unverifiable", 0)}{final_text} |')
-    return ('| ステップ | 内容 | 状態 | 生成回数 | 検算 OK / NG / 定義 / 検算不能 |\n|---|---|---|---|---|\n'
-            + '\n'.join(lines))
+                     f'{counts.get("unverifiable", 0)} | {rel.get("ok", 0)} / {rel.get("ng", 0)} / '
+                     f'{rel.get("condition", 0)} / {rel.get("unverifiable", 0)}{final_text} | {reasons or "—"} |')
+    return ('| ステップ | 内容 | 状態 | 生成回数 | 等式 OK / NG / 定義 / 検算不能 | 変形 OK / NG / 新しい条件 / 検算不能 | 差し戻しの理由 |\n'
+            '|---|---|---|---|---|---|---|\n' + '\n'.join(lines))
 
 
 def _plan_table(trace: Dict[str, Any]) -> str:
@@ -321,7 +325,10 @@ class _FakeLLM:
             nodes = schema['properties']['steps']['items']['properties']['nodes']['items']['enum']
             return {'steps': [{'title': f'ステップ{i}', 'description': '（fake）', 'result': '', 'nodes': [n]}
                               for i, n in enumerate(nodes[:3], start=1)]}
-        return {'claims': [{'lhs': '1+1', 'rhs': '2', 'lhs_text': '1+1', 'rhs_text': '2'}], 'final_answer': ''}
+        return {'claims': [{'lhs': '1+1', 'rhs': '2', 'lhs_text': '1+1', 'rhs_text': '2'}],
+                'relations': [{'expr': 'x>1', 'text': 'x>1', 'transformed_from_previous': False},
+                              {'expr': '2x>2', 'text': '2x>2', 'transformed_from_previous': True}],
+                'final_answer': ''}
 
     def generate_text(self, *, system, user, temperature=0.3):
         return '（fake）1+1 = 2 です。'

@@ -554,3 +554,109 @@ def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None
     except Exception:
         true_value = None
     return {'status': 'ng', 'true_value': true_value, 'detail': detail}
+
+
+# ---------------------------------------------------------------- 不等式・方程式の変形の検算 (Chain 4)
+
+class _Unverifiable(Exception):
+    pass
+
+
+def _definition_substitutions(definitions: Optional[Dict[str, str]]) -> Dict[sp.Symbol, sp.Basic]:
+    substitutions = {}
+    for name, value in (definitions or {}).items():
+        value_text = _delatex(str(value))
+        if _IDENTIFIER.match(name) and _is_safe(value_text):
+            substitutions[sp.Symbol(name)] = _to_expr(_preprocess(value_text))
+    return substitutions
+
+
+def _substitute(obj, substitutions):
+    for _ in range(5):
+        new = obj.subs(substitutions)
+        if new == obj:
+            break
+        obj = new
+    return obj
+
+
+def _relation_solution(text: str, definitions: Optional[Dict[str, str]]):
+    """関係式（「m=2, -6」のような組を含む）の解集合を (変数, 解集合) で返す。"""
+    raw = _delatex(str(text).strip())
+    if not _is_safe(raw):
+        raise _Unverifiable('安全に解釈できない文字を含む')
+    try:
+        pre = _preprocess(raw)
+        substitutions = _definition_substitutions(definitions)
+        items = [_parse_item(t) for t in _expand_plus_minus(_split_top_level(pre))]
+    except _Unparseable as exc:
+        raise _Unverifiable(f'式として解釈できない（{exc}）')
+    if not items or items[0][0] != 'rel':
+        raise _Unverifiable('関係式ではない')
+
+    groups = []
+    variables = set()
+    for kind, obj in items:
+        if kind == 'rel':
+            relations = [_substitute(r, substitutions) for r in obj]
+        elif groups and len(variables) == 1:  # 「m=2, -6」の -6 は直前と同じ変数の値
+            relations = [sp.Eq(next(iter(variables)), _substitute(obj, substitutions))]
+        else:
+            raise _Unverifiable('関係式ではない項を含む')
+        for relation in relations:
+            if isinstance(relation, sp.logic.boolalg.BooleanAtom):
+                raise _Unverifiable('文字を含まない関係式になる')
+            variables |= relation.free_symbols
+        groups.append(relations)
+    if len(variables) != 1:
+        raise _Unverifiable('文字が1つの関係式でないため，解集合で比較できない')
+    var = next(iter(variables))
+    try:
+        solution = sp.S.EmptySet
+        for relations in groups:
+            solution = solution.union(_solution_set(relations, var))
+    except Exception as exc:
+        raise _Unverifiable(f'解集合を求められない（{exc.__class__.__name__}）')
+    return var, solution
+
+
+def check_relation_step(previous: Any, current: Any, definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """不等式・方程式の変形「previous → current」が同値か（解集合が一致するか）を検算する。
+
+    戻り値 status: ok / ng / unverifiable。ng のときは両方の解集合を返す。
+    """
+    try:
+        prev_var, prev_set = _relation_solution(previous, definitions)
+        cur_var, cur_set = _relation_solution(current, definitions)
+    except _Unverifiable as exc:
+        return {'status': 'unverifiable', 'detail': str(exc), 'previous_solution': None, 'current_solution': None}
+    if prev_var != cur_var:
+        return {'status': 'unverifiable', 'detail': '変形の前後で文字が異なります',
+                'previous_solution': None, 'current_solution': None}
+    same = prev_set == cur_set or prev_set.symmetric_difference(cur_set) == sp.S.EmptySet
+    return {
+        'status': 'ok' if same else 'ng',
+        'detail': '解集合が一致します' if same else '変形の前後で解集合が一致しません',
+        'previous_solution': _format_solution(prev_var, prev_set),
+        'current_solution': _format_solution(cur_var, cur_set),
+    }
+
+
+def _format_solution(var: sp.Symbol, solution) -> str:
+    """解集合を「m < 49/8」「m = -6, 2」のような読みやすい形にする。"""
+    if solution == sp.S.EmptySet:
+        return '解なし'
+    if solution == sp.S.Reals:
+        return 'すべての実数'
+    if isinstance(solution, sp.FiniteSet):
+        return f'{var} = ' + ', '.join(str(v) for v in sorted(solution, key=lambda v: float(v)))
+    try:
+        text = str(solution.as_relational(var))
+    except Exception:
+        return str(solution)
+    text = re.sub(r'\(-oo < (\w+)\) & ', '', text)  # 無限大の側の条件は省く
+    text = re.sub(r' & \((\w+) < oo\)', '', text)
+    text = re.sub(r'\(\(([^()]*)\)\)', r'(\1)', text)
+    if re.fullmatch(r'\([^()]*\)', text):
+        text = text[1:-1]
+    return text.replace('&', 'かつ').replace('|', 'または').replace('<=', '≦').replace('>=', '≧')

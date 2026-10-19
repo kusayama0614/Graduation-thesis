@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from app.learning import graph
 from app.learning.llm import LLMClient
 from app.learning.profile import confidence_of
-from app.utils.math_verification import check_claim, judge_answer
+from app.utils.math_verification import check_claim, check_relation_step, judge_answer
 
 # ---------------------------------------------------------------- 詳しさの決定規則（Chain 2）
 
@@ -250,7 +250,12 @@ EXTRACTION_RULES = (
     '- 連続した等式 a = b = c は，a = b と b = c の2つに分ける。\n'
     '- lhs・rhs は sympy で解釈できる表記にする（掛け算 *，累乗 ^，平方根 sqrt()，角度は sin(30°) のように°を付ける，'
     '変数は半角英字。θ は t に置き換える）。lhs_text・rhs_text には解説中の元の表記を入れる。\n'
-    '- 文字を定義する式（D = b^2 - 4ac など）もそのまま含める。不等式は含めない。\n'
+    '- 文字を定義する式（D = b^2 - 4ac など）もそのまま含める。不等式は claims に含めない。\n'
+    '- relations には，不等式と，文字について解く方程式（「(m+6)(m-2)=0」「m=2, -6」など）を書かれた順に全て入れる。'
+    'expr は sympy で解釈できる表記，text は元の表記とする。その式が直前の relations の式を変形して得られたもの'
+    '（移項・両辺を割る・因数分解して解くなど）なら transformed_from_previous を true，新しい条件や別の条件を'
+    '書き始めたもの（D > 0 という条件を立てる，別の条件を並べる など）なら false にする。'
+    'このステップの最初の式が，前のステップの最後の式を変形したものなら true にする。\n'
     '- LaTeX 記法（\\frac，\\sqrt，$ など）は使わず，49/8 や sqrt(3) のように書く。\n'
     '- final_answer には，解説が問題の最終的な答えとして述べている内容を書く（無ければ空文字）。'
 )
@@ -270,9 +275,21 @@ _EXTRACTION_SCHEMA = {
                 'additionalProperties': False,
             },
         },
+        'relations': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'expr': {'type': 'string'}, 'text': {'type': 'string'},
+                    'transformed_from_previous': {'type': 'boolean'},
+                },
+                'required': ['expr', 'text', 'transformed_from_previous'],
+                'additionalProperties': False,
+            },
+        },
         'final_answer': {'type': 'string'},
     },
-    'required': ['claims', 'final_answer'],
+    'required': ['claims', 'relations', 'final_answer'],
     'additionalProperties': False,
 }
 
@@ -283,12 +300,17 @@ def extract_claims(llm: LLMClient, step_text: str) -> Dict[str, Any]:
     out = llm.generate_json(system=EXTRACTION_SYSTEM, user=user, schema=_EXTRACTION_SCHEMA,
                             schema_name='calculation_claims', temperature=0.0, thinking_level='low')
     claims = [c for c in out.get('claims', []) if isinstance(c, dict) and c.get('lhs') and c.get('rhs')]
-    return {'claims': claims, 'final_answer': str(out.get('final_answer', '')).strip()}
+    relations = [r for r in out.get('relations', []) if isinstance(r, dict) and r.get('expr')]
+    return {'claims': claims, 'relations': relations, 'final_answer': str(out.get('final_answer', '')).strip()}
 
 
 def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, str],
-                correct_answer: Optional[str] = None) -> Dict[str, Any]:
-    """抜き出した計算を検算する。definitions はこのステップで定義された文字で更新される。"""
+                correct_answer: Optional[str] = None, previous_relation: Optional[str] = None) -> Dict[str, Any]:
+    """抜き出した計算を検算する。definitions はこのステップで定義された文字で更新される。
+
+    等式の計算（claims）に加えて，不等式・方程式の変形（relations）を直前の式と解集合で比べて検算する。
+    previous_relation は前のステップの最後の関係式（ステップをまたぐ変形の検算に使う）。
+    """
     # 1巡目: 文字の定義（D = b^2 - 4ac，a = 2 など）を，書かれた順序によらず先に集める
     definition_index = set()
     for index, claim in enumerate(extracted['claims']):
@@ -310,6 +332,23 @@ def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, 
         f'（正しくは {r["true_value"]}）。'
         for r in results if r['status'] == 'ng'
     ]
+
+    # 不等式・方程式の変形: 直前の式を変形したものだけ，解集合が一致するかを確かめる
+    relation_results = []
+    previous = previous_relation
+    for relation in extracted.get('relations', []):
+        entry = {**relation, 'status': 'condition', 'detail': '新しい条件のため比較しません',
+                 'previous_expr': None, 'previous_solution': None, 'current_solution': None}
+        if relation.get('transformed_from_previous') and previous:
+            entry.update(check_relation_step(previous, relation['expr'], definitions), previous_expr=previous)
+        relation_results.append(entry)
+        previous = relation['expr']
+    for r in relation_results:
+        if r['status'] == 'ng':
+            feedback_lines.append(
+                f'ステップ{step_id}の「{r["previous_expr"]}」から「{r.get("text") or r["expr"]}」への変形は誤りです'
+                f'（変形前の解は {r["previous_solution"]}，変形後の解は {r["current_solution"]} で一致しません）。'
+            )
     final_check = None
     if correct_answer:
         final_answer = extracted.get('final_answer', '')
@@ -323,10 +362,15 @@ def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, 
                            'method': 'not_found', 'detail': '最終的な答えを抜き出せませんでした'}
 
     counts = {s: sum(1 for r in results if r['status'] == s) for s in ('ok', 'ng', 'definition', 'unverifiable')}
+    relation_counts = {s: sum(1 for r in relation_results if r['status'] == s)
+                       for s in ('ok', 'ng', 'condition', 'unverifiable')}
     return {
         'ok': not feedback_lines,
         'claims': results,
         'counts': counts,
+        'relations': relation_results,
+        'relation_counts': relation_counts,
+        'last_relation': previous,
         'final_check': final_check,
         'feedback': '\n'.join(feedback_lines) if feedback_lines else None,
     }
@@ -355,6 +399,7 @@ def generate_explanation(llm: LLMClient, problem: Dict[str, Any], node_states: O
         decisions = plan_explanation(steps, node_states or {}, error_tendencies or {})
 
     definitions: Dict[str, str] = {}
+    last_relation: Optional[str] = None
     texts: List[str] = []
     step_traces = []
     warnings: List[str] = []
@@ -370,20 +415,23 @@ def generate_explanation(llm: LLMClient, problem: Dict[str, Any], node_states: O
             try:
                 extracted = extract_claims(llm, text)
                 verification = verify_step(step['id'], extracted, step_definitions,
-                                           problem.get('correct_answer') if is_last else None)
+                                           problem.get('correct_answer') if is_last else None, last_relation)
             except Exception as exc:  # 抜き出しの失敗は検算できなかったものとして扱う
-                extracted = {'claims': [], 'final_answer': ''}
-                verification = {'ok': True, 'claims': [], 'counts': {}, 'final_check': None, 'feedback': None,
+                extracted = {'claims': [], 'relations': [], 'final_answer': ''}
+                verification = {'ok': True, 'claims': [], 'counts': {}, 'relations': [], 'relation_counts': {},
+                                'last_relation': last_relation, 'final_check': None, 'feedback': None,
                                 'error': f'計算の抜き出しに失敗しました（{exc.__class__.__name__}）'}
             attempts.append({'attempt': attempt, 'text': text, **verification})
             if verification['ok']:
                 definitions = step_definitions
+                last_relation = verification.get('last_relation')
                 break
             feedback = verification['feedback']
         step_status = 'ok' if verification.get('ok') else 'needs_review'
         step_warnings = []
-        if not verification.get('claims'):
-            step_warnings.append(f'ステップ{step["id"]}: 計算が一つも抜き出されなかったため，このステップは検算されていません')
+        checked_relations = [r for r in verification.get('relations', []) if r['status'] in ('ok', 'ng')]
+        if not verification.get('claims') and not checked_relations:
+            step_warnings.append(f'ステップ{step["id"]}: 計算・式の変形が一つも抜き出されなかったため，このステップは検算されていません')
         if verification.get('error'):
             step_warnings.append(f'ステップ{step["id"]}: {verification["error"]}')
         if step_status == 'needs_review':

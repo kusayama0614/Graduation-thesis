@@ -39,8 +39,10 @@ class FakeLLM:
             text = user.split('解説文:\n', 1)[1]
             claims = [{'lhs': l.strip(), 'rhs': r.strip(), 'lhs_text': l.strip(), 'rhs_text': r.strip()}
                       for l, r in re.findall(r'\[\[(.+?)=(.+?)\]\]', text)]
+            relations = [{'expr': expr.strip(), 'text': expr.strip(), 'transformed_from_previous': arrow == '->'}
+                         for arrow, expr in re.findall(r'<<(->)?(.+?)>>', text)]
             final = re.search(r'答え[:：]\s*(\S+)', text)
-            return {'claims': claims, 'final_answer': final.group(1) if final else ''}
+            return {'claims': claims, 'relations': relations, 'final_answer': final.group(1) if final else ''}
         raise AssertionError(schema_name)
 
     def generate_text(self, *, system, user, temperature=0.3):
@@ -440,7 +442,7 @@ def test_step_without_extracted_calculation_is_warned(client):
                       json={'student_ids': ['S001']}).get_json()['job']
     detail = client.get(f'/api/learning/explanations/{job["explanation_ids"][0]}').get_json()['explanation']
     assert detail['status'] == 'ok'
-    assert any('ステップ2: 計算が一つも抜き出されなかった' in w for w in detail['trace']['warnings'])
+    assert any('ステップ2: 計算・式の変形が一つも抜き出されなかった' in w for w in detail['trace']['warnings'])
 
 
 def test_master_subtractive_and_comparison(client):
@@ -578,3 +580,63 @@ def test_extraction_uses_low_thinking_level():
     llm = FakeLLM()
     chain.extract_claims(llm, '[[1+1 = 2]]')
     assert ('calculation_claims', 'low') in llm.thinking_levels
+
+
+# ---------------------------------------------------------------- 不等式・方程式の変形の検算
+
+def _inequality_writer(step3_texts):
+    """ステップ2で条件を立て，ステップ3で解く。step3_texts は試行ごとのステップ3の本文。"""
+    attempts = iter(step3_texts)
+
+    def writer(user):
+        if '今回書くステップ: 1.' in user:
+            return 'D = 25 - 8(m-3) です。[[D = 25-8*(m-3)]] [[25-8*(m-3) = 49-8*m]]'
+        if '今回書くステップ: 2.' in user:
+            return '異なる2つの実数解をもつので <<D>0>> より <<->49-8m>0>> です。'
+        return next(attempts)
+
+    return writer
+
+
+def test_inequality_direction_error_is_sent_back(client):
+    llm = FakeLLM(writer=_inequality_writer([
+        '<<->-8m>-49>> の両辺を -8 で割ると <<->m>49/8>> です。',   # 不等号の向きの誤り
+        '<<->-8m>-49>> の両辺を -8 で割ると <<->m<49/8>> です。',
+    ]))
+    problem_id = _setup_problem_and_profiles(client, llm, correct_answer=None)
+    job = client.post(f'/api/learning/problems/{problem_id}/explanations',
+                      json={'student_ids': ['S001']}).get_json()['job']
+    detail = client.get(f'/api/learning/explanations/{job["explanation_ids"][0]}').get_json()['explanation']
+    step2, step3 = detail['trace']['steps'][1], detail['trace']['steps'][2]
+    assert detail['status'] == 'ok'
+
+    # ステップ2: 「D>0」は新しい条件，「49-8m>0」は D の定義を代入して同値と確認
+    assert [r['status'] for r in step2['attempts'][0]['relations']] == ['condition', 'ok']
+
+    # ステップ3: 前のステップの「49-8m>0」から続けて比較し，向きの誤りで差し戻す
+    first = step3['attempts'][0]
+    assert [r['status'] for r in first['relations']] == ['ok', 'ng']
+    assert first['relation_counts']['ng'] == 1
+    assert '「-8m>-49」から「m>49/8」への変形は誤りです' in first['feedback']
+    assert 'm < 49/8' in first['feedback'] and '49/8 < m' in first['feedback']
+    assert step3['attempt_count'] == 2
+    assert '変形後の解は 49/8 < m' in llm.prompts_for_step(3)[1]
+
+
+def test_new_conditions_are_not_compared():
+    result = chain.verify_step(1, {'claims': [], 'final_answer': '', 'relations': [
+        {'expr': 'D>0', 'text': 'D>0', 'transformed_from_previous': False},
+        {'expr': 'm>0', 'text': '軸 m>0', 'transformed_from_previous': False},
+        {'expr': 'm<3', 'text': 'f(0)>0 より m<3', 'transformed_from_previous': False},
+    ]}, {})
+    assert result['ok'] is True
+    assert result['relation_counts'] == {'ok': 0, 'ng': 0, 'condition': 3, 'unverifiable': 0}
+
+
+def test_missing_root_in_equation_solution_is_detected():
+    result = chain.verify_step(2, {'claims': [], 'final_answer': '', 'relations': [
+        {'expr': '(m+6)*(m-2)=0', 'text': '(m+6)(m-2)=0', 'transformed_from_previous': False},
+        {'expr': 'm=2', 'text': 'm=2', 'transformed_from_previous': True},
+    ]}, {})
+    assert result['ok'] is False
+    assert 'm = -6, 2' in result['feedback']

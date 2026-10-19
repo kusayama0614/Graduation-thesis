@@ -32,6 +32,10 @@ class FakeLLM:
         self.thinking_levels = getattr(self, 'thinking_levels', []) + [(schema_name, thinking_level)]
         if schema_name == 'solution_steps':
             return {'steps': self.steps}
+        if schema_name == 'template_step_nodes':
+            count = len(re.findall(r'^手順\d+:', user, re.M))
+            nodes = getattr(self, 'template_nodes', {})
+            return {'steps': [{'step': i, 'nodes': nodes.get(i, [])} for i in range(1, count + 1)]}
         if schema_name == 'error_diagnosis':
             enum = schema['properties']['node']['enum']
             return {'node': self.diagnosis if self.diagnosis in enum else enum[-1], 'reason': 'テスト用の理由'}

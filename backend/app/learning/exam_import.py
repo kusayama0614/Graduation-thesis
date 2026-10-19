@@ -180,7 +180,10 @@ def start_chain1(app, exam_id: str) -> bool:
 
 
 def _chain1(app, exam_id: str) -> None:
-    """取り込んだ問題を順に Chain 1 で解答ステップに分解する（1問ずつ確定する）。"""
+    """取り込んだ問題を順に Chain 1 で解答ステップに分解する（1問ずつ確定する）。
+
+    マスター解説のテンプレートがある問題は，テンプレートの手順を解答ステップとし，前提知識ノードだけを付ける。
+    """
     from app import db
     from app.learning import explanation as chain
     from app.learning.llm import get_llm_client
@@ -197,9 +200,16 @@ def _chain1(app, exam_id: str) -> None:
             try:
                 if llm is None:
                     raise RuntimeError('GEMINI_API_KEY が設定されていません')
-                steps = chain.decompose_problem(llm, problem.unit, problem.problem_text)
+                if problem.template:
+                    # マスター解説のテンプレートの手順をそのまま解答ステップにし，前提知識ノードだけを付ける
+                    from app.learning import tex_template
+                    template_steps = tex_template.template_steps(json.loads(problem.template))
+                    steps = chain.tag_template_steps(llm, problem.unit, problem.problem_text, template_steps)
+                    problem.steps_source = 'template'
+                else:
+                    steps = chain.decompose_problem(llm, problem.unit, problem.problem_text)
+                    problem.steps_source = 'chain1'
                 problem.steps = json.dumps(steps, ensure_ascii=False)
-                problem.steps_source = 'chain1'
                 problem.chain1_status = 'done'
                 problem.chain1_error = None
             except Exception as exc:  # 1問の失敗で止めない（画面から分解し直せる）

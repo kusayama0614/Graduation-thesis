@@ -32,6 +32,18 @@
             <div id="planArea"></div>
         </section>
 
+        <section class="card hidden" id="templateCard">
+            <h2>テンプレート（マスター解説の TeX）</h2>
+            <p class="card-lead">教員が作ったマスター解説の TeX を読み込むと，個別の解説はその体裁（答・考え方・手順・注意・図）のまま，各「手順」の本文だけを生徒に合わせて書き直します。テンプレートの手順がそのまま解答ステップになり，前提知識ノードだけを Gemini が付けます（③ で直せます）。比較用のマスター解説は，テンプレートそのものになります。</p>
+            <div id="templateArea"></div>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px;">
+                <input type="file" id="templateFile" accept=".tex,text/x-tex,text/plain" style="max-width: 320px;">
+                <button class="button" onclick="uploadTemplate()">読み込む</button>
+                <button class="button button-light hidden" id="removeTemplateButton" onclick="removeTemplate()">テンプレートを外す</button>
+            </div>
+            <div id="templateResult"></div>
+        </section>
+
         <section class="card hidden" id="jobCard">
             <h2>2. 生成の進み具合</h2>
             <p class="card-lead">画面を閉じても生成は続きます。Gemini の利用上限で止まったときは，時間をおいて「続きから生成」を押してください（済んだ解説は作り直しません）。</p>
@@ -61,7 +73,9 @@
             <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center;">
                 <label class="checkbox"><input type="checkbox" id="optSurvey" checked> 末尾にふり返りアンケートを付ける</label>
                 <button class="button" onclick="openBooklet()">選んだクラスの冊子を開く</button>
+                <a class="button button-light hidden" id="texDownload" href="#">TeX をダウンロード（選んだクラス）</a>
             </div>
+            <p class="muted hidden" id="texNote" style="margin-top: 6px;">TeX はテンプレートと同じ体裁で，生徒ごとに改ページして1つのファイルにまとめます（組・番を表題に記入）。テンプレートと同じ方法（xelatex など）でコンパイルしてください。</p>
             <div id="studentArea" style="margin-top: 12px;"></div>
         </section>
     </main>
@@ -75,7 +89,7 @@
         let currentJob = null;
         let pollTimer = null;
         const JOB_STATUS = { queued: '待機中', running: '生成中', paused: '一時停止', completed: '完了', failed: '失敗' };
-        const CHECK_LABELS = { match: ['ok', '一致'], mismatch: ['ng', '不一致'], unchecked: ['unmarked', '照合できず'] };
+        const CHECK_LABELS = { match: ['ok', '一致'], mismatch: ['ng', '不一致'], unchecked: ['unmarked', '照合できず'], template: ['element', 'テンプレートの答'] };
 
         document.addEventListener('DOMContentLoaded', async () => {
             try {
@@ -170,12 +184,82 @@
             const ready = Boolean(examId());
             document.getElementById('startButton').disabled = !ready;
             document.getElementById('planButton').disabled = !ready;
-            ['jobCard', 'summaryCard', 'reviewCard', 'distributeCard'].forEach((id) =>
+            ['templateCard', 'jobCard', 'summaryCard', 'reviewCard', 'distributeCard'].forEach((id) =>
                 document.getElementById(id).classList.toggle('hidden', !ready));
             if (!ready) {
                 return;
             }
+            renderTemplate();
             await Promise.all([loadLatestJob(), loadSummary(), loadStudents()]);
+        }
+
+        function currentExam() {
+            return exams.find((e) => e.id === examId());
+        }
+
+        function renderTemplate() {
+            const exam = currentExam();
+            const template = exam && exam.template;
+            document.getElementById('templateArea').innerHTML = template
+                ? `<div class="notice notice-ok">読み込み済み：${L.escapeHtml(template.name || '')}（対応した問題 ${template.problems.length} 問：${template.problems.map(L.escapeHtml).join('，')}）</div>`
+                : '<p class="muted">テンプレートはまだ読み込んでいません。読み込まない場合は，各ステップを一から書く方式で生成します。</p>';
+            document.getElementById('removeTemplateButton').classList.toggle('hidden', !template);
+            const params = new URLSearchParams();
+            if (document.getElementById('classSelect').value) {
+                params.set('classes', document.getElementById('classSelect').value);
+            }
+            const link = document.getElementById('texDownload');
+            link.href = `${L.API_BASE_URL}/learning/exams/${examId()}/booklet.tex?${params.toString()}`;
+            link.classList.toggle('hidden', !template);
+            document.getElementById('texNote').classList.toggle('hidden', !template);
+        }
+
+        async function refreshExam(exam) {
+            exams = exams.map((e) => (e.id === exam.id ? exam : e));
+            renderTemplate();
+            await loadSummary();
+        }
+
+        async function uploadTemplate() {
+            const file = document.getElementById('templateFile').files[0];
+            if (!file) {
+                L.toast('TeX ファイルを選んでください', 'error');
+                return;
+            }
+            const result = document.getElementById('templateResult');
+            result.innerHTML = '<p class="muted">読み込んでいます…（前提知識ノードの付与は裏で続きます）</p>';
+            try {
+                const body = new FormData();
+                body.append('file', file);
+                const response = await fetch(`${L.API_BASE_URL}/learning/exam-imports/${examId()}/template`, { method: 'POST', credentials: 'include', body });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || payload.success === false) {
+                    throw new Error(payload.message || `読み込めませんでした（${response.status}）`);
+                }
+                result.innerHTML = [
+                    payload.problems_without_template.length
+                        ? `<div class="notice notice-warn">テンプレートに対応する部分がない問題：${payload.problems_without_template.map(L.escapeHtml).join('，')}（これらは従来どおり一から書きます）</div>` : '',
+                    payload.unused_sections.length
+                        ? `<div class="notice notice-warn">問題番号が一致せず使われなかった部分：${payload.unused_sections.map(L.escapeHtml).join('，')}（③ の問題番号と \\daimon・\\shomon の番号を確かめてください）</div>` : '',
+                ].join('');
+                await refreshExam(payload.exam);
+                L.toast(`テンプレートを読み込みました（${payload.matched.length} 問）`, 'ok');
+            } catch (error) {
+                result.innerHTML = `<div class="notice notice-error">${L.escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        async function removeTemplate() {
+            if (!window.confirm('テンプレートを外しますか？ テンプレートから作った解答ステップは，問題文から分解し直します。')) {
+                return;
+            }
+            try {
+                const payload = await L.api('DELETE', `/learning/exam-imports/${examId()}/template`);
+                document.getElementById('templateResult').innerHTML = '';
+                await refreshExam(payload.exam);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
         }
 
         async function loadPlan() {
@@ -323,7 +407,8 @@
                             : [s.missing ? `<span class="badge badge-unmarked">解説なし ${s.missing} 問</span>` : '',
                                pending ? `<span class="badge badge-needs_review">要確認 ${pending} 問</span>` : ''].join(' ');
                         return `<tr><td>${L.escapeHtml(s.student_id)}</td><td>${state}</td>
-                            <td class="nowrap"><a class="button button-light button-small" target="_blank" href="${bookletUrl({ student_ids: s.student_id })}">この生徒だけ</a></td></tr>`;
+                            <td class="nowrap"><a class="button button-light button-small" target="_blank" href="${bookletUrl({ student_ids: s.student_id })}">この生徒だけ</a>
+                            ${currentExam() && currentExam().template ? `<a class="button button-light button-small" href="${L.API_BASE_URL}/learning/exams/${examId()}/booklet.tex?student_ids=${encodeURIComponent(s.student_id)}">TeX</a>` : ''}</td></tr>`;
                     }).join('')}</tbody></table></div>`
                 : '<p class="empty">対象の生徒がいません。</p>';
         }

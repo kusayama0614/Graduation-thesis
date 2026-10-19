@@ -243,6 +243,107 @@
         return html.join('\n');
     }
 
+    /* マスター解説のテンプレート（TeX）の体裁で書かれた解説を，画面表示用の Markdown にする。
+       \shomon・kotae・\kangae・\tejun・chui・\fukushu・\ruidai を見出しや枠に，図は「印刷用の TeX を参照」に置き換える。
+       数式（$...$，\[...\]，align* など）はそのまま残して MathJax で表示する。 */
+    function texToMarkdown(tex) {
+        let step = 0;
+        const readGroup = (text, start) => {
+            let depth = 0;
+            for (let i = start; i < text.length; i += 1) {
+                const ch = text[i];
+                if (ch === '\\') {
+                    i += 1;
+                } else if (ch === '{') {
+                    depth += 1;
+                } else if (ch === '}') {
+                    depth -= 1;
+                    if (depth === 0) {
+                        return [text.slice(start + 1, i), i + 1];
+                    }
+                }
+            }
+            return [text.slice(start + 1), text.length];
+        };
+        const quote = (label, body) => `\n\n> **${label}**　${convert(body).trim().split('\n').filter((l) => l.trim()).join('\n> ')}\n\n`;
+        const table = (body) => {
+            const trimmed = body.replace(/^\s+/, '');
+            const rest = trimmed.startsWith('{') ? trimmed.slice(readGroup(trimmed, 0)[1]) : trimmed;  // 列の指定を外す
+            const rows = rest.replace(/\\hline/g, '').split('\\\\')
+                .map((r) => r.split('&').map((c) => c.trim()).filter(Boolean).join(' ／ ')).filter(Boolean);
+            return `\n\n${rows.map((r) => `- ${r}`).join('\n')}\n\n`;
+        };
+        function convert(text) {
+            let out = '';
+            let i = 0;
+            const pattern = /\\(shomon|kangae|tejun|fukushu|ruidai|textbf|resettejun|par|noindent|vspace\*?|small|medskip)(?![A-Za-z])|\\begin\{(kotae|chui|center|itemize|enumerate|tikzpicture|tabular)\}/g;
+            let match;
+            while ((match = pattern.exec(text)) !== null) {
+                out += text.slice(i, match.index);
+                let end = pattern.lastIndex;
+                const name = match[1];
+                const env = match[2];
+                if (env) {
+                    const close = `\\end{${env}}`;
+                    const stop = text.indexOf(close, end);
+                    const body = text.slice(end, stop < 0 ? text.length : stop);
+                    end = stop < 0 ? text.length : stop + close.length;
+                    if (env === 'kotae') {
+                        out += quote('答', body.replace(/\\\\/g, '\n'));
+                    } else if (env === 'chui') {
+                        out += quote('注意', body);
+                    } else if (env === 'itemize' || env === 'enumerate') {
+                        out += `\n\n${body.replace(/^\s*\[[^\]]*\]/, '').split('\\item').slice(1)
+                            .map((item) => `- ${convert(item).trim().replace(/\n+/g, ' ')}`).join('\n')}\n\n`;
+                    } else if (env === 'tabular') {
+                        out += table(body);
+                    } else if (env === 'center' && /\\begin\{tabular\}/.test(body)) {
+                        out += convert(body.replace(/\\small/g, ''));
+                    } else {
+                        out += '\n\n（図：印刷用の TeX を参照）\n\n';
+                    }
+                } else if (['shomon', 'kangae', 'tejun', 'fukushu', 'ruidai', 'textbf'].includes(name)) {
+                    const brace = text.indexOf('{', end);
+                    const [arg, after] = brace >= 0 ? readGroup(text, brace) : ['', end];
+                    end = after;
+                    if (name === 'shomon') {
+                        out += `\n\n### ${arg.replace(/\\\s/g, ' ').replace(/\\\\/g, ' ')}\n\n`;
+                    } else if (name === 'kangae') {
+                        out += `\n\n**考え方**　${convert(arg).trim()}\n\n`;
+                    } else if (name === 'tejun') {
+                        step += 1;
+                        out += `\n\n**手順${step}**　${arg}\n\n`;
+                    } else if (name === 'fukushu') {
+                        out += quote('復習', arg);
+                    } else if (name === 'ruidai') {
+                        out += quote('類題', arg);
+                    } else {
+                        out += `**${convert(arg)}**`;
+                    }
+                } else if (name === 'resettejun') {
+                    step = 0;
+                } else if (name === 'par') {
+                    out += '\n\n';
+                } else if (name.startsWith('vspace')) {
+                    const brace = text.indexOf('{', end);
+                    if (brace === end) {
+                        end = readGroup(text, brace)[1];
+                    }
+                }
+                i = end;
+                pattern.lastIndex = end;
+            }
+            return out + text.slice(i);
+        }
+        const cleaned = String(tex || '').split('\n').filter((line) => !/^\s*%/.test(line)).join('\n');
+        return convert(cleaned).replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    /* 解説の本文を表示用の HTML にする（テンプレートの TeX で書かれた解説は Markdown に直してから） */
+    function renderExplanation(content, format) {
+        return renderMarkdown(format === 'latex' ? texToMarkdown(content) : content);
+    }
+
     /* MathJax は非同期に読み込むので，読み込みが終わるまで少し待ってから数式を表示する（読めなければ $...$ のまま） */
     function typesetMath(element, retries) {
         const remaining = retries === undefined ? 30 : retries;
@@ -340,6 +441,8 @@
         judgmentBadge,
         formatDateTime,
         renderMarkdown,
+        renderExplanation,
+        texToMarkdown,
         typesetMath,
         queryParam,
         setupCollapsibleCards,

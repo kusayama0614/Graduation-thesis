@@ -8,6 +8,10 @@ Chain 3  各ステップの説明を順に結合する（プログラム）。
 Chain 4  説明中の「左辺 = 右辺」の計算を LLM が式として抜き出し，sympy で検算する。誤りがあれば
          どの式が誤りで正しい値は何かを添えて Chain 2 に差し戻す。上限を超えたら教員の確認に回す。
 
+教員が作ったマスター解説の TeX（テンプレート）がある問題では，テンプレートの「手順」を解答ステップとし，
+Chain 2 は各手順の本文を土台に内容だけを個別化する。答・考え方・図・注意などの体裁はプログラムがテンプレートの
+まま組み立てる（Chain 3）。
+
 詳しさの決定（3.4節の方式(1)）: ステップが依存するノードのうち最も定着度の低いものの値 c に応じて，
 含める要素を切り替える。閾値は ELEMENT_RULES に集約しており，判断の理由は全て trace に残る。
 """
@@ -18,7 +22,7 @@ import math
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.learning import graph
+from app.learning import graph, tex_template
 from app.learning.llm import LLMClient
 from app.learning.profile import confidence_of
 from app.utils.math_verification import _IDENTIFIER, check_claim, check_relation_step, is_math_expression, judge_answer
@@ -192,6 +196,39 @@ def decompose_problem(llm: LLMClient, unit: str, problem_text: str) -> List[Dict
     return validate_steps(out.get('steps'), unit)
 
 
+TAG_SYSTEM = (
+    'あなたは高等学校数学の解答の各手順が依存する前提知識を判定します。手順は教員が書いた解答解説の'
+    'とおりに与えるので，手順を変えずに，各手順が依存する前提知識を与えられた選択肢の中からだけ選びます'
+    '（依存するものがなければ空にします）。'
+)
+
+
+def _tag_schema(unit: str) -> Dict[str, Any]:
+    return {
+        'type': 'object',
+        'properties': {'steps': {'type': 'array', 'items': {
+            'type': 'object',
+            'properties': {'step': {'type': 'integer'},
+                           'nodes': {'type': 'array', 'items': {'type': 'string', 'enum': graph.node_ids(unit)}}},
+            'required': ['step', 'nodes'], 'additionalProperties': False}}},
+        'required': ['steps'], 'additionalProperties': False,
+    }
+
+
+def tag_template_steps(llm: LLMClient, unit: str, problem_text: str, steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """テンプレートの手順（Chain 1 の分解の代わり）に，依存する前提知識ノードだけを付ける。"""
+    labels = graph.node_labels()
+    options = '\n'.join(f'- {n}: {labels[n]}' for n in graph.node_ids(unit))
+    outline = '\n\n'.join(f'手順{s["id"]}: {s["title"]}\n{s.get("description", "")}' for s in steps)
+    user = (f'単元: {graph.get_unit(unit)["label"]}\n\n問題:\n{problem_text}\n\n解答の手順（TeX）:\n{outline}\n\n'
+            f'前提知識の選択肢（ノード名: 内容）:\n{options}\n\n手順の番号 step ごとに nodes を答えてください。')
+    out = llm.generate_json(system=TAG_SYSTEM, user=user, schema=_tag_schema(unit),
+                            schema_name='template_step_nodes', temperature=0.0)
+    by_step = {int(item.get('step', 0)): item.get('nodes') or [] for item in out.get('steps', []) if isinstance(item, dict)}
+    tagged = [{**step, 'nodes': by_step.get(step['id'], [])} for step in steps]
+    return validate_steps(tagged, unit)
+
+
 # ---------------------------------------------------------------- Chain 2: 決めた方針で説明を書く
 
 CHAIN2_SYSTEM = (
@@ -237,6 +274,57 @@ def write_step(llm: LLMClient, problem: Dict[str, Any], steps: List[Dict[str, An
     if feedback:
         user += f'\n\n前回書いた説明には次の誤りがありました。誤りを直して，このステップを書き直してください。\n{feedback}'
     return llm.generate_text(system=CHAIN2_SYSTEM, user=user, temperature=0.3).strip()
+
+
+TEMPLATE_SYSTEM = (
+    'あなたは高等学校数学の解答解説を，教員が書いたマスター解説の「手順」を土台にして生徒ごとに書き直します。'
+    '体裁（TeX の書き方，文体，式の書き方）はマスター解説の手順と同じにし，指示された「含める要素」に従って'
+    '内容だけを変えます。出力は手順の本文の TeX だけで，\\tejun などの見出しや答・考え方は書きません。'
+    '数式は $...$，\\[...\\]，align* 環境で書き，計算は「左辺 = 右辺」の形にします。'
+)
+
+
+def _template_instructions(decision: Dict[str, Any], step: Dict[str, Any]) -> List[str]:
+    labels = graph.node_labels()
+    elements = decision['elements']
+    lines = ['マスター解説のこの手順の結果（得られる式や値）と，使う公式・考え方は必ず残す。']
+    if 'reasoning' in elements:
+        lines.append('この生徒はこの手順が依存する前提知識の定着が弱い。マスター解説で省いている途中の式変形を補い，'
+                     '1行ごとに何をしているかを短く添えて，マスター解説より詳しく書く。')
+    else:
+        lines.append('この生徒はこの手順が依存する前提知識が定着している。マスター解説の本文を簡潔にし，'
+                     '結果と使う公式を中心に書く（マスター解説より長くしない）。')
+    if 'definition_review' in elements:
+        node_text = '，'.join(labels.get(n, n) for n in step.get('nodes', []))
+        lines.append(f'本文の最初に \\fukushu{{...}} で，前提知識（{node_text}）の定義や公式の意味を1〜2文で復習する。')
+    for caution in decision.get('cautions', []):
+        lines.append(f'この生徒は「{caution["label"]}」で誤りの記録が{caution["error_count"]}回ある。本文の最後に '
+                     '\\begin{chui} ... \\end{chui} で，その誤りが起きやすい箇所に向けた注意を1〜2文で添える'
+                     '（マスター解説の注意と同じ内容は繰り返さない）。')
+    if 'similar_check' in elements:
+        lines.append('本文の最後に \\ruidai{...} で，理解を確かめる簡単な類題を1問，答えを付けて示す。')
+    lines.append('⟦図1⟧ のような印は図・表の位置を表す。印は消さずに同じ位置に残す。')
+    return lines
+
+
+def write_template_step(llm: LLMClient, problem: Dict[str, Any], steps: List[Dict[str, Any]], step: Dict[str, Any],
+                        decision: Dict[str, Any], body: str, previous_texts: List[str],
+                        feedback: Optional[str] = None) -> str:
+    outline = '\n'.join(f'手順{s["id"]}: {s["title"]}' for s in steps)
+    previous = '\n\n'.join(f'(手順{i}) {t}' for i, t in enumerate(previous_texts, start=1)) or '（なし）'
+    instructions = '\n'.join(f'- {line}' for line in _template_instructions(decision, step))
+    user = (
+        f'問題文:\n{problem["problem_text"]}\n\n手順の全体:\n{outline}\n\n'
+        f'この生徒向けにここまでに書いた手順:\n{previous}\n\n'
+        f'今回書くステップ: {step["id"]}. {step["title"]}\n'
+        f'マスター解説のこの手順の本文（TeX。これを土台にする）:\n{body}\n\n'
+        f'含める要素（この指示だけに従う）:\n{instructions}'
+    )
+    if feedback:
+        user += f'\n\n前回書いた本文には次の誤りがありました。誤りを直して，この手順の本文を書き直してください。\n{feedback}'
+    text = llm.generate_text(system=TEMPLATE_SYSTEM, user=user, temperature=0.3).strip()
+    # 「```latex」などで囲まれて返ってきたときは外す
+    return re.sub(r'^```[a-zA-Z]*\n|\n?```$', '', text).strip()
 
 
 # ---------------------------------------------------------------- Chain 4: 計算の抜き出しと検算
@@ -416,10 +504,20 @@ def _assemble(problem: Dict[str, Any], steps: List[Dict[str, Any]], texts: List[
 
 def generate_explanation(llm: LLMClient, problem: Dict[str, Any], node_states: Optional[Dict[str, Any]] = None,
                          error_tendencies: Optional[Dict[str, int]] = None, kind: str = 'individual') -> Dict[str, Any]:
-    """積み上げ型の個別解説（kind='individual'）またはマスター解説（kind='master'）を生成する。"""
+    """積み上げ型の個別解説（kind='individual'）またはマスター解説（kind='master'）を生成する。
+
+    テンプレート（problem['template']）がある問題では，マスター解説はテンプレートそのもの（LLM は呼ばない）で，
+    個別の解説はテンプレートの各手順の本文だけを書き直して，同じ体裁の TeX に組み立てる。
+    """
     steps = problem['steps']
     if not steps:
         raise ExplanationError('解答ステップがありません（先に Chain 1 を実行してください）')
+    template = problem.get('template')
+    bodies = tex_template.step_bodies(template) if template else []
+    if template and len(bodies) != len(steps):
+        raise ExplanationError('テンプレートの手順の数と解答ステップの数が一致しません（テンプレートを読み込み直してください）')
+    if template and kind == 'master':
+        return template_master(problem)
     if kind == 'master':
         decisions = [{'step_id': s['id'], 'title': s['title'], 'nodes': s.get('nodes', []), **master_decision(s)}
                      for s in steps]
@@ -438,12 +536,16 @@ def generate_explanation(llm: LLMClient, problem: Dict[str, Any], node_states: O
         text = ''
         verification: Dict[str, Any] = {}
         for attempt in range(1, MAX_ATTEMPTS + 1):
-            text = write_step(llm, problem, steps, step, decision, texts, feedback)
+            if template:
+                text = write_template_step(llm, problem, steps, step, decision, bodies[index], texts, feedback)
+            else:
+                text = write_step(llm, problem, steps, step, decision, texts, feedback)
             step_definitions = dict(definitions)
+            # テンプレートの問題は答をテンプレートの「答」で示すので，最後の手順の結論は照合しない
+            final_answer = problem.get('correct_answer') if is_last and not template else None
             try:
-                extracted = extract_claims(llm, text)
-                verification = verify_step(step['id'], extracted, step_definitions,
-                                           problem.get('correct_answer') if is_last else None, last_relation)
+                extracted = extract_claims(llm, tex_template.restore_figures(text, {}) if template else text)
+                verification = verify_step(step['id'], extracted, step_definitions, final_answer, last_relation)
             except Exception as exc:  # 抜き出しの失敗は検算できなかったものとして扱う
                 extracted = {'claims': [], 'relations': [], 'final_answer': ''}
                 verification = {'ok': True, 'claims': [], 'counts': {}, 'relations': [], 'relation_counts': {},
@@ -475,11 +577,39 @@ def generate_explanation(llm: LLMClient, problem: Dict[str, Any], node_states: O
     return {
         'kind': kind,
         'status': 'ok' if all(s['status'] == 'ok' for s in step_traces) else 'needs_review',
-        'content': _assemble(problem, steps, texts),
+        'content': tex_template.assemble(template, texts) if template else _assemble(problem, steps, texts),
+        'format': 'latex' if template else 'markdown',
         'steps': step_traces,
         'warnings': warnings,
         'model_name': getattr(llm, 'model_name', None),
     }
+
+
+def template_master(problem: Dict[str, Any]) -> Dict[str, Any]:
+    """テンプレートがある問題のマスター解説（比較用 (A)）: 教員のテンプレートそのもの。LLM は呼ばない。"""
+    template = problem['template']
+    bodies = tex_template.step_bodies(template)
+    traces = []
+    for step, body in zip(problem['steps'], bodies):
+        decision = {'step_id': step['id'], 'title': step['title'], 'nodes': step.get('nodes', []), **master_decision(step)}
+        decision['reasons'] = ['マスター解説: 教員が作ったテンプレートの手順をそのまま使う']
+        traces.append({'step_id': step['id'], 'title': step['title'], 'nodes': step.get('nodes', []),
+                       'decision': decision, 'text': body, 'status': 'ok', 'attempt_count': 0, 'attempts': [],
+                       'warnings': []})
+    return {'kind': 'master', 'status': 'ok', 'content': template['tex'], 'format': 'latex', 'steps': traces,
+            'warnings': [], 'model_name': 'teacher-template'}
+
+
+def template_common(problem: Dict[str, Any]) -> Dict[str, Any]:
+    """テンプレートに手順のない問題の全員共通の解説: テンプレートの部分をそのまま配る。"""
+    decision = {'elements': ['result'], 'weakest_node': None, 'confidence': None, 'evidence_count': None,
+                'node_confidences': {}, 'cautions': [],
+                'reasons': ['テンプレートに手順がないため，教員のテンプレートをそのまま全員に配る']}
+    text = problem['template']['tex']
+    trace = {'step_id': 1, 'title': '全員共通の解説（テンプレート）', 'nodes': [], 'decision': decision, 'text': text,
+             'status': 'ok', 'attempt_count': 0, 'attempts': [], 'warnings': []}
+    return {'kind': 'common', 'status': 'ok', 'content': text, 'format': 'latex', 'steps': [trace],
+            'warnings': [], 'model_name': 'teacher-template'}
 
 
 # 全員共通の解説の書き方。教員から参考として示された市販の解答解説集（チャート式の解答編）の構成と文体を，
@@ -586,17 +716,21 @@ def build_subtractive(problem: Dict[str, Any], master: Dict[str, Any], node_stat
                       error_tendencies: Dict[str, int]) -> Dict[str, Any]:
     """引き算型の解説（比較用 (B)）: マスター解説から，定着済みのステップを結果だけに縮める。LLM は呼ばない。"""
     steps = problem['steps']
+    template = problem.get('template')
     master_texts = {s['step_id']: s['text'] for s in master['steps']}
     decisions = plan_explanation(steps, node_states, error_tendencies)
     texts, traces = [], []
     for step, decision in zip(steps, decisions):
         keep = 'reasoning' in decision['elements']
-        text = master_texts.get(step['id'], '') if keep else (step.get('result') or '（省略）')
+        short = (f'\\[ {step["result"]} \\]' if template and step.get('result') else step.get('result')) or '（省略）'
+        text = master_texts.get(step['id'], '') if keep else short
         texts.append(text)
         traces.append({'step_id': step['id'], 'title': step['title'], 'nodes': step.get('nodes', []),
                        'decision': decision, 'text': text, 'status': 'ok',
                        'kept_from_master': keep, 'attempt_count': 0, 'attempts': [], 'warnings': []})
-    return {'kind': 'subtractive', 'status': master['status'], 'content': _assemble(problem, steps, texts),
+    content = tex_template.assemble(template, texts) if template else _assemble(problem, steps, texts)
+    return {'kind': 'subtractive', 'status': master['status'], 'content': content,
+            'format': 'latex' if template else 'markdown',
             'steps': traces, 'warnings': [], 'model_name': master.get('model_name')}
 
 

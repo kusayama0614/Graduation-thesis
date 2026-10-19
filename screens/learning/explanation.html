@@ -35,7 +35,7 @@
 
         <section class="card no-print hidden" id="editCard">
             <h2>解説を直す</h2>
-            <p class="card-lead">Markdown（# 見出し，- 箇条書き，**太字**）と $数式$ で書けます。保存すると確認済みになり，同じ解説を使い回した生徒にも反映されます（生徒ごとに直した解説は上書きしません）。生成された元の文は記録に残ります。</p>
+            <p class="card-lead" id="editLead">Markdown（# 見出し，- 箇条書き，**太字**）と $数式$ で書けます。保存すると確認済みになり，同じ解説を使い回した生徒にも反映されます（生徒ごとに直した解説は上書きしません）。生成された元の文は記録に残ります。</p>
             <textarea id="editText" rows="18" oninput="previewEdit()"></textarea>
             <label class="checkbox" style="margin-top: 8px;"><input type="checkbox" id="applyGroup" checked> 同じ解説を使い回した生徒にも反映する</label>
             <div class="button-row">
@@ -95,17 +95,21 @@
                 + (e.reused_from ? `<div class="notice">判断が同じ生徒の解説を使い回しています（<a href="explanation.html?id=${encodeURIComponent(e.reused_from)}">元の解説</a>）。判断の理由はこの生徒自身の定着度によるものです。</div>` : '');
             document.getElementById('approveButton').classList.toggle('hidden', e.status === 'ok' || e.reviewed);
             const content = document.getElementById('content');
-            content.innerHTML = L.renderMarkdown(e.content);
+            content.innerHTML = L.renderExplanation(e.content, e.format);
             L.typesetMath(content);
             renderTrace(e.trace || {});
             if (e.original_content) {
                 document.getElementById('trace').innerHTML += `<div class="step-trace"><h4>生成された元の文（教員が直す前）</h4>
-                    <div class="explanation-body">${L.renderMarkdown(e.original_content)}</div></div>`;
+                    <div class="explanation-body">${L.renderExplanation(e.original_content, e.format)}</div></div>`;
             }
         }
 
         function startEdit() {
             document.getElementById('editText').value = current ? current.content || '' : '';
+            if (current && current.format === 'latex') {
+                document.getElementById('editLead').textContent = 'マスター解説のテンプレートと同じ TeX で書かれています（\\tejun・kotae・chui などはそのまま残してください）。'
+                    + '保存すると確認済みになり，同じ解説を使い回した生徒にも反映されます。生成された元の文は記録に残ります。';
+            }
             document.getElementById('editCard').classList.remove('hidden');
             document.getElementById('editCard').scrollIntoView({ behavior: 'smooth' });
         }
@@ -120,7 +124,7 @@
             clearTimeout(previewTimer);
             previewTimer = setTimeout(() => {
                 const content = document.getElementById('content');
-                content.innerHTML = L.renderMarkdown(document.getElementById('editText').value);
+                content.innerHTML = L.renderExplanation(document.getElementById('editText').value, current && current.format);
                 L.typesetMath(content);
             }, 400);
         }

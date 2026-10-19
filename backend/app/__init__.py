@@ -146,11 +146,25 @@ def _ensure_test_problem_columns():
         return
     existing_columns = {column['name'] for column in inspector.get_columns('test_problems')}
     expected_columns = [('exam_id', 'TEXT'), ('number', 'TEXT'), ('points', 'INTEGER'), ('answer_format', 'TEXT'),
-                        ('chain1_status', 'TEXT'), ('chain1_error', 'TEXT')]
+                        ('chain1_status', 'TEXT'), ('chain1_error', 'TEXT'), ('template', 'TEXT')]
     with db.engine.begin() as conn:
         for column_name, column_type in expected_columns:
             if column_name not in existing_columns:
                 conn.execute(text(f'ALTER TABLE test_problems ADD COLUMN {column_name} {column_type}'))
+
+
+def _ensure_exam_import_columns():
+    """マスター解説の TeX のために exam_imports に加えた列を，既存の SQLite に追加する。"""
+    if db.engine.dialect.name != 'sqlite':
+        return
+    inspector = inspect(db.engine)
+    if 'exam_imports' not in set(inspector.get_table_names()):
+        return
+    existing_columns = {column['name'] for column in inspector.get_columns('exam_imports')}
+    with db.engine.begin() as conn:
+        for column_name, column_type in [('template_tex', 'TEXT'), ('template_name', 'TEXT')]:
+            if column_name not in existing_columns:
+                conn.execute(text(f'ALTER TABLE exam_imports ADD COLUMN {column_name} {column_type}'))
 
 
 def _ensure_explanation_columns():
@@ -217,6 +231,7 @@ def create_app():
         _ensure_answer_sheet_columns()
         _ensure_test_problem_columns()
         _ensure_explanation_columns()
+        _ensure_exam_import_columns()
         _seed_default_teachers()
     
     # ==================== ブループリント登録 ====================

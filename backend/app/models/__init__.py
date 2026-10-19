@@ -196,6 +196,7 @@ class TestProblem(db.Model):
     answer_format = db.Column(db.String(20))  # answer_only（答えのみ）/ written（記述式）
     chain1_status = db.Column(db.String(20))  # 取り込んだ問題の Chain 1: pending / done / error
     chain1_error = db.Column(db.Text)
+    template = db.Column(db.Text)  # JSON: マスター解説の TeX のうちこの問題の部分（固定の部分と手順の並び。tex_template）
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
@@ -354,6 +355,8 @@ class ExamImport(db.Model):
     candidates = db.Column(db.Text)  # JSON list: 読み取った問題の候補
     model_name = db.Column(db.String(100))
     error = db.Column(db.Text)
+    template_tex = db.Column(db.Text)  # 教員が作ったマスター解説の TeX（個別の解説はこの体裁で内容だけを個別化する）
+    template_name = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 

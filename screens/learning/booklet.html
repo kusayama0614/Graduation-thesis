@@ -77,7 +77,10 @@
         });
 
         /* 解説の先頭の「# 問題名」は冊子の見出しと重なるので除く */
-        function body(content) {
+        function body(content, format) {
+            if (format === 'latex') {
+                return L.renderExplanation(content, format);
+            }
             return L.renderMarkdown(String(content || '').replace(/^#\s+[^\n]*\n+/, ''));
         }
 
@@ -114,7 +117,7 @@
                     ${s.items.map((i) => `<div class="booklet-item">
                         <h3 class="problem-number">${L.escapeHtml(i.number ? `大問 ${i.number}` : i.title)}${i.points ? `<span class="muted">（${i.points}点）</span>` : ''}</h3>
                         <div class="booklet-problem">${L.escapeHtml(i.problem_text)}</div>
-                        ${i.content ? `${i.ready ? '' : '<div class="notice notice-warn no-print">要確認（未確認）の解説です</div>'}<div class="explanation-body">${body(i.content)}</div>`
+                        ${i.content ? `${i.ready ? '' : '<div class="notice notice-warn no-print">要確認（未確認）の解説です</div>'}<div class="explanation-body">${body(i.content, i.format)}</div>`
                             : '<p class="muted">この問題の解説はまだ生成されていません。</p>'}
                         ${i.common ? '<p class="muted no-print">（解答ステップがない問題のため，全員共通の解説です）</p>' : ''}
                     </div>`).join('')}

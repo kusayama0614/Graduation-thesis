@@ -12,7 +12,7 @@ from sqlalchemy.exc import OperationalError
 from flask import Blueprint, current_app, request, send_file
 
 from app import db
-from app.learning import exam_generation, exam_import
+from app.learning import exam_generation, exam_import, tex_template
 from app.learning import explanation as chain
 from app.learning import graph
 from app.learning.jobs import job_to_dict, problem_to_chain_input, start_job
@@ -324,6 +324,7 @@ def _problem_to_dict(problem, include_counts=True):
         'answer_format': problem.answer_format,
         'chain1_status': problem.chain1_status,
         'chain1_error': problem.chain1_error,
+        'has_template': bool(problem.template),
         'answer_check': _answer_check(problem),
         'created_at': problem.created_at.isoformat() if problem.created_at else None,
         'updated_at': problem.updated_at.isoformat() if problem.updated_at else None,
@@ -339,6 +340,8 @@ def _answer_check(problem):
     略解をそのまま信じず，食い違えば模範解答の転記・読み取りの誤りか分解の誤りを教員に確かめてもらう。
     """
     steps = json.loads(problem.steps or '[]')
+    if problem.template:
+        return {'status': 'template', 'detail': '答はマスター解説のテンプレートの「答」を使います'}
     if not problem.correct_answer or not steps or not steps[-1].get('result'):
         return {'status': 'unchecked', 'detail': '模範解答または解答ステップがありません'}
     result = steps[-1]['result']
@@ -566,6 +569,7 @@ def _explanation_to_dict(row, include_trace=True):
         'content': row.content,
         'model_name': row.model_name,
         'reused_from': row.reused_from,
+        'format': json.loads(row.trace or '{}').get('format', 'markdown'),
         'reviewed': bool(row.reviewed),
         'edited': row.original_content is not None,
         'created_at': row.created_at.isoformat() if row.created_at else None,
@@ -573,6 +577,7 @@ def _explanation_to_dict(row, include_trace=True):
     if include_trace:
         payload['original_content'] = row.original_content
         payload['trace'] = json.loads(row.trace or '{}')
+        payload['format'] = payload['trace'].get('format', 'markdown')
         payload['profile_snapshot'] = json.loads(row.profile_snapshot) if row.profile_snapshot else None
     return payload
 
@@ -754,6 +759,9 @@ def _exam_to_dict(exam):
         'problem_count': len(problems),
         'chain1': {s: statuses.count(s) for s in ('pending', 'done', 'error')},
         'chain1_running': exam_import.is_running(f'chain1:{exam.id}'),
+        'template': {'name': exam.template_name, 'problems': sorted((p.number for p in problems if p.template),
+                                                                    key=exam_generation.number_key)}
+        if exam.template_tex else None,
         'created_at': exam.created_at.isoformat() if exam.created_at else None,
     }
 
@@ -1178,6 +1186,7 @@ def exam_booklet(exam_id):
             items.append({
                 'problem_id': problem.id, 'number': problem.number, 'title': problem.title,
                 'problem_text': problem.problem_text, 'points': problem.points, 'common': is_common,
+                'format': json.loads(row.trace or '{}').get('format', 'markdown') if row else None,
                 'explanation_id': row.id if row else None, 'content': row.content if row else None,
                 'status': row.status if row else None, 'reviewed': bool(row.reviewed) if row else False,
                 'ready': bool(row) and (row.status == 'ok' or bool(row.reviewed)),
@@ -1186,3 +1195,133 @@ def exam_booklet(exam_id):
                          'ready': all(i['ready'] for i in items),
                          'missing': sum(1 for i in items if not i['explanation_id'])})
     return make_success_response({'exam': {'id': exam.id, 'name': exam.name}, 'students': students})
+
+
+# ==================== マスター解説の TeX（個別の解説のテンプレート） ====================
+
+MAX_TEMPLATE_BYTES = 2 * 1024 * 1024
+
+
+@learning_bp.route('/exam-imports/<exam_id>/template', methods=['POST'])
+@login_required
+def upload_exam_template(exam_id):
+    """教員が作ったマスター解説の TeX を読み込み，問題番号ごとにテンプレートとして登録する。
+
+    multipart の file か，JSON の {"tex": "...", "name": "..."}。対応した問題は，テンプレートの「手順」を解答ステップに
+    置き換え，裏で前提知識ノードだけを付ける（Chain 1 の分解の代わり）。個別の解説は，この体裁のまま各手順の本文だけを
+    生徒に合わせて書き直す。
+    """
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    upload = request.files.get('file')
+    if upload is not None and upload.filename:
+        raw = upload.read(MAX_TEMPLATE_BYTES + 1)
+        name = upload.filename
+    else:
+        payload = request.get_json(silent=True) or {}
+        raw = str(payload.get('tex') or '').encode('utf-8')
+        name = str(payload.get('name') or 'template.tex')
+    if not raw:
+        return make_error_response('LEARNING_TEMPLATE_MISSING', 'TeX ファイルを選んでください', 400)
+    if len(raw) > MAX_TEMPLATE_BYTES:
+        return make_error_response('LEARNING_TEMPLATE_TOO_LARGE', 'TeX ファイルが大きすぎます（2MB まで）', 400)
+    try:
+        tex = raw.decode('utf-8-sig')
+        parsed = tex_template.parse(tex)
+        sections = tex_template.sections(parsed)
+    except UnicodeDecodeError:
+        return make_error_response('LEARNING_TEMPLATE_INVALID', 'TeX ファイルは UTF-8 で保存してください', 400)
+    except tex_template.TemplateError as exc:
+        return make_error_response('LEARNING_TEMPLATE_INVALID', str(exc), 400)
+
+    problems = _exam_problems(exam.id)
+    matched, without = [], []
+    for problem in problems:
+        section = sections.get(tex_template.normalize_number(problem.number or ''))
+        if section is None:
+            if problem.template:
+                problem.template = None
+                if problem.steps_source == 'template':  # テンプレートから外れた問題は問題文から分解し直す
+                    problem.steps, problem.chain1_status = '[]', 'pending'
+            without.append(problem.number)
+            continue
+        problem.template = json.dumps(section, ensure_ascii=False)
+        steps = tex_template.template_steps(section)
+        problem.steps = json.dumps(steps, ensure_ascii=False)
+        problem.steps_source = 'template'
+        problem.chain1_status, problem.chain1_error = ('pending' if steps else 'done'), None
+        matched.append({'number': problem.number, 'steps': len(steps)})
+    exam.template_tex = tex
+    exam.template_name = name[:200]
+    db.session.commit()
+    exam_import.start_chain1(current_app._get_current_object(), exam.id)
+    db.session.expire_all()
+    used = {tex_template.normalize_number(p.number or '') for p in problems}
+    return make_success_response({
+        'exam': _exam_to_dict(_get_exam(exam_id)), 'matched': matched, 'problems_without_template': without,
+        'unused_sections': [n for n in sections if n not in used],
+    })
+
+
+@learning_bp.route('/exam-imports/<exam_id>/template', methods=['DELETE'])
+@login_required
+def delete_exam_template(exam_id):
+    """テンプレートを外す（テンプレートから作った解答ステップは，問題文から Chain 1 で分解し直す）。"""
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    for problem in _exam_problems(exam.id):
+        if problem.template or problem.steps_source == 'template':
+            problem.template = None
+            problem.steps, problem.chain1_status, problem.chain1_error = '[]', 'pending', None
+    exam.template_tex = exam.template_name = None
+    db.session.commit()
+    exam_import.start_chain1(current_app._get_current_object(), exam.id)
+    db.session.expire_all()
+    return make_success_response({'exam': _exam_to_dict(_get_exam(exam_id))})
+
+
+@learning_bp.route('/exams/<exam_id>/booklet.tex', methods=['GET'])
+@login_required
+def exam_booklet_tex(exam_id):
+    """生徒ごとの個別解説を，テンプレートと同じ体裁の TeX 文書にする（?classes=1-1 / ?student_ids=...）。
+
+    複数の生徒は改ページして1つの文書に続ける。個別の解説がない小問はテンプレートのまま載せる。
+    """
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    if not exam.template_tex:
+        return make_error_response('LEARNING_TEMPLATE_MISSING', 'マスター解説の TeX を先に読み込んでください', 400)
+    try:
+        student_ids, known = _select_students(request.args)
+    except ValueError as exc:
+        return make_error_response('LEARNING_INVALID_STUDENTS', str(exc), 400)
+    student_ids = [sid for sid in student_ids if sid in known]
+    if not student_ids:
+        return make_error_response('LEARNING_INVALID_STUDENTS', '対象の生徒がいません', 400)
+    parsed = tex_template.parse(exam.template_tex)
+    problems = [p for p in _exam_problems(exam.id) if p.template]
+    latest = _latest_explanations([p.id for p in problems])
+    common = _latest_explanations([p.id for p in problems], kind='common')
+
+    def latex_of(row):
+        return row.content if row and json.loads(row.trace or '{}').get('format') == 'latex' else None
+
+    students = []
+    for sid in student_ids:
+        contents = {}
+        for problem in problems:
+            content = latex_of(latest.get((problem.id, sid))) or latex_of(common.get((problem.id, None)))
+            if content:
+                contents[tex_template.normalize_number(problem.number or '')] = content
+        students.append((sid, contents))
+    document = tex_template.build_document(parsed, students)
+    label = request.args.get('classes') or (student_ids[0] if len(student_ids) == 1 else 'students')
+    filename = f'個別解説_{label}.tex'
+    response = current_app.response_class(document, mimetype='application/x-tex; charset=utf-8')
+    from urllib.parse import quote
+    response.headers['Content-Disposition'] = (f'attachment; filename="kobetsu_kaisetsu.tex"; '
+                                               f"filename*=UTF-8''{quote(filename)}")
+    return response

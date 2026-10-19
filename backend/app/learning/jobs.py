@@ -21,6 +21,7 @@ def problem_to_chain_input(problem: TestProblem) -> Dict[str, Any]:
         'problem_text': problem.problem_text,
         'correct_answer': problem.correct_answer,
         'steps': json.loads(problem.steps or '[]'),
+        'template': json.loads(problem.template) if problem.template else None,
     }
 
 
@@ -33,7 +34,8 @@ def _save(teacher_db_id: str, problem_id: str, student_id: Optional[str], result
         kind=result['kind'],
         status=result['status'],
         content=result['content'],
-        trace=json.dumps({'steps': result['steps'], 'warnings': result['warnings']}, ensure_ascii=False),
+        trace=json.dumps({'steps': result['steps'], 'warnings': result['warnings'],
+                          'format': result.get('format', 'markdown')}, ensure_ascii=False),
         profile_snapshot=json.dumps(snapshot, ensure_ascii=False) if snapshot is not None else None,
         model_name=result.get('model_name'),
     )

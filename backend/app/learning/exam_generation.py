@@ -26,6 +26,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.learning import explanation as chain
+from app.learning import tex_template
 
 QUOTA_PATTERN = re.compile(r'RESOURCE_EXHAUSTED|\b429\b|quota', re.IGNORECASE)
 
@@ -50,6 +51,7 @@ def signature(problem_input: Dict[str, Any], decisions: List[Dict[str, Any]], mo
         'decisions': [_decision_key(d) for d in decisions],
         'model': model_name,
         'max_attempts': chain.MAX_ATTEMPTS,
+        'template': tex_template.fingerprint(problem_input.get('template')),
     }
     return hashlib.sha1(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
 
@@ -62,7 +64,8 @@ def master_signature(problem_input: Dict[str, Any], model_name: Optional[str]) -
 def common_signature(problem_input: Dict[str, Any], model_name: Optional[str]) -> str:
     payload = {'kind': 'common', 'problem_text': problem_input['problem_text'],
                'correct_answer': problem_input.get('correct_answer'), 'model': model_name,
-               'max_attempts': chain.MAX_ATTEMPTS, 'style': chain.COMMON_STYLE_VERSION}
+               'max_attempts': chain.MAX_ATTEMPTS, 'style': chain.COMMON_STYLE_VERSION,
+               'template': tex_template.fingerprint(problem_input.get('template'))}
     return hashlib.sha1(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
 
 
@@ -105,7 +108,7 @@ def plan_common(problem_input: Dict[str, Any], student_count: int, model_name: O
     generate = 0 if done or not student_count else 1
     return {'students': student_count, 'distinct_plans': 1, 'generate': generate,
             'reuse': 0 if done else max(0, student_count - generate), 'skip': student_count if done else 0,
-            'llm_calls': generate * 2, 'common': True}
+            'llm_calls': generate * (0 if problem_input.get('template') else 2), 'common': True}
 
 
 def plan_problem(problem_input: Dict[str, Any], profiles: Dict[str, Tuple[Dict, Dict]], model_name: Optional[str],
@@ -173,7 +176,8 @@ def _latest(rows):
 def _row_result(row) -> Dict[str, Any]:
     trace = json.loads(row.trace or '{}')
     return {'kind': row.kind, 'status': row.status, 'content': row.content, 'steps': trace.get('steps', []),
-            'warnings': trace.get('warnings', []), 'model_name': row.model_name}
+            'warnings': trace.get('warnings', []), 'model_name': row.model_name,
+            'format': trace.get('format', 'markdown')}
 
 
 def _save(job, problem_id: str, student_id: Optional[str], result: Dict[str, Any], snapshot, sig: Optional[str],
@@ -181,7 +185,8 @@ def _save(job, problem_id: str, student_id: Optional[str], result: Dict[str, Any
     from app import db
     from app.models import GeneratedExplanation
 
-    trace = {'steps': result['steps'], 'warnings': result['warnings'], **(extra_trace or {})}
+    trace = {'steps': result['steps'], 'warnings': result['warnings'], 'format': result.get('format', 'markdown'),
+             **(extra_trace or {})}
     row = GeneratedExplanation(
         teacher_id=job.teacher_id, problem_id=problem_id, student_id=student_id, kind=result['kind'],
         status=result['status'], content=result['content'], trace=json.dumps(trace, ensure_ascii=False),
@@ -248,7 +253,9 @@ def _run(app, job_id: str) -> None:
                     job.skipped += len(profiles)
                 else:
                     try:
-                        _save(job, problem.id, None, chain.generate_common_explanation(llm, problem_input), None, sig)
+                        common = (chain.template_common(problem_input) if problem_input.get('template')
+                                  else chain.generate_common_explanation(llm, problem_input))
+                        _save(job, problem.id, None, common, None, sig)
                         job.generated += 1
                         job.reused += max(0, len(profiles) - 1)
                     except Exception as exc:

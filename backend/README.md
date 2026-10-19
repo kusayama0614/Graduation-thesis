@@ -416,6 +416,21 @@ API はすべてログインが必要で，`/api/learning` 配下にあります
 
 LLM は Gemini で，環境変数 `GEMINI_API_KEY`（必須）と `GEMINI_MODEL`（既定 `gemini-3.8-flash`）で設定します。未設定のときは LLM を使う API が 503 を返し，プロファイルの更新は LLM なしで動きます。
 
+### 評価の集計（5.4節・5.5節）
+
+記録から決定的に集計します（LLM は呼びません）。出力先は `docs/evaluation/`（手順は同フォルダの README）。
+
+```bash
+.venv_local/bin/python scripts/evaluation_report.py          # 数学的整合率・表10（最新の試行の記録から）
+.venv_local/bin/python scripts/evaluation_report.py --db     # 画面で生成した解説（データベース）から
+.venv_local/bin/python scripts/diagnosis_agreement.py sheet  # 誤りの種類のラベル付けの表を作る
+.venv_local/bin/python scripts/diagnosis_agreement.py score  # 研究者のラベルとの一致率・κ
+```
+
+- 数学的整合率: (a) 初回で全ての計算が検算OK，(b) 差し戻しで修正，(c) 上限に達して教員の確認へ，の割合（解説単位・ステップ単位）。引き算型は LLM で生成しないため対象外。
+- 表10: 未定着ステップを詳しく書いた割合，定着済みステップの文字数，誤りへの注意を含むステップ，マスター解説との文字列一致度・意味の類似度。CSV の「固有の内容（研究者判定）」列は研究者が記入します。
+- 一致率: Gemini が候補ノードから選んだ行（診断方法 `llm`）が対象。候補が一つの小問は参考として別に数えます。
+
 ## 🔐 セキュリティに関する注意
 
 ⚠️ **開発環境では簡易実装です。本番環境では以下を実装してください：**

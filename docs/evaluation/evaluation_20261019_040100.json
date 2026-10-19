@@ -1,0 +1,629 @@
+{
+ "source": "docs/trial/real_data_trial_20261019_104512.json",
+ "model": "gemini-3.8-flash",
+ "consistency": {
+  "explanation_count": 8,
+  "explanations": {
+   "first_ok": {
+    "count": 8,
+    "rate": 1.0
+   },
+   "fixed": {
+    "count": 0,
+    "rate": 0.0
+   },
+   "needs_review": {
+    "count": 0,
+    "rate": 0.0
+   }
+  },
+  "by_kind": {
+   "master": {
+    "count": 2,
+    "first_ok": {
+     "count": 2,
+     "rate": 1.0
+    },
+    "fixed": {
+     "count": 0,
+     "rate": 0.0
+    },
+    "needs_review": {
+     "count": 0,
+     "rate": 0.0
+    }
+   },
+   "individual": {
+    "count": 6,
+    "first_ok": {
+     "count": 6,
+     "rate": 1.0
+    },
+    "fixed": {
+     "count": 0,
+     "rate": 0.0
+    },
+    "needs_review": {
+     "count": 0,
+     "rate": 0.0
+    }
+   }
+  },
+  "step_count": 24,
+  "steps": {
+   "first_ok": {
+    "count": 24,
+    "rate": 1.0
+   },
+   "fixed": {
+    "count": 0,
+    "rate": 0.0
+   },
+   "needs_review": {
+    "count": 0,
+    "rate": 0.0
+   }
+  },
+  "checked_claims": 46,
+  "checked_relations": 14,
+  "ng_claims": 0,
+  "ng_relations": 0,
+  "unverified_steps": 2
+ },
+ "problems": [
+  {
+   "title": "判別式と定数の範囲",
+   "students": 3,
+   "consistency": {
+    "explanation_count": 4,
+    "explanations": {
+     "first_ok": {
+      "count": 4,
+      "rate": 1.0
+     },
+     "fixed": {
+      "count": 0,
+      "rate": 0.0
+     },
+     "needs_review": {
+      "count": 0,
+      "rate": 0.0
+     }
+    },
+    "by_kind": {
+     "master": {
+      "count": 1,
+      "first_ok": {
+       "count": 1,
+       "rate": 1.0
+      },
+      "fixed": {
+       "count": 0,
+       "rate": 0.0
+      },
+      "needs_review": {
+       "count": 0,
+       "rate": 0.0
+      }
+     },
+     "individual": {
+      "count": 3,
+      "first_ok": {
+       "count": 3,
+       "rate": 1.0
+      },
+      "fixed": {
+       "count": 0,
+       "rate": 0.0
+      },
+      "needs_review": {
+       "count": 0,
+       "rate": 0.0
+      }
+     }
+    },
+    "step_count": 12,
+    "steps": {
+     "first_ok": {
+      "count": 12,
+      "rate": 1.0
+     },
+     "fixed": {
+      "count": 0,
+      "rate": 0.0
+     },
+     "needs_review": {
+      "count": 0,
+      "rate": 0.0
+     }
+    },
+    "checked_claims": 19,
+    "checked_relations": 14,
+    "ng_claims": 0,
+    "ng_relations": 0,
+    "unverified_steps": 1
+   },
+   "between_students": {
+    "individual": {
+     "pairs": 3,
+     "mean_text_sim": 0.364
+    },
+    "subtractive": {
+     "pairs": 3,
+     "mean_text_sim": 0.368
+    }
+   },
+   "means": {
+    "master": {
+     "rows": 3,
+     "weak_steps_detailed_ratio": 1.0,
+     "mastered_steps_chars": 1080,
+     "total_chars": 1620,
+     "with_caution": 0,
+     "text_sim_to_master": null,
+     "semantic_sim_to_master": null
+    },
+    "subtractive": {
+     "rows": 3,
+     "weak_steps_detailed_ratio": 1.0,
+     "mastered_steps_chars": 20,
+     "total_chars": 914,
+     "with_caution": 0,
+     "text_sim_to_master": 0.645,
+     "semantic_sim_to_master": 0.959
+    },
+    "individual": {
+     "rows": 3,
+     "weak_steps_detailed_ratio": 1.0,
+     "mastered_steps_chars": 229,
+     "total_chars": 901,
+     "with_caution": 2,
+     "text_sim_to_master": 0.346,
+     "semantic_sim_to_master": 0.975
+    }
+   }
+  },
+  {
+   "title": "塔の高さ（仰角）",
+   "students": 3,
+   "consistency": {
+    "explanation_count": 4,
+    "explanations": {
+     "first_ok": {
+      "count": 4,
+      "rate": 1.0
+     },
+     "fixed": {
+      "count": 0,
+      "rate": 0.0
+     },
+     "needs_review": {
+      "count": 0,
+      "rate": 0.0
+     }
+    },
+    "by_kind": {
+     "master": {
+      "count": 1,
+      "first_ok": {
+       "count": 1,
+       "rate": 1.0
+      },
+      "fixed": {
+       "count": 0,
+       "rate": 0.0
+      },
+      "needs_review": {
+       "count": 0,
+       "rate": 0.0
+      }
+     },
+     "individual": {
+      "count": 3,
+      "first_ok": {
+       "count": 3,
+       "rate": 1.0
+      },
+      "fixed": {
+       "count": 0,
+       "rate": 0.0
+      },
+      "needs_review": {
+       "count": 0,
+       "rate": 0.0
+      }
+     }
+    },
+    "step_count": 12,
+    "steps": {
+     "first_ok": {
+      "count": 12,
+      "rate": 1.0
+     },
+     "fixed": {
+      "count": 0,
+      "rate": 0.0
+     },
+     "needs_review": {
+      "count": 0,
+      "rate": 0.0
+     }
+    },
+    "checked_claims": 27,
+    "checked_relations": 0,
+    "ng_claims": 0,
+    "ng_relations": 0,
+    "unverified_steps": 1
+   },
+   "between_students": {
+    "individual": {
+     "pairs": 3,
+     "mean_text_sim": 0.452
+    },
+    "subtractive": {
+     "pairs": 3,
+     "mean_text_sim": 0.577
+    }
+   },
+   "means": {
+    "master": {
+     "rows": 3,
+     "weak_steps_detailed_ratio": 1.0,
+     "mastered_steps_chars": 791,
+     "total_chars": 1422,
+     "with_caution": 0,
+     "text_sim_to_master": null,
+     "semantic_sim_to_master": null
+    },
+    "subtractive": {
+     "rows": 3,
+     "weak_steps_detailed_ratio": 1.0,
+     "mastered_steps_chars": 22,
+     "total_chars": 178,
+     "with_caution": 0,
+     "text_sim_to_master": 0.265,
+     "semantic_sim_to_master": 0.937
+    },
+    "individual": {
+     "rows": 3,
+     "weak_steps_detailed_ratio": 1.0,
+     "mastered_steps_chars": 295,
+     "total_chars": 576,
+     "with_caution": 2,
+     "text_sim_to_master": 0.289,
+     "semantic_sim_to_master": 0.965
+    }
+   }
+  }
+ ],
+ "means": {
+  "master": {
+   "rows": 6,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_steps_chars": 907,
+   "total_chars": 1521,
+   "with_caution": 0,
+   "text_sim_to_master": null,
+   "semantic_sim_to_master": null
+  },
+  "subtractive": {
+   "rows": 6,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_steps_chars": 21,
+   "total_chars": 546,
+   "with_caution": 0,
+   "text_sim_to_master": 0.455,
+   "semantic_sim_to_master": 0.948
+  },
+  "individual": {
+   "rows": 6,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_steps_chars": 268,
+   "total_chars": 739,
+   "with_caution": 4,
+   "text_sim_to_master": 0.318,
+   "semantic_sim_to_master": 0.97
+  }
+ },
+ "rows": [
+  {
+   "problem": "判別式と定数の範囲",
+   "student_id": "Q136",
+   "kind": "individual",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 3,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_step_count": 0,
+   "mastered_steps_chars": 0,
+   "total_chars": 1375,
+   "caution_steps": [
+    2,
+    3
+   ],
+   "similar_check_steps": [],
+   "text_sim_to_master": 0.422,
+   "semantic_sim_to_master": 0.988
+  },
+  {
+   "problem": "判別式と定数の範囲",
+   "student_id": "Q136",
+   "kind": "subtractive",
+   "status": "ok",
+   "outcome": null,
+   "weak_step_count": 3,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_step_count": 0,
+   "mastered_steps_chars": 0,
+   "total_chars": 1620,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": 1.0,
+   "semantic_sim_to_master": 1.0
+  },
+  {
+   "problem": "判別式と定数の範囲",
+   "student_id": "Q136",
+   "kind": "master",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 3,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_step_count": 0,
+   "mastered_steps_chars": 0,
+   "total_chars": 1620,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": null,
+   "semantic_sim_to_master": null
+  },
+  {
+   "problem": "判別式と定数の範囲",
+   "student_id": "Q063",
+   "kind": "individual",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 2,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_step_count": 1,
+   "mastered_steps_chars": 108,
+   "total_chars": 979,
+   "caution_steps": [
+    2,
+    3
+   ],
+   "similar_check_steps": [],
+   "text_sim_to_master": 0.337,
+   "semantic_sim_to_master": 0.975
+  },
+  {
+   "problem": "判別式と定数の範囲",
+   "student_id": "Q063",
+   "kind": "subtractive",
+   "status": "ok",
+   "outcome": null,
+   "weak_step_count": 2,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_step_count": 1,
+   "mastered_steps_chars": 11,
+   "total_chars": 1091,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": 0.817,
+   "semantic_sim_to_master": 0.963
+  },
+  {
+   "problem": "判別式と定数の範囲",
+   "student_id": "Q063",
+   "kind": "master",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 2,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_step_count": 1,
+   "mastered_steps_chars": 540,
+   "total_chars": 1620,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": null,
+   "semantic_sim_to_master": null
+  },
+  {
+   "problem": "判別式と定数の範囲",
+   "student_id": "Q001",
+   "kind": "individual",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 0,
+   "weak_steps_detailed_ratio": null,
+   "mastered_step_count": 3,
+   "mastered_steps_chars": 350,
+   "total_chars": 350,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": 0.279,
+   "semantic_sim_to_master": 0.963
+  },
+  {
+   "problem": "判別式と定数の範囲",
+   "student_id": "Q001",
+   "kind": "subtractive",
+   "status": "ok",
+   "outcome": null,
+   "weak_step_count": 0,
+   "weak_steps_detailed_ratio": null,
+   "mastered_step_count": 3,
+   "mastered_steps_chars": 30,
+   "total_chars": 30,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": 0.118,
+   "semantic_sim_to_master": 0.913
+  },
+  {
+   "problem": "判別式と定数の範囲",
+   "student_id": "Q001",
+   "kind": "master",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 0,
+   "weak_steps_detailed_ratio": null,
+   "mastered_step_count": 3,
+   "mastered_steps_chars": 1620,
+   "total_chars": 1620,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": null,
+   "semantic_sim_to_master": null
+  },
+  {
+   "problem": "塔の高さ（仰角）",
+   "student_id": "T01",
+   "kind": "individual",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 0,
+   "weak_steps_detailed_ratio": null,
+   "mastered_step_count": 2,
+   "mastered_steps_chars": 408,
+   "total_chars": 540,
+   "caution_steps": [
+    1,
+    2
+   ],
+   "similar_check_steps": [],
+   "text_sim_to_master": 0.263,
+   "semantic_sim_to_master": 0.966
+  },
+  {
+   "problem": "塔の高さ（仰角）",
+   "student_id": "T01",
+   "kind": "subtractive",
+   "status": "ok",
+   "outcome": null,
+   "weak_step_count": 0,
+   "weak_steps_detailed_ratio": null,
+   "mastered_step_count": 2,
+   "mastered_steps_chars": 26,
+   "total_chars": 32,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": 0.132,
+   "semantic_sim_to_master": 0.926
+  },
+  {
+   "problem": "塔の高さ（仰角）",
+   "student_id": "T01",
+   "kind": "master",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 0,
+   "weak_steps_detailed_ratio": null,
+   "mastered_step_count": 2,
+   "mastered_steps_chars": 941,
+   "total_chars": 1422,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": null,
+   "semantic_sim_to_master": null
+  },
+  {
+   "problem": "塔の高さ（仰角）",
+   "student_id": "T03",
+   "kind": "individual",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 1,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_step_count": 1,
+   "mastered_steps_chars": 204,
+   "total_chars": 746,
+   "caution_steps": [
+    2
+   ],
+   "similar_check_steps": [],
+   "text_sim_to_master": 0.317,
+   "semantic_sim_to_master": 0.973
+  },
+  {
+   "problem": "塔の高さ（仰角）",
+   "student_id": "T03",
+   "kind": "subtractive",
+   "status": "ok",
+   "outcome": null,
+   "weak_step_count": 1,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_step_count": 1,
+   "mastered_steps_chars": 14,
+   "total_chars": 470,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": 0.532,
+   "semantic_sim_to_master": 0.959
+  },
+  {
+   "problem": "塔の高さ（仰角）",
+   "student_id": "T03",
+   "kind": "master",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 1,
+   "weak_steps_detailed_ratio": 1.0,
+   "mastered_step_count": 1,
+   "mastered_steps_chars": 491,
+   "total_chars": 1422,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": null,
+   "semantic_sim_to_master": null
+  },
+  {
+   "problem": "塔の高さ（仰角）",
+   "student_id": "T04",
+   "kind": "individual",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 0,
+   "weak_steps_detailed_ratio": null,
+   "mastered_step_count": 2,
+   "mastered_steps_chars": 272,
+   "total_chars": 442,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": 0.288,
+   "semantic_sim_to_master": 0.956
+  },
+  {
+   "problem": "塔の高さ（仰角）",
+   "student_id": "T04",
+   "kind": "subtractive",
+   "status": "ok",
+   "outcome": null,
+   "weak_step_count": 0,
+   "weak_steps_detailed_ratio": null,
+   "mastered_step_count": 2,
+   "mastered_steps_chars": 26,
+   "total_chars": 32,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": 0.132,
+   "semantic_sim_to_master": 0.926
+  },
+  {
+   "problem": "塔の高さ（仰角）",
+   "student_id": "T04",
+   "kind": "master",
+   "status": "ok",
+   "outcome": "first_ok",
+   "weak_step_count": 0,
+   "weak_steps_detailed_ratio": null,
+   "mastered_step_count": 2,
+   "mastered_steps_chars": 941,
+   "total_chars": 1422,
+   "caution_steps": [],
+   "similar_check_steps": [],
+   "text_sim_to_master": null,
+   "semantic_sim_to_master": null
+  }
+ ]
+}

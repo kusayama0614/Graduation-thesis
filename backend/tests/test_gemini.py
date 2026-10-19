@@ -172,3 +172,13 @@ def test_thinking_level_per_call_overrides_environment(monkeypatch):
     monkeypatch.setenv('GEMINI_THINKING_LEVEL', 'high')
     assert gemini.build_chat_model(api_key='dummy', thinking_level='low').thinking_level == 'low'
     assert gemini.build_chat_model(api_key='dummy').thinking_level == 'high'
+
+
+def test_chat_model_has_timeout_and_limited_retries(monkeypatch):
+    from app.utils.gemini import build_chat_model
+
+    monkeypatch.delenv('GEMINI_TIMEOUT', raising=False)
+    model = build_chat_model('gemini-2.5-flash', api_key='dummy')
+    assert model.timeout == 180 and model.max_retries == 2
+    monkeypatch.setenv('GEMINI_TIMEOUT', '30')
+    assert build_chat_model('gemini-2.5-flash', api_key='dummy').timeout == 30

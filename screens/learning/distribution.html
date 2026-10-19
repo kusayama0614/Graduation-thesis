@@ -340,6 +340,11 @@
             const errors = job.errors || [];
             const studentCount = (job.request.student_ids || []).length;
             const statusBadge = { completed: 'ok', paused: 'incomplete', failed: 'ng' }[job.status] || 'unmarked';
+            // サーバーの再起動で実行していたスレッドが無くなったジョブ（記録上は「生成中」のまま）
+            const orphaned = ['queued', 'running'].includes(job.status) && !job.running;
+            const updated = job.updated_at ? new Date(job.updated_at.endsWith('Z') || job.updated_at.includes('+') ? job.updated_at : `${job.updated_at}Z`) : null;
+            const stalledMinutes = updated ? Math.floor((Date.now() - updated.getTime()) / 60000) : 0;
+            const stalled = job.running && stalledMinutes >= 5;
             document.getElementById('jobArea').innerHTML = `
                 <div><span class="badge badge-${statusBadge}">${JOB_STATUS[job.status] || job.status}</span>
                     ${studentCount} 人 × ${(job.request.problem_ids || []).length} 問　開始 ${L.formatDateTime(job.created_at)}
@@ -349,7 +354,9 @@
                     ? `要確認の解説の手直し：${job.done} / ${job.total} 件（再検算だけで解決 ${job.skipped}，ステップを書き直し ${job.generated}，同じ直しを反映した生徒 ${job.reused}）`
                     : `${job.done} / ${job.total} 件（Gemini で生成 ${job.generated}，使い回し ${job.reused}，作成済みで省略 ${job.skipped}）`}</div>
                 ${job.message ? `<div class="notice notice-warn">${L.escapeHtml(job.message)}</div>` : ''}
-                ${['paused', 'failed'].includes(job.status) && !job.running ? '<div class="button-row"><button class="button" onclick="resumeJob()">続きから生成</button></div>' : ''}
+                ${orphaned ? '<div class="notice notice-warn">サーバーが再起動されたため，このジョブは途中で止まっています。「続きから生成」を押してください（済んだ解説は作り直しません）。</div>' : ''}
+                ${stalled ? `<div class="notice notice-warn">${stalledMinutes} 分以上進んでいません。Gemini の応答待ちか，時間のかかる検算で止まっている可能性があります。もう数分待っても変わらなければ，サーバーを止めて（Ctrl + C）起動し直し，この画面を再読み込みしてから「続きから生成」を押してください。</div>` : ''}
+                ${(['paused', 'failed'].includes(job.status) || orphaned) && !job.running ? '<div class="button-row"><button class="button" onclick="resumeJob()">続きから生成</button></div>' : ''}
                 ${errors.length ? `<details style="margin-top: 8px;"><summary>うまくいかなかったもの ${errors.length} 件</summary><ul class="reasons">${errors.map((e) =>
                     `<li>${L.escapeHtml([e.problem, e.student_id].filter(Boolean).join(' '))}：${L.escapeHtml(e.error)}</li>`).join('')}</ul></details>` : ''}`;
             stopPolling();

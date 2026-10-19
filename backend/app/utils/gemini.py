@@ -50,6 +50,10 @@ def build_chat_model(model_name: Optional[str] = None, api_key: Optional[str] = 
     thinking_level = thinking_level or os.getenv('GEMINI_THINKING_LEVEL', '').strip()
     if thinking_level and is_gemini_3_or_later(name):
         params['thinking_level'] = thinking_level
+    # 応答が返らないまま待ち続けたり，利用上限（429）で黙って何度も再試行したりしてジョブが止まって見えないように，
+    # 1回の呼び出しの待ち時間と再試行の回数に上限を設ける（上限に達したら例外になり，ジョブは一時停止する）
+    params['timeout'] = float(os.getenv('GEMINI_TIMEOUT', '180'))
+    params['max_retries'] = int(os.getenv('GEMINI_MAX_RETRIES', '2'))
     params.update(kwargs)
     return ChatGoogleGenerativeAI(**params)
 

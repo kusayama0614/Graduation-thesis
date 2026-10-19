@@ -13,7 +13,9 @@ sympyで解釈できない解答(選択式・自由記述など)は、従来ど�
 """
 from __future__ import annotations
 
+import os
 import re
+import threading
 import unicodedata
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
@@ -73,6 +75,40 @@ _CHAR_MAP = str.maketrans({
     '≦': '<=', '≤': '<=', '≧': '>=', '≥': '>=', '≠': '!=',
     'π': 'pi', '、': ',', '，': ',',
 })
+
+
+# sympy の計算（解集合・簡約）には時間がかかりすぎるものがある（入れ子の絶対値など）。1回の計算の上限の秒数。
+# 超えたものは判定できなかったものとして扱い，生成や採点のジョブ全体が止まらないようにする
+TIME_LIMIT = float(os.getenv('SYMPY_TIME_LIMIT', '10'))
+
+
+class _TimeLimit(Exception):
+    pass
+
+
+def _with_time_limit(function, *args, limit: Optional[float] = None):
+    """function(*args) を別スレッドで実行し，limit 秒で終わらなければ _TimeLimit を送出する。
+
+    Python のスレッドは外から止められないため，時間切れの計算は裏で終わるまで続く（結果は使わない）。
+    入れ子の絶対値のように時間のかかる形は，呼び出す前に除いておく。
+    """
+    limit = TIME_LIMIT if limit is None else limit
+    outcome: Dict[str, Any] = {}
+
+    def run():
+        try:
+            outcome['value'] = function(*args)
+        except BaseException as exc:  # noqa: BLE001  呼び出し元で送出し直す
+            outcome['error'] = exc
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    worker.join(limit)
+    if worker.is_alive():
+        raise _TimeLimit(f'{limit:g} 秒で計算が終わりませんでした')
+    if 'error' in outcome:
+        raise outcome['error']
+    return outcome['value']
 
 
 class _Unparseable(Exception):
@@ -534,7 +570,10 @@ def judge_answer(expected: Any, actual: Any) -> Dict[str, Any]:
         return {'is_correct': False, 'method': 'empty', 'detail': '期待値または解答が空です'}
 
     expected_text, actual_text = str(expected), str(actual)
-    verdict = _judge_math(_delatex(expected_text), _delatex(actual_text))
+    try:
+        verdict = _with_time_limit(_judge_math, _delatex(expected_text), _delatex(actual_text))
+    except _TimeLimit:
+        verdict = None  # 時間のかかる式は文字列の一致で判定する
     if verdict is None:
         return _string_fallback(expected_text, actual_text)
     if not verdict['is_correct'] and _normalize_text(expected_text) == _normalize_text(actual_text):
@@ -627,7 +666,12 @@ def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None
         result['detail'] = '両辺の文字が異なるため，恒等式として検算できません'
         return result
 
-    ok, method, detail = _compare_exprs(right, left, _decimal_places(rhs_pre), _approximation_tolerance(lhs_pre, rhs_pre))
+    try:
+        ok, method, detail = _with_time_limit(_compare_exprs, right, left, _decimal_places(rhs_pre),
+                                              _approximation_tolerance(lhs_pre, rhs_pre))
+    except _TimeLimit as exc:
+        result['detail'] = f'検算に時間がかかりすぎたため判定しませんでした（{exc}）'
+        return result
     if ok:
         return {'status': 'ok', 'true_value': None, 'detail': detail}
     try:
@@ -692,10 +736,21 @@ def _relation_solution(text: str, definitions: Optional[Dict[str, str]]):
     if len(variables) != 1:
         raise _Unverifiable('文字が1つの関係式でないため，解集合で比較できない')
     var = next(iter(variables))
-    try:
+    for relations in groups:
+        for relation in relations:
+            if any(a.has(sp.Abs) for a in relation.atoms(sp.Abs) if a.args and a.args[0].has(sp.Abs)):
+                raise _Unverifiable('絶対値が入れ子になっていて，解集合を求めると時間がかかりすぎる')
+
+    def solve_all():
         solution = sp.S.EmptySet
         for relations in groups:
             solution = solution.union(_solution_set(relations, var))
+        return solution
+
+    try:
+        solution = _with_time_limit(solve_all)
+    except _TimeLimit as exc:
+        raise _Unverifiable(f'解集合を求められない（{exc}）')
     except Exception as exc:
         raise _Unverifiable(f'解集合を求められない（{exc.__class__.__name__}）')
     return var, solution

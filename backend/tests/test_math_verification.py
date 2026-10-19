@@ -304,3 +304,33 @@ def test_middle_dots_and_sqrt_without_braces():
                      ('x^2-2\\cdot 2\\sqrt2\\cdot x+(2\\sqrt2)^2', '(x-2\\sqrt2)^2')]:
         assert check_claim(lhs, rhs)['status'] == 'ok', (lhs, rhs)
     assert check_claim('1·(-5)', '5')['status'] == 'ng'
+
+
+def test_slow_sympy_work_is_cut_off_instead_of_hanging():
+    import time as _time
+
+    from app.utils import math_verification as mv
+
+    with pytest.raises(mv._TimeLimit):
+        mv._with_time_limit(_time.sleep, 2, limit=0.2)
+    assert mv._with_time_limit(lambda a, b: a + b, 1, 2, limit=1) == 3
+    with pytest.raises(ZeroDivisionError):  # 計算中の例外はそのまま伝える
+        mv._with_time_limit(lambda: 1 / 0, limit=1)
+    # 入れ子の絶対値は解集合を求めずに「検算不能」にする（求めると止まらないことがある）
+    start = _time.time()
+    result = check_relation_step('abs(abs(x^2-2*x)-1)<1/2', 'x>0')
+    assert result['status'] == 'unverifiable' and '入れ子' in result['detail'] and _time.time() - start < 2
+    assert check_relation_step('abs(x^2-2*x)=1/2', 'x=1+sqrt(6)/2, 1-sqrt(6)/2, 1+sqrt(2)/2, 1-sqrt(2)/2')['status'] == 'ok'
+
+
+def test_time_limit_applies_to_claims(monkeypatch):
+    from app.utils import math_verification as mv
+
+    def slow(*args):
+        import time as _time
+        _time.sleep(1)
+
+    monkeypatch.setattr(mv, '_compare_exprs', slow)
+    monkeypatch.setattr(mv, 'TIME_LIMIT', 0.1)
+    result = check_claim('1+1', '2')
+    assert result['status'] == 'unverifiable' and '時間がかかりすぎた' in result['detail']

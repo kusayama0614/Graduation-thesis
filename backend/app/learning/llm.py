@@ -3,7 +3,7 @@
 本システムで LLM が担うのは，(a) 構造化された出力（Chain 1 の分解，誤りの診断，計算の抜き出し）と
 (b) 決められた方針に沿った文章の作成（Chain 2）だけである。正誤や詳しさの決定は LLM に任せない。
 
-LLM には Gemini（既定 gemini-3.1-pro-preview）を用いる。設定は app/utils/gemini.py を参照。
+LLM には Gemini（既定 gemini-3.8-flash）を用いる。設定は app/utils/gemini.py を参照。
 テストや API キーのない環境では，Flask の設定 `LEARNING_LLM_CLIENT` に同じインターフェースを持つ
 オブジェクトを入れて差し替える。
 """

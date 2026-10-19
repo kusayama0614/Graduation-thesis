@@ -16,8 +16,8 @@ def clean_env(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
-def test_default_model_is_gemini_3_1_pro():
-    assert gemini.gemini_model_name() == 'gemini-3.1-pro-preview'
+def test_default_model_is_gemini_3_8_flash():
+    assert gemini.gemini_model_name() == 'gemini-3.8-flash'
 
 
 def test_api_key_prefers_gemini_api_key(monkeypatch):
@@ -28,7 +28,7 @@ def test_api_key_prefers_gemini_api_key(monkeypatch):
 
 
 def test_gemini_3_does_not_receive_temperature():
-    model = gemini.build_chat_model('gemini-3.1-pro-preview', api_key='dummy', temperature=0.0)
+    model = gemini.build_chat_model('gemini-3.8-flash', api_key='dummy', temperature=0.0)
     assert model.temperature is None
     older = gemini.build_chat_model('gemini-2.5-flash', api_key='dummy', temperature=0.2)
     assert older.temperature == pytest.approx(0.2)
@@ -71,7 +71,7 @@ def test_get_llm_client_uses_gemini_key(client, monkeypatch):
             get_llm_client(required=True)
         monkeypatch.setenv('GEMINI_API_KEY', 'dummy')
         llm = get_llm_client()
-        assert isinstance(llm, GeminiChatClient) and llm.model_name == 'gemini-3.1-pro-preview'
+        assert isinstance(llm, GeminiChatClient) and llm.model_name == 'gemini-3.8-flash'
 
 
 def test_learning_api_reports_missing_gemini_key(client):
@@ -108,18 +108,18 @@ def test_report_generator_requires_gemini_key():
 def test_report_generator_falls_back_to_next_model_when_not_found(monkeypatch):
     monkeypatch.setenv('GEMINI_API_KEY', 'dummy')
     generator = ReportGenerator()
-    assert generator.model_candidates[0] == 'gemini-3.1-pro-preview'
+    assert generator.model_candidates[0] == 'gemini-3.8-flash'
     tried = []
 
     def build(model_name):
         tried.append(model_name)
-        if model_name == 'gemini-3.1-pro-preview':
+        if model_name == 'gemini-3.8-flash':
             return _FakeChat(RuntimeError('404 NOT_FOUND: model is not found'))
         return _FakeChat('分析レポート本文')
 
     monkeypatch.setattr(generator, '_build_llm', build)
     assert generator.generate_analysis_report(_report_data()) == '分析レポート本文'
-    assert tried[:2] == ['gemini-3.1-pro-preview', 'gemini-2.5-pro']
+    assert tried[:2] == ['gemini-3.8-flash', 'gemini-3.6-flash']
 
 
 def test_report_generator_uses_local_fallback_on_quota_error(monkeypatch):

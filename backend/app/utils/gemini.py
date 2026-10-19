@@ -2,7 +2,7 @@
 
 環境変数:
   GEMINI_API_KEY        Google AI Studio で発行した API キー（GOOGLE_API_KEY も予備として受け付ける）
-  GEMINI_MODEL          モデル名（既定: gemini-3.1-pro-preview）
+  GEMINI_MODEL          モデル名（既定: gemini-3.8-flash）
   GEMINI_THINKING_LEVEL 任意。思考の深さ（low / high など）。未設定ならモデルの既定
   GEMINI_EMBEDDING_MODEL 埋め込みモデル（既定: gemini-embedding-2）。解説どうしの意味の類似度（5.5節）に使う
 
@@ -15,7 +15,7 @@ import os
 import re
 from typing import Any, Optional
 
-DEFAULT_MODEL = 'gemini-3.1-pro-preview'
+DEFAULT_MODEL = 'gemini-3.8-flash'
 DEFAULT_EMBEDDING_MODEL = 'gemini-embedding-2'
 # gemini-embedding-2 は用途を引数ではなく本文の前の指示で与える（意味的類似度の指示）
 SIMILARITY_PREFIX = 'task: sentence similarity | query: '

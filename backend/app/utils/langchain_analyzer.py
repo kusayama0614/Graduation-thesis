@@ -22,8 +22,7 @@ class ReportGenerator:
         fallback_models = [
             configured_model,
             DEFAULT_MODEL,
-            'gemini-2.5-pro',
-            'gemini-2.5-flash',
+            'gemini-3.6-flash',  # 既定のモデルが見つからない場合の予備（同じ Flash 系の一つ前の版）
         ]
         self.model_candidates = []
         for model_name in fallback_models:

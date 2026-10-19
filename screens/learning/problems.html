@@ -6,6 +6,23 @@
     <title>定期テスト問題と解説 - 個別解説</title>
     <link rel="stylesheet" href="learning.css">
     <link rel="icon" href="data:,">
+    <script>
+        window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }, startup: { typeset: false } };
+    </script>
+    <script src="../vendor/mathjax/tex-svg.js" async></script>
+    <style>
+        .candidate { border: 1px solid #e6e8f2; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+        .candidate.excluded { opacity: 0.5; }
+        .candidate-head { display: grid; grid-template-columns: auto 90px minmax(0, 1fr) 150px 70px 110px; gap: 8px; align-items: center; }
+        .candidate-head input, .candidate-head select { margin-top: 0; }
+        .candidate textarea { min-height: 70px; font-size: 13px; }
+        .candidate .preview { background: #fafbff; border-radius: 6px; padding: 8px 10px; font-size: 14px; margin-top: 6px; overflow-x: auto; }
+        .page-thumbs { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 14px; }
+        .page-thumbs a { display: block; text-align: center; font-size: 12px; color: #555; text-decoration: none; }
+        .page-thumbs img { width: 96px; height: 130px; object-fit: cover; object-position: top; border: 1px solid #e3e5ef; border-radius: 4px; }
+        .exam-row td { background: #f4f5fb; font-weight: 600; font-size: 13px; }
+        @media (max-width: 900px) { .candidate-head { grid-template-columns: auto 80px minmax(0, 1fr); } }
+    </style>
 </head>
 <body>
     <main class="grid-2">
@@ -13,7 +30,10 @@
             <div class="card">
                 <div class="card-header">
                     <h2>問題一覧</h2>
-                    <button class="button button-small" onclick="showNewForm()">＋ 新規登録</button>
+                    <div class="button-row" style="margin-top: 0;">
+                        <button class="button button-small" onclick="showImport()">＋ PDF から取り込む</button>
+                        <button class="button button-light button-small" onclick="showNewForm()">1問ずつ登録</button>
+                    </div>
                 </div>
                 <div class="table-wrap">
                     <table>
@@ -42,7 +62,46 @@
 
         <section>
             <div class="card" id="emptyDetail">
-                <p class="empty">左の一覧から問題を選ぶか，新しく登録してください。</p>
+                <p class="empty">左の一覧から問題を選ぶか，「PDF から取り込む」で定期試験の問題を登録してください。</p>
+            </div>
+
+            <div class="card hidden" id="importCard">
+                <div class="card-header">
+                    <div>
+                        <h2>定期試験の取り込み（PDF）</h2>
+                        <p class="card-lead">問題用紙と模範解答の PDF を選ぶと，Gemini が小問ごとに問題文・正しい答え・配点を読み取ります。内容を確かめて直してから登録すると，問題ごとに解答ステップ（Chain 1）を順に作ります。</p>
+                    </div>
+                    <button class="button button-light button-small" onclick="hideImport()">閉じる</button>
+                </div>
+                <div class="grid-2" style="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px;">
+                    <label class="field">問題用紙（PDF）<input type="file" id="examProblemPdf" accept=".pdf,application/pdf"></label>
+                    <label class="field">模範解答（PDF，任意）<input type="file" id="examAnswerPdf" accept=".pdf,application/pdf"></label>
+                </div>
+                <label class="field">試験の名前 <span class="hint">（空欄なら PDF から読み取ります）</span>
+                    <input type="text" id="examName" placeholder="例: 令和8年度 1年 数学Ⅰ 2学期中間試験">
+                </label>
+                <div class="button-row" style="margin-top: 0;">
+                    <button class="button" id="examUploadButton" onclick="uploadExam()">読み取る</button>
+                </div>
+
+                <h3>取り込んだ試験</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>試験</th><th>状態</th><th>問題</th><th></th></tr></thead>
+                        <tbody id="examRows"><tr><td colspan="4" class="empty">まだありません</td></tr></tbody>
+                    </table>
+                </div>
+
+                <div id="examReview" class="hidden">
+                    <h3 id="examReviewTitle"></h3>
+                    <div id="examStatus"></div>
+                    <div class="page-thumbs" id="examPages"></div>
+                    <div id="examCandidates"></div>
+                    <div class="button-row" id="examSaveRow">
+                        <button class="button" id="examSaveButton" onclick="saveExam()">選んだ問題を登録</button>
+                        <button class="button button-light" onclick="rereadExam()">読み取り直す</button>
+                    </div>
+                </div>
             </div>
 
             <div id="detail" class="hidden">
@@ -148,18 +207,251 @@
             }
         });
 
+        let exams = [];
+        let currentExam = null;
+        let examTimer = null;
+        let problemTimer = null;
+
+        /* 問題番号「3(2)」を大問・小問の数の順に並べるためのキー */
+        function numberKey(number) {
+            return String(number || '').match(/\d+|\D+/g)?.map((t) => (/^\d+$/.test(t) ? t.padStart(4, '0') : t)).join('') || '';
+        }
+
         async function loadProblems() {
-            const payload = await L.api('GET', '/learning/problems');
+            const [payload, examPayload] = await Promise.all([
+                L.api('GET', '/learning/problems'), L.api('GET', '/learning/exam-imports')]);
             problems = payload.problems || [];
-            const body = document.getElementById('problemRows');
-            body.innerHTML = problems.length ? problems.map((p) => `
-                <tr class="selectable${current && current.id === p.id ? ' selected' : ''}" onclick="openProblem('${p.id}')">
-                    <td><strong>${L.escapeHtml(p.title)}</strong><div class="muted">${L.escapeHtml(graph.graph.units[p.unit] ? graph.graph.units[p.unit].label : p.unit)}・${p.steps.length} ステップ</div></td>
-                    <td class="nowrap">${p.explanation_count}</td>
-                </tr>`).join('') : '<tr><td colspan="2" class="empty">まだ問題がありません</td></tr>';
+            exams = examPayload.exams || [];
+            const examName = Object.fromEntries(exams.map((e) => [e.id, e.name]));
+            const groups = new Map();
+            problems.forEach((p) => {
+                const key = p.exam_id || '';
+                if (!groups.has(key)) {
+                    groups.set(key, []);
+                }
+                groups.get(key).push(p);
+            });
+            const rows = [];
+            [...groups.entries()].forEach(([examId, list]) => {
+                if (examId) {
+                    list.sort((a, b) => numberKey(a.number).localeCompare(numberKey(b.number)));
+                    rows.push(`<tr class="exam-row"><td colspan="2">${L.escapeHtml(examName[examId] || '取り込んだ試験')}</td></tr>`);
+                } else if (groups.size > 1) {
+                    rows.push('<tr class="exam-row"><td colspan="2">1問ずつ登録した問題</td></tr>');
+                }
+                list.forEach((p) => {
+                    const chain1 = p.chain1_status === 'pending' ? '<span class="badge">解答ステップを作成中</span>'
+                        : p.chain1_status === 'error' ? '<span class="badge badge-ng">分解に失敗</span>' : `${p.steps.length} ステップ`;
+                    rows.push(`<tr class="selectable${current && current.id === p.id ? ' selected' : ''}" onclick="openProblem('${p.id}')">
+                        <td><strong>${L.escapeHtml(p.title)}</strong><div class="muted">${L.escapeHtml(graph.graph.units[p.unit] ? graph.graph.units[p.unit].label : p.unit)}${p.points ? `・${p.points}点` : ''}・${chain1}</div></td>
+                        <td class="nowrap">${p.explanation_count}</td>
+                    </tr>`);
+                });
+            });
+            document.getElementById('problemRows').innerHTML = rows.length ? rows.join('') : '<tr><td colspan="2" class="empty">まだ問題がありません</td></tr>';
+            renderExamRows();
+            clearTimeout(problemTimer);
+            if (problems.some((p) => p.chain1_status === 'pending')) {
+                problemTimer = setTimeout(loadProblems, 5000);
+            }
+        }
+
+        // ---------------------------------------------------------------- 定期試験の PDF 取り込み
+
+        function showImport() {
+            document.getElementById('emptyDetail').classList.add('hidden');
+            document.getElementById('detail').classList.add('hidden');
+            document.getElementById('importCard').classList.remove('hidden');
+            renderExamRows();
+        }
+
+        function hideImport() {
+            clearTimeout(examTimer);
+            document.getElementById('importCard').classList.add('hidden');
+            document.getElementById(current ? 'detail' : 'emptyDetail').classList.remove('hidden');
+        }
+
+        const EXAM_STATUS = { reading: '読み取り中', ready: '確認待ち', error: '読み取り失敗', saved: '登録済み' };
+
+        function renderExamRows() {
+            document.getElementById('examRows').innerHTML = exams.length ? exams.map((e) => `
+                <tr class="selectable${currentExam && currentExam.id === e.id ? ' selected' : ''}" onclick="openExam('${e.id}')">
+                    <td><strong>${L.escapeHtml(e.name)}</strong><div class="muted">${L.formatDateTime(e.created_at)}</div></td>
+                    <td><span class="badge ${e.status === 'error' ? 'badge-ng' : e.status === 'saved' ? 'badge-ok' : ''}">${e.reading ? '読み取り中' : (EXAM_STATUS[e.status] || e.status)}</span></td>
+                    <td class="nowrap">${e.problem_count ? `${e.problem_count}問` : `候補 ${e.candidates.length}`}</td>
+                    <td><button class="button button-light button-small">開く</button></td>
+                </tr>`).join('') : '<tr><td colspan="4" class="empty">まだありません</td></tr>';
+        }
+
+        async function uploadExam() {
+            const problemPdf = document.getElementById('examProblemPdf').files[0];
+            if (!problemPdf) {
+                L.toast('問題用紙の PDF を選んでください', 'error');
+                return;
+            }
+            const body = new FormData();
+            body.append('problem_pdf', problemPdf);
+            const answerPdf = document.getElementById('examAnswerPdf').files[0];
+            if (answerPdf) {
+                body.append('answer_pdf', answerPdf);
+            }
+            body.append('name', document.getElementById('examName').value.trim());
+            const button = document.getElementById('examUploadButton');
+            button.disabled = true;
+            button.textContent = 'アップロード中…';
+            try {
+                const response = await fetch(`${L.API_BASE_URL}/learning/exam-imports`, { method: 'POST', credentials: 'include', body });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || payload.success === false) {
+                    throw new Error(payload.message || `エラーが発生しました（${response.status}）`);
+                }
+                ['examProblemPdf', 'examAnswerPdf', 'examName'].forEach((id) => { document.getElementById(id).value = ''; });
+                await loadProblems();
+                openExam(payload.exam.id);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = '読み取る';
+            }
+        }
+
+        async function openExam(id) {
+            clearTimeout(examTimer);
+            try {
+                currentExam = (await L.api('GET', `/learning/exam-imports/${id}`)).exam;
+            } catch (error) {
+                L.toast(error.message, 'error');
+                return;
+            }
+            showImport();
+            document.getElementById('examReview').classList.remove('hidden');
+            document.getElementById('examReviewTitle').textContent = currentExam.name;
+            document.getElementById('examPages').innerHTML = currentExam.pages.map((page) => {
+                const url = `${L.API_BASE_URL}/learning/exam-imports/${currentExam.id}/pages/${page.index}/image`;
+                return `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="ページ"><br>${page.kind === 'problem' ? '問題' : '模範解答'} ${page.index + 1}</a>`;
+            }).join('');
+            const e = currentExam;
+            const reading = e.reading || e.status === 'reading';
+            let status = '';
+            if (reading) {
+                status = '<div class="notice">Gemini で読み取り中です（1〜2分ほどかかります）…</div>';
+            } else if (e.status === 'error') {
+                status = `<div class="notice notice-error">読み取りに失敗しました: ${L.escapeHtml(e.error || '')}。「読み取り直す」を押してください。</div>`;
+            } else if (e.status === 'saved') {
+                status = `<div class="notice notice-ok">${e.problem_count} 問を登録しました。解答ステップ: 作成済み ${e.chain1.done}・作成中 ${e.chain1.pending}${e.chain1.error ? `・失敗 ${e.chain1.error} <button class="button button-light button-small" onclick="retryChain1()">失敗した問題を作り直す</button>` : ''}</div>`;
+            } else {
+                status = `<div class="notice notice-warn">${e.candidates.length} 問を読み取りました。ページの画像（クリックで拡大）と見比べて，問題文と正しい答えを確かめてください。「自信が低い」の問題は特に確認してください。</div>`;
+            }
+            document.getElementById('examStatus').innerHTML = status;
+            document.getElementById('examSaveRow').classList.toggle('hidden', reading || e.status === 'saved');
+            renderCandidates(e.status === 'ready' ? e.candidates : []);
+            renderExamRows();
+            if (reading || (e.status === 'saved' && (e.chain1.pending || e.chain1_running))) {
+                examTimer = setTimeout(() => { openExam(id); loadProblems(); }, 4000);
+            }
+        }
+
+        function renderCandidates(candidates) {
+            const unitOptions = Object.entries(graph.graph.units).map(([uid, unit]) => `<option value="${uid}">${L.escapeHtml(unit.label)}</option>`).join('');
+            document.getElementById('examCandidates').innerHTML = candidates.map((c, i) => `
+                <div class="candidate" data-index="${i}">
+                    <div class="candidate-head">
+                        <input type="checkbox" class="c-include" checked onchange="this.closest('.candidate').classList.toggle('excluded', !this.checked); updateSaveButton()" title="登録する">
+                        <input type="text" class="c-number" value="${L.escapeHtml(c.number)}" placeholder="番号">
+                        <input type="text" class="c-title" value="${L.escapeHtml(c.title)}" placeholder="題">
+                        <select class="c-unit">${unitOptions}</select>
+                        <input type="text" class="c-points" value="${c.points || ''}" placeholder="配点" inputmode="numeric">
+                        <select class="c-format"><option value="answer_only">答えのみ</option><option value="written">記述式</option></select>
+                    </div>
+                    ${c.confidence === 'low' ? '<span class="badge badge-ng" style="margin-top: 6px;">読み取りの自信が低い</span>' : ''}
+                    <label class="field" style="margin: 8px 0 0;">問題文<textarea class="c-text" oninput="schedulePreview(${i})">${L.escapeHtml(c.problem_text)}</textarea></label>
+                    <div class="preview" id="preview${i}"></div>
+                    <label class="field" style="margin: 8px 0 0;">正しい答え <span class="hint">（数式処理で照合する形。グラフ・証明などは空でよい）</span>
+                        <input type="text" class="c-answer" value="${L.escapeHtml(c.correct_answer)}"></label>
+                    ${c.answer_display ? `<div class="muted">模範解答の表記: ${L.escapeHtml(c.answer_display)}</div>` : ''}
+                    ${c.figure_note ? `<div class="muted">図・グラフ: ${L.escapeHtml(c.figure_note)}</div>` : ''}
+                </div>`).join('');
+            candidates.forEach((c, i) => {
+                const row = document.querySelector(`.candidate[data-index="${i}"]`);
+                row.querySelector('.c-unit').value = c.unit;
+                row.querySelector('.c-format').value = c.answer_format;
+                renderPreview(i);
+            });
+            updateSaveButton();
+        }
+
+        const previewTimers = {};
+        function schedulePreview(i) {
+            clearTimeout(previewTimers[i]);
+            previewTimers[i] = setTimeout(() => renderPreview(i), 500);
+        }
+
+        function renderPreview(i) {
+            const row = document.querySelector(`.candidate[data-index="${i}"]`);
+            const preview = document.getElementById(`preview${i}`);
+            preview.innerHTML = L.renderMarkdown(row.querySelector('.c-text').value);
+            L.typesetMath(preview);
+        }
+
+        function updateSaveButton() {
+            const count = document.querySelectorAll('#examCandidates .c-include:checked').length;
+            const button = document.getElementById('examSaveButton');
+            button.textContent = `選んだ ${count} 問を登録`;
+            button.disabled = !count;
+        }
+
+        async function saveExam() {
+            const questions = [...document.querySelectorAll('#examCandidates .candidate')]
+                .filter((row) => row.querySelector('.c-include').checked)
+                .map((row) => ({
+                    number: row.querySelector('.c-number').value.trim(),
+                    title: row.querySelector('.c-title').value.trim(),
+                    unit: row.querySelector('.c-unit').value,
+                    points: row.querySelector('.c-points').value.trim(),
+                    answer_format: row.querySelector('.c-format').value,
+                    problem_text: row.querySelector('.c-text').value.trim(),
+                    correct_answer: row.querySelector('.c-answer').value.trim(),
+                }));
+            if (!confirm(`${questions.length} 問を登録しますか？（登録後，問題ごとに Gemini で解答ステップを作ります）`)) {
+                return;
+            }
+            const button = document.getElementById('examSaveButton');
+            button.disabled = true;
+            try {
+                await L.api('POST', `/learning/exam-imports/${currentExam.id}/save`, { questions });
+                L.toast(`${questions.length} 問を登録しました`, 'ok');
+                await loadProblems();
+                openExam(currentExam.id);
+            } catch (error) {
+                L.toast(error.message, 'error');
+                button.disabled = false;
+            }
+        }
+
+        async function rereadExam() {
+            if (!confirm('もう一度 Gemini で読み取りますか？（いま直した内容は消えます）')) {
+                return;
+            }
+            try {
+                await L.api('POST', `/learning/exam-imports/${currentExam.id}/read`);
+                openExam(currentExam.id);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        async function retryChain1() {
+            try {
+                await L.api('POST', `/learning/exam-imports/${currentExam.id}/chain1`);
+                openExam(currentExam.id);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
         }
 
         function showNewForm() {
+            hideImport();
             document.getElementById('newCard').classList.remove('hidden');
             document.getElementById('newTitle').focus();
         }
@@ -205,11 +497,15 @@
                 const payload = await L.api('GET', `/learning/problems/${id}`);
                 current = payload.problem;
                 steps = current.steps.map((s) => ({ ...s, nodes: [...s.nodes] }));
+                clearTimeout(examTimer);
                 document.getElementById('emptyDetail').classList.add('hidden');
+                document.getElementById('importCard').classList.add('hidden');
                 document.getElementById('detail').classList.remove('hidden');
                 document.getElementById('problemTitle').textContent = current.title;
                 document.getElementById('problemLead').textContent =
-                    `${graph.graph.units[current.unit].label}　／　登録 ${L.formatDateTime(current.created_at)}`;
+                    `${graph.graph.units[current.unit].label}${current.points ? `　／　${current.points}点` : ''}${current.answer_format === 'written' ? '　／　記述式' : ''}　／　登録 ${L.formatDateTime(current.created_at)}`
+                    + (current.chain1_status === 'pending' ? '　／　解答ステップを作成中（しばらくして開き直してください）'
+                        : current.chain1_status === 'error' ? `　／　解答ステップの作成に失敗: ${current.chain1_error || ''}（「Gemini で分解し直す」で作り直せます）` : '');
                 document.getElementById('editText').value = current.problem_text;
                 document.getElementById('editAnswer').value = current.correct_answer || '';
                 renderSteps();

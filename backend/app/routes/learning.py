@@ -3,27 +3,31 @@
 学習者プロファイル（フェーズA）と個別化した解説の生成（フェーズB）の API（卒業論文 3章）
 """
 import json
+import os
+import shutil
 import time
 from datetime import date, datetime
 
 from sqlalchemy.exc import OperationalError
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request, send_file
 
 from app import db
+from app.learning import exam_import
 from app.learning import explanation as chain
 from app.learning import graph
 from app.learning.jobs import job_to_dict, problem_to_chain_input, start_job
-from app.learning.llm import LLMUnavailable, get_embedding_client, get_llm_client
+from app.learning.llm import LLMUnavailable, get_embedding_client, get_llm_client, get_vision_client
 from app.learning.profile import (
     ExerciseError, apply_exercise, key_answers, key_nodes, profile_to_dict, rebuild_profile,
 )
 from app.models import (
-    AnswerSheet, ExerciseRecord, ExplanationEmbedding, GeneratedExplanation, GenerationJob, LearnerProfile,
-    TestProblem,
+    AnswerSheet, ExamImport, ExerciseRecord, ExplanationEmbedding, GeneratedExplanation, GenerationJob,
+    LearnerProfile, TestProblem,
 )
 from app.routes.analysis import _resolve_teacher_ids
 from app.routes.auth import login_required
 from app.utils.api_response import make_error_response, make_success_response
+from app.utils.bulk_import import split_into_pages
 from app.utils.firebase_service import get_firebase_service
 
 learning_bp = Blueprint('learning', __name__)
@@ -312,6 +316,12 @@ def _problem_to_dict(problem, include_counts=True):
         'correct_answer': problem.correct_answer,
         'steps': json.loads(problem.steps or '[]'),
         'steps_source': problem.steps_source,
+        'exam_id': problem.exam_id,
+        'number': problem.number,
+        'points': problem.points,
+        'answer_format': problem.answer_format,
+        'chain1_status': problem.chain1_status,
+        'chain1_error': problem.chain1_error,
         'created_at': problem.created_at.isoformat() if problem.created_at else None,
         'updated_at': problem.updated_at.isoformat() if problem.updated_at else None,
     }
@@ -333,6 +343,9 @@ def _run_chain1(problem):
     steps = chain.decompose_problem(llm, problem.unit, problem.problem_text)
     problem.steps = json.dumps(steps, ensure_ascii=False)
     problem.steps_source = 'chain1'
+    if problem.chain1_status:  # PDF から取り込んだ問題の「作成中・失敗」の印を外す
+        problem.chain1_status = 'done'
+        problem.chain1_error = None
 
 
 @learning_bp.route('/problems', methods=['POST'])
@@ -659,3 +672,166 @@ def comparison(problem_id):
         'students': per_student,
         'between_students': between_students,
     })
+
+
+# ==================== 定期試験の PDF からの取り込み ====================
+
+MAX_EXAM_PAGES = 30
+
+
+def _exam_to_dict(exam):
+    pages = json.loads(exam.pages or '[]')
+    problems = TestProblem.query.filter_by(exam_id=exam.id, teacher_id=_teacher_db_id()).all()
+    statuses = [p.chain1_status for p in problems]
+    return {
+        'id': exam.id, 'name': exam.name, 'status': exam.status, 'error': exam.error, 'model_name': exam.model_name,
+        'reading': exam_import.is_running(f'read:{exam.id}'),
+        'pages': [{'index': i, 'kind': page['kind']} for i, page in enumerate(pages)],
+        'candidates': json.loads(exam.candidates or '[]'),
+        'problem_count': len(problems),
+        'chain1': {s: statuses.count(s) for s in ('pending', 'done', 'error')},
+        'chain1_running': exam_import.is_running(f'chain1:{exam.id}'),
+        'created_at': exam.created_at.isoformat() if exam.created_at else None,
+    }
+
+
+def _get_exam(exam_id):
+    return ExamImport.query.filter_by(id=exam_id, teacher_id=_teacher_db_id()).first()
+
+
+@learning_bp.route('/exam-imports', methods=['POST'])
+@login_required
+def import_exam_pdf():
+    """問題用紙（必須）と模範解答（任意）の PDF を受け取り，Gemini で問題を読み取り始める。"""
+    problem_pdf = request.files.get('problem_pdf')
+    answer_pdf = request.files.get('answer_pdf')
+    if problem_pdf is None or not problem_pdf.filename:
+        return make_error_response('LEARNING_EXAM_PDF_MISSING', '問題用紙の PDF を選んでください', 400)
+    try:
+        get_vision_client(required=True)
+    except LLMUnavailable as exc:
+        return _llm_unavailable(exc)
+    name = (request.form.get('name') or '').strip() or problem_pdf.filename
+    exam = ExamImport(teacher_id=_teacher_db_id(), name=name[:200], status='reading')
+    db.session.add(exam)
+    db.session.flush()
+    directory = exam_import.exam_dir(current_app.config.get('UPLOAD_FOLDER') or 'uploads', exam.id)
+    os.makedirs(directory, exist_ok=True)
+    pages = []
+    try:
+        for kind, upload in (('problem', problem_pdf), ('answer', answer_pdf)):
+            if upload is None or not upload.filename:
+                continue
+            source = os.path.join(directory, f'{kind}{os.path.splitext(upload.filename)[1].lower() or ".pdf"}')
+            upload.save(source)
+            for path in split_into_pages(source, os.path.join(directory, 'pages'), kind, dpi=exam_import.EXAM_DPI):
+                pages.append({'kind': kind, 'path': path})
+    except Exception as exc:
+        db.session.rollback()
+        shutil.rmtree(directory, ignore_errors=True)
+        return make_error_response('LEARNING_EXAM_PDF_INVALID', f'PDF をページに分けられませんでした（{exc.__class__.__name__}）', 400)
+    if len(pages) > MAX_EXAM_PAGES:
+        db.session.rollback()
+        shutil.rmtree(directory, ignore_errors=True)
+        return make_error_response('LEARNING_EXAM_TOO_MANY_PAGES', f'ページ数は合わせて {MAX_EXAM_PAGES} までです', 400)
+    exam.pages = json.dumps(pages, ensure_ascii=False)
+    db.session.commit()
+    exam_import.start_reading(current_app._get_current_object(), exam.id)
+    db.session.expire_all()
+    return make_success_response({'exam': _exam_to_dict(_get_exam(exam.id))}, 201)
+
+
+@learning_bp.route('/exam-imports', methods=['GET'])
+@login_required
+def list_exam_imports():
+    exams = ExamImport.query.filter_by(teacher_id=_teacher_db_id()).order_by(ExamImport.created_at.desc()).all()
+    return make_success_response({'exams': [_exam_to_dict(e) for e in exams]})
+
+
+@learning_bp.route('/exam-imports/<exam_id>', methods=['GET'])
+@login_required
+def get_exam_import(exam_id):
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    return make_success_response({'exam': _exam_to_dict(exam)})
+
+
+@learning_bp.route('/exam-imports/<exam_id>/pages/<int:index>/image', methods=['GET'])
+@login_required
+def exam_page_image(exam_id, index):
+    exam = _get_exam(exam_id)
+    pages = json.loads(exam.pages or '[]') if exam else []
+    if exam is None or not 0 <= index < len(pages) or not os.path.exists(pages[index]['path']):
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Page not found', 404)
+    return send_file(os.path.abspath(pages[index]['path']), mimetype='image/jpeg', max_age=3600)
+
+
+@learning_bp.route('/exam-imports/<exam_id>/read', methods=['POST'])
+@login_required
+def reread_exam(exam_id):
+    """読み取りに失敗したとき・読み取り直したいときに，もう一度 Gemini で読み取る。"""
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    exam.status = 'reading'
+    db.session.commit()
+    if not exam_import.start_reading(current_app._get_current_object(), exam.id):
+        return make_error_response('LEARNING_BUSY', '読み取りの途中です', 409)
+    db.session.expire_all()
+    return make_success_response({'exam': _exam_to_dict(_get_exam(exam_id))}, 202)
+
+
+@learning_bp.route('/exam-imports/<exam_id>/save', methods=['POST'])
+@login_required
+def save_exam_import(exam_id):
+    """教員が確かめた候補を定期テストの問題として登録し，Chain 1 を裏で順に実行する。"""
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    questions = (request.get_json(silent=True) or {}).get('questions')
+    if not isinstance(questions, list) or not questions:
+        return make_error_response('LEARNING_INVALID_PROBLEM', '登録する問題を選んでください', 400)
+    units = set(graph.unit_ids())
+    created = []
+    for q in questions:
+        problem_text = str(q.get('problem_text') or '').strip()
+        if not problem_text or q.get('unit') not in units:
+            return make_error_response('LEARNING_INVALID_PROBLEM',
+                                       f'問題 {q.get("number") or ""} の問題文と単元を確かめてください', 400)
+        try:
+            points = int(q['points']) if q.get('points') not in (None, '') else None
+        except (TypeError, ValueError):
+            points = None
+        problem = TestProblem(
+            teacher_id=_teacher_db_id(), unit=q['unit'], title=exam_import.problem_title(q) or '（無題）',
+            problem_text=problem_text, correct_answer=str(q.get('correct_answer') or '').strip() or None,
+            exam_id=exam.id, number=str(q.get('number') or '').strip()[:30] or None, points=points,
+            answer_format=q.get('answer_format') if q.get('answer_format') in ('answer_only', 'written') else None,
+            chain1_status='pending', steps='[]',
+        )
+        db.session.add(problem)
+        created.append(problem)
+    exam.status = 'saved'
+    db.session.commit()
+    created_ids = [p.id for p in created]
+    exam_import.start_chain1(current_app._get_current_object(), exam.id)
+    db.session.expire_all()
+    problems = [db.session.get(TestProblem, pid) for pid in created_ids]
+    return make_success_response({'problems': [_problem_to_dict(p, include_counts=False) for p in problems],
+                                  'exam': _exam_to_dict(_get_exam(exam_id))}, 201)
+
+
+@learning_bp.route('/exam-imports/<exam_id>/chain1', methods=['POST'])
+@login_required
+def retry_exam_chain1(exam_id):
+    """分解に失敗した問題の Chain 1 をやり直す。"""
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    for problem in TestProblem.query.filter_by(exam_id=exam.id, chain1_status='error').all():
+        problem.chain1_status = 'pending'
+    db.session.commit()
+    exam_import.start_chain1(current_app._get_current_object(), exam.id)
+    db.session.expire_all()
+    return make_success_response({'exam': _exam_to_dict(_get_exam(exam_id))}, 202)

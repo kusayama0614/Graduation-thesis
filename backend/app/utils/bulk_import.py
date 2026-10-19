@@ -92,7 +92,7 @@ def batch_dir(upload_root: str, batch_id: str) -> str:
     return os.path.join(upload_root, 'bulk', batch_id)
 
 
-def split_into_pages(source_path: str, out_dir: str, prefix: str) -> List[str]:
+def split_into_pages(source_path: str, out_dir: str, prefix: str, dpi: int = RENDER_DPI) -> List[str]:
     """PDF・画像をページごとの JPEG にする。保存したファイルのパスを返す。"""
     import pymupdf
 
@@ -104,7 +104,7 @@ def split_into_pages(source_path: str, out_dir: str, prefix: str) -> List[str]:
             doc.close()
             doc = pymupdf.open('pdf', pdf_bytes)
         for index, page in enumerate(doc):
-            pixmap = page.get_pixmap(dpi=RENDER_DPI)
+            pixmap = page.get_pixmap(dpi=dpi)
             path = os.path.join(out_dir, f'{prefix}_p{index + 1:03d}.jpg')
             pixmap.save(path, jpg_quality=JPEG_QUALITY)
             paths.append(path)

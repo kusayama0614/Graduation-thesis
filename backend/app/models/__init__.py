@@ -190,6 +190,12 @@ class TestProblem(db.Model):
     correct_answer = db.Column(db.Text)  # 任意。教員が与えた最終的な答え（Chain 4 で解説の結論を照合）
     steps = db.Column(db.Text)  # JSON list: [{id, title, description, result, nodes}]
     steps_source = db.Column(db.String(20))  # chain1 / teacher
+    exam_id = db.Column(db.String(36), index=True)  # PDF から取り込んだ定期試験（ExamImport）
+    number = db.Column(db.String(30))  # 試験での問題番号（例: 3(2)）
+    points = db.Column(db.Integer)  # 配点
+    answer_format = db.Column(db.String(20))  # answer_only（答えのみ）/ written（記述式）
+    chain1_status = db.Column(db.String(20))  # 取り込んだ問題の Chain 1: pending / done / error
+    chain1_error = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
@@ -329,3 +335,23 @@ class SheetTranscription(db.Model):
 
     def __repr__(self):
         return f'<SheetTranscription {self.answer_sheet_id} {self.status}>'
+
+
+class ExamImport(db.Model):
+    """定期試験の問題用紙と模範解答の PDF。Gemini で読み取った問題の候補を，教員が確かめてから登録する。"""
+
+    __tablename__ = 'exam_imports'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
+    name = db.Column(db.String(200), nullable=False)
+    status = db.Column(db.String(20), default='reading')  # reading / ready / error / saved
+    pages = db.Column(db.Text)  # JSON list: [{kind: problem|answer, index, path}]
+    candidates = db.Column(db.Text)  # JSON list: 読み取った問題の候補
+    model_name = db.Column(db.String(100))
+    error = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    def __repr__(self):
+        return f'<ExamImport {self.name}>'

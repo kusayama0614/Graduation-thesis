@@ -234,8 +234,63 @@
         }
     }
 
+    /* カードの見出しに矢印を付け，クリックで本文を折りたたむ・広げる（状態はブラウザに保存） */
+    function setupCollapsibleCards(pageKey) {
+        const storageKey = `collapsedCards:${pageKey}`;
+        let saved = {};
+        try {
+            saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        } catch (error) {
+            saved = {};
+        }
+        document.querySelectorAll('main .card').forEach((card) => {
+            const heading = card.querySelector('h2');
+            if (!heading || heading.dataset.collapsible) {
+                return;
+            }
+            heading.dataset.collapsible = '1';
+            const keepVisible = card.firstElementChild && card.firstElementChild.contains(heading)
+                ? card.firstElementChild : heading;
+            const id = (heading.textContent || '').replace(/\s+\d+$/, '').trim();
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'collapse-toggle';
+            heading.prepend(button);
+            heading.classList.add('collapsible-heading');
+            const apply = (collapsed) => {
+                card.classList.toggle('collapsed', collapsed);
+                button.textContent = collapsed ? '▶' : '▼';
+                button.title = collapsed ? '広げる' : '折りたたむ';
+                button.setAttribute('aria-expanded', String(!collapsed));
+                Array.from(card.children).forEach((child) => {
+                    if (child !== keepVisible) {
+                        child.classList.toggle('collapsed-hidden', collapsed);
+                    }
+                });
+                if (keepVisible !== heading) {
+                    Array.from(keepVisible.querySelectorAll('.card-lead')).forEach((lead) => lead.classList.toggle('collapsed-hidden', collapsed));
+                }
+            };
+            apply(Boolean(saved[id]));
+            heading.addEventListener('click', (event) => {
+                if (event.target.closest('a, input, select')) {
+                    return;
+                }
+                const collapsed = !card.classList.contains('collapsed');
+                apply(collapsed);
+                saved[id] = collapsed;
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify(saved));
+                } catch (error) {
+                    // 保存できなくても折りたたみ自体は使える
+                }
+            });
+        });
+    }
+
     async function initPage(activeKey, title, description) {
         renderHeader(activeKey, title, description);
+        setupCollapsibleCards(activeKey);
         if (global.ApiDebugBadge && typeof global.ApiDebugBadge.init === 'function') {
             global.ApiDebugBadge.init(API_BASE_URL);
         }
@@ -268,5 +323,6 @@
         renderMarkdown,
         typesetMath,
         queryParam,
+        setupCollapsibleCards,
     };
 })(window);

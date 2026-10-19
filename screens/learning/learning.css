@@ -505,6 +505,47 @@ td.nowrap {
     font-size: 13px;
 }
 
+/* カードの折りたたみ */
+.collapsible-heading {
+    cursor: pointer;
+    user-select: none;
+}
+
+.collapse-toggle {
+    border: none;
+    background: #f0f2ff;
+    color: #4c5bd4;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+    font-size: 11px;
+    cursor: pointer;
+    vertical-align: 2px;
+}
+
+.collapse-toggle:hover {
+    background: #e2e6ff;
+}
+
+.collapsed-hidden {
+    display: none !important;
+}
+
+.card.collapsed {
+    padding-bottom: 14px;
+}
+
+.card.collapsed .card-header {
+    margin-bottom: 0;
+}
+
+@media print {
+    .collapse-toggle {
+        display: none;
+    }
+}
+
 /* トースト */
 .toast {
     position: fixed;

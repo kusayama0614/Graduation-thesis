@@ -135,7 +135,8 @@
                 return 'http://127.0.0.1:5001/api';
             }
 
-            if (window.location.port === '5001') {
+            // Flask が配信している画面（/screens/...）なら，起動したポート（5001 が埋まっていて 5002 などでも）の API を使う
+            if (window.location.pathname.startsWith('/screens/') && !['5500', '5501'].includes(window.location.port)) {
                 return '/api';
             }
 

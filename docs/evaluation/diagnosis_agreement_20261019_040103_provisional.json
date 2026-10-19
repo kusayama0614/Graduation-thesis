@@ -1,0 +1,324 @@
+{
+ "rows": 88,
+ "used": 86,
+ "skipped": {
+  "ラベルが空欄": 2
+ },
+ "models": {
+  "gemini-3.1-pro-preview": {
+   "llm": {
+    "n": 51,
+    "agree": 44,
+    "accuracy": 0.863,
+    "kappa": 0.832,
+    "confusion": {
+     "double_root": {
+      "double_root": 15
+     },
+     "inequality_manipulation": {
+      "inequality_manipulation": 9
+     },
+     "discriminant_setup": {
+      "discriminant_sign": 1,
+      "discriminant_setup": 5,
+      "double_root": 1
+     },
+     "exact_value": {
+      "exact_value": 5
+     },
+     "discriminant_sign": {
+      "discriminant_sign": 4,
+      "discriminant_setup": 1
+     },
+     "application_modeling": {
+      "trig_table_reading": 4,
+      "application_modeling": 6
+     }
+    },
+    "by_exercise": {
+     "No.1": {
+      "n": 41,
+      "agree": 38,
+      "accuracy": 0.927,
+      "kappa": 0.903
+     },
+     "No.8": {
+      "n": 10,
+      "agree": 6,
+      "accuracy": 0.6,
+      "kappa": 0.0
+     }
+    },
+    "disagreements": [
+     {
+      "exercise": "No.1",
+      "student_id": "Q022",
+      "question": "練習29",
+      "answer": "2, 0, 0",
+      "label": "discriminant_setup",
+      "predicted": "discriminant_sign",
+      "note": "3つ目の問題において、判別式がD=0となる場合の実数解または共有点の個数を1個ではなく0個と誤認しているため。"
+     },
+     {
+      "exercise": "No.1",
+      "student_id": "Q097",
+      "question": "練習29",
+      "answer": "2, 2, 1",
+      "label": "discriminant_sign",
+      "predicted": "discriminant_setup",
+      "note": "正解が0個である問題に対して2個と答えていることから、判別式の立式や計算を誤って判別式を正の値にしてしまったと考えられるため。"
+     },
+     {
+      "exercise": "No.1",
+      "student_id": "Q133",
+      "question": "練習31",
+      "answer": "m=-1 のとき x=2，m=3 のとき x=6",
+      "label": "discriminant_setup",
+      "predicted": "double_root",
+      "note": "定数mの値を求める手順とそのときの重解xの値を求める手順を混同し、mとxの値を入れ替えて解答しているため。"
+     },
+     {
+      "exercise": "No.8",
+      "student_id": "T01",
+      "question": "P5",
+      "answer": "171, 460.85",
+      "label": "application_modeling",
+      "predicted": "trig_table_reading",
+      "note": "計算後の有効数字や四捨五入などの指定された桁の処理を行わずに、そのまま小数で解答しているため。"
+     },
+     {
+      "exercise": "No.8",
+      "student_id": "T32",
+      "question": "P6",
+      "answer": "26.6",
+      "label": "application_modeling",
+      "predicted": "trig_table_reading",
+      "note": "正解と非常に近い値が算出されているため、立式ではなく三角比の表から値を読み取る際に誤った値を参照してしまったと考えられるから。"
+     },
+     {
+      "exercise": "No.8",
+      "student_id": "T38",
+      "question": "P6",
+      "answer": "26.6",
+      "label": "application_modeling",
+      "predicted": "trig_table_reading",
+      "note": "生徒の解答は正解とわずかに異なる数値であり、三角比の表から値を読み取る際に見間違えたと考えられるため。"
+     },
+     {
+      "exercise": "No.8",
+      "student_id": "T46",
+      "question": "P5",
+      "answer": "170, 460",
+      "label": "application_modeling",
+      "predicted": "trig_table_reading",
+      "note": "生徒の解答は正解に非常に近い値であることから立式自体は正しく行えており、三角比の表から読み取った値の計算における丸め方や桁の扱いを誤ったと考えられるため。"
+     }
+    ]
+   },
+   "single_node": {
+    "n": 0,
+    "agree": 0,
+    "accuracy": null,
+    "kappa": null,
+    "confusion": {},
+    "by_exercise": {},
+    "disagreements": []
+   }
+  },
+  "gemini-3.8-flash": {
+   "llm": {
+    "n": 51,
+    "agree": 39,
+    "accuracy": 0.765,
+    "kappa": 0.714,
+    "confusion": {
+     "double_root": {
+      "double_root": 15
+     },
+     "inequality_manipulation": {
+      "inequality_manipulation": 9
+     },
+     "discriminant_setup": {
+      "discriminant_sign": 1,
+      "discriminant_setup": 3,
+      "double_root": 3
+     },
+     "exact_value": {
+      "exact_value": 4,
+      "discriminant_setup": 1
+     },
+     "discriminant_sign": {
+      "discriminant_sign": 5
+     },
+     "application_modeling": {
+      "trig_table_reading": 7,
+      "application_modeling": 3
+     }
+    },
+    "by_exercise": {
+     "No.1": {
+      "n": 41,
+      "agree": 36,
+      "accuracy": 0.878,
+      "kappa": 0.836
+     },
+     "No.8": {
+      "n": 10,
+      "agree": 3,
+      "accuracy": 0.3,
+      "kappa": 0.0
+     }
+    },
+    "disagreements": [
+     {
+      "exercise": "No.1",
+      "student_id": "Q022",
+      "question": "練習29",
+      "answer": "2, 0, 0",
+      "label": "discriminant_setup",
+      "predicted": "discriminant_sign",
+      "note": "3つ目の問題において、判別式が0のときに実数解（共有点）の個数が1個となる対応を取り違え、0個と誤解している可能性が高いため。"
+     },
+     {
+      "exercise": "No.1",
+      "student_id": "Q057",
+      "question": "練習31",
+      "answer": "m=6，m=-2",
+      "label": "discriminant_setup",
+      "predicted": "double_root",
+      "note": "問題で求められている重解の計算を行っておらず、定数mの値のみを答えているため。"
+     },
+     {
+      "exercise": "No.1",
+      "student_id": "Q105",
+      "question": "練習30",
+      "answer": "(1<=m)&(m<=5)",
+      "label": "exact_value",
+      "predicted": "discriminant_setup",
+      "note": "判別式に代入する係数の読み取りや立式を誤り、本来1次不等式になるはずのところをmについての2次不等式などとして解いてしまっているため。"
+     },
+     {
+      "exercise": "No.1",
+      "student_id": "Q113",
+      "question": "練習31",
+      "answer": "m=-2，m=6",
+      "label": "discriminant_setup",
+      "predicted": "double_root",
+      "note": "重解となる定数mの値の符号が誤っているだけでなく、問われている重解xの値を計算して答えることができていません。"
+     },
+     {
+      "exercise": "No.1",
+      "student_id": "Q133",
+      "question": "練習31",
+      "answer": "m=-1 のとき x=2，m=3 のとき x=6",
+      "label": "discriminant_setup",
+      "predicted": "double_root",
+      "note": "正解におけるパラメータ m と重解 x の値を逆に答えており，重解の条件や重解 x=−b/2a の扱いに誤りがあると考えられるため。"
+     },
+     {
+      "exercise": "No.8",
+      "student_id": "T01",
+      "question": "P5",
+      "answer": "171, 460.85",
+      "label": "application_modeling",
+      "predicted": "trig_table_reading",
+      "note": "1つ目の値は正解しているものの、2つ目の値で指定された四捨五入などの桁の処理を行わずに小数のまま答えているため。"
+     },
+     {
+      "exercise": "No.8",
+      "student_id": "T03",
+      "question": "P5",
+      "answer": "141, 470",
+      "label": "application_modeling",
+      "predicted": "trig_table_reading",
+      "note": "一方の値は正しく求められているものの、もう一方の値で三角比の表の読み取りやその後の数値処理を誤っているため。"
+     },
+     {
+      "exercise": "No.8",
+      "student_id": "T32",
+      "question": "P6",
+      "answer": "26.6",
+      "label": "application_modeling",
+      "predicted": "trig_table_reading",
+      "note": "立式自体は概ね合っているものの、三角比の表の値を読み取る際に行や数値を誤ったか、端数処理の段階で数値を誤って読み取って計算したと考えられます。"
+     },
+     {
+      "exercise": "No.8",
+      "student_id": "T38",
+      "question": "P6",
+      "answer": "26.6",
+      "label": "application_modeling",
+      "predicted": "trig_table_reading",
+      "note": "正解の26.8に対して26.6とわずかな数値のずれが生じており、三角比の表から読み取った値や小数の端数処理を誤ったと考えられます。"
+     },
+     {
+      "exercise": "No.8",
+      "student_id": "T42",
+      "question": "P6",
+      "answer": "26.2",
+      "label": "application_modeling",
+      "predicted": "trig_table_reading",
+      "note": "正解と値がわずかに異なっていることから、三角比の表から値を読み取る際に行や列、数値を誤って参照したと考えられます。"
+     },
+     {
+      "exercise": "No.8",
+      "student_id": "T46",
+      "question": "P5",
+      "answer": "170, 460",
+      "label": "application_modeling",
+      "predicted": "trig_table_reading",
+      "note": "正解に対して数値がわずかにずれており、三角比の表の読み取りや端数処理などの桁の扱いに誤りがあると考えられるため。"
+     },
+     {
+      "exercise": "No.8",
+      "student_id": "T50",
+      "question": "P5",
+      "answer": "171, 500",
+      "label": "application_modeling",
+      "predicted": "trig_table_reading",
+      "note": "1つ目の値は正しく求められていることから立式はできており、2つ目の値において三角比の表の読み取りや指定された桁への四捨五入などの処理を誤ったと考えられます。"
+     }
+    ]
+   },
+   "single_node": {
+    "n": 35,
+    "agree": 35,
+    "accuracy": 1.0,
+    "kappa": 1.0,
+    "confusion": {
+     "side_identification": {
+      "side_identification": 9
+     },
+     "trig_table_reading": {
+      "trig_table_reading": 10
+     },
+     "special_angle_values": {
+      "special_angle_values": 6
+     },
+     "inverse_table_lookup": {
+      "inverse_table_lookup": 10
+     }
+    },
+    "by_exercise": {
+     "No.8": {
+      "n": 35,
+      "agree": 35,
+      "accuracy": 1.0,
+      "kappa": 1.0
+     }
+    },
+    "disagreements": []
+   }
+  }
+ },
+ "between_models": {
+  "models": [
+   "gemini-3.1-pro-preview",
+   "gemini-3.8-flash"
+  ],
+  "n": 53,
+  "agree": 46,
+  "accuracy": 0.868,
+  "kappa": 0.837
+ }
+}

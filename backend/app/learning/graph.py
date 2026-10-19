@@ -2,6 +2,7 @@
 
 単元を構成する前提知識をノード，依存関係を辺とするグラフ。生徒によらず単元ごとに固定で，
 学習者プロファイルと解説生成の双方が同じノード名（id）を参照する。
+辺は単元の構造を示すためのもので，解説生成の判断（Chain 2）や定着度の更新には用いない（判断はノード単位）。
 """
 from __future__ import annotations
 
@@ -87,7 +88,7 @@ def unit_of_node(node_id: str) -> Optional[str]:
 
 
 def prerequisites(node_id: str) -> List[str]:
-    """node_id の直接の前提ノード（辺は要確認の仮置き）。"""
+    """node_id の直接の前提ノード（参照用。辺は要確認の仮置きで，判断には用いない）。"""
     unit_id = unit_of_node(node_id)
     if unit_id is None:
         return []

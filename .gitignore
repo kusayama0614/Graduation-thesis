@@ -30,3 +30,6 @@ backend/venv/
 backend/flask_session/
 backend/uploads/
 backend/instance/
+
+# macOS
+.DS_Store

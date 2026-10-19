@@ -62,7 +62,7 @@ def master_signature(problem_input: Dict[str, Any], model_name: Optional[str]) -
 def common_signature(problem_input: Dict[str, Any], model_name: Optional[str]) -> str:
     payload = {'kind': 'common', 'problem_text': problem_input['problem_text'],
                'correct_answer': problem_input.get('correct_answer'), 'model': model_name,
-               'max_attempts': chain.MAX_ATTEMPTS}
+               'max_attempts': chain.MAX_ATTEMPTS, 'style': chain.COMMON_STYLE_VERSION}
     return hashlib.sha1(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
 
 

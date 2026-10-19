@@ -189,6 +189,7 @@
         const html = [];
         let paragraph = [];
         let list = [];
+        let quote = [];
         const inline = (text) => text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
         const flush = () => {
             if (paragraph.length) {
@@ -199,11 +200,28 @@
                 html.push(`<ul>${list.map((item) => `<li>${inline(item)}</li>`).join('')}</ul>`);
                 list = [];
             }
+            if (quote.length) {
+                html.push(`<div class="policy-box">${quote.map((q) => `<p>${inline(q)}</p>`).join('')}</div>`);
+                quote = [];
+            }
         };
         lines.forEach((line) => {
             const heading = line.match(/^(#{1,6})\s+(.*)$/);
             const item = line.match(/^\s*[-・]\s+(.*)$/);
-            if (heading) {
+            const quoted = line.match(/^\s*&gt;\s?(.*)$/);  // 「> **指針**」の枠（escapeHtml 後なので &gt;）
+            const note = line.match(/^\s*(←.*)$/);  // 参考書の右欄の注記に当たる補足
+            if (!quoted && quote.length) {
+                flush();  // 枠のあとに続く行は枠の外
+            }
+            if (quoted) {
+                if (paragraph.length || list.length) {
+                    flush();
+                }
+                quote.push(quoted[1]);
+            } else if (note) {
+                flush();
+                html.push(`<p class="side-note">${inline(note[1])}</p>`);
+            } else if (heading) {
                 flush();
                 const level = Math.min(heading[1].length + 1, 6);
                 html.push(`<h${level}>${inline(heading[2])}</h${level}>`);

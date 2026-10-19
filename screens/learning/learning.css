@@ -486,6 +486,31 @@ td.nowrap {
     margin: 8px 0 8px 22px;
 }
 
+.explanation-body .policy-box {
+    border: 1px solid #c9cff5;
+    background: #f5f6ff;
+    border-radius: 6px;
+    padding: 8px 14px;
+    margin: 8px 0 14px;
+}
+
+.explanation-body .policy-box p {
+    margin: 4px 0;
+}
+
+.explanation-body .side-note {
+    margin: 0 0 6px 2em;
+    font-size: 13px;
+    color: #555;
+}
+
+@media print {
+    .explanation-body .policy-box {
+        background: none;
+        border-color: #999;
+    }
+}
+
 .step-trace {
     border: 1px solid #eee;
     border-radius: 8px;

@@ -220,6 +220,7 @@ def test_problem_without_steps_gets_one_common_explanation(client):  # noqa: F81
     assert job['status'] == 'completed' and (job['generated'], job['reused'], job['done'], job['total']) == (1, 2, 3, 3)
     common_prompts = [u for kind, u in llm.calls if kind == 'text']
     assert len(common_prompts) == 1 and 'y=|x^2-2x|' in common_prompts[0]
+    assert '**指針**' in common_prompts[0] and '……①' in common_prompts[0]  # 参考書の解答編の構成と文体で書かせる
     with client.application.app_context():
         [row] = GeneratedExplanation.query.filter_by(kind='common').all()
         assert row.student_id is None and row.status == 'ok'
@@ -256,3 +257,10 @@ def test_common_explanation_is_regenerated_until_verified(client):  # noqa: F811
         trace = json.loads(row.trace)
     assert row.status == 'needs_review' and trace['steps'][0]['attempt_count'] == 3
     assert any('上限' in w for w in trace['warnings'])
+
+
+def test_common_signature_changes_with_style_version(monkeypatch):
+    problem = {'problem_text': 'y=|x^2-2x| のグラフをかけ', 'correct_answer': None, 'steps': []}
+    before = exam_generation.common_signature(problem, 'm')
+    monkeypatch.setattr(exam_generation.chain, 'COMMON_STYLE_VERSION', 99)
+    assert exam_generation.common_signature(problem, 'm') != before  # 書き方を変えたら作り直す

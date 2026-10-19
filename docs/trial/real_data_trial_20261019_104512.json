@@ -1,0 +1,6050 @@
+{
+ "meta": {
+  "started_at": "2026-10-19 10:45",
+  "model": "gemini-3.8-flash",
+  "thinking_level": null,
+  "embedding_model": "gemini-embedding-2",
+  "diagnosis": "Gemini が候補ノードから選択",
+  "elapsed_sec": 488
+ },
+ "sections": [
+  {
+   "problem": {
+    "unit": "quadratic_functions",
+    "title": "判別式と定数の範囲",
+    "problem_text": "2次方程式 2x^2 + 5x + m - 3 = 0 が異なる2つの実数解をもつような定数 m の値の範囲を求めよ。",
+    "correct_answer": "m<49/8",
+    "exercise": "No.1",
+    "steps": [
+     {
+      "id": 1,
+      "title": "判別式の立式と整理",
+      "description": "2次方程式の係数を読み取り、判別式 D = b^2 - 4ac を計算して整理する。",
+      "result": "D = 49 - 8m",
+      "nodes": [
+       "discriminant_setup"
+      ]
+     },
+     {
+      "id": 2,
+      "title": "異なる2つの実数解をもつ条件の立式",
+      "description": "2次方程式が異なる2つの実数解をもつ条件は D > 0 であることから、不等式を立てる。",
+      "result": "49 - 8m > 0",
+      "nodes": [
+       "discriminant_sign"
+      ]
+     },
+     {
+      "id": 3,
+      "title": "不等式を解いてmの範囲を求める",
+      "description": "不等式 49 - 8m > 0 を解き、定数 m の値の範囲を求める。",
+      "result": "m < 49/8",
+      "nodes": [
+       "inequality_manipulation",
+       "exact_value"
+      ]
+     }
+    ]
+   },
+   "steps": [
+    {
+     "id": 1,
+     "title": "判別式の立式と整理",
+     "description": "2次方程式の係数を読み取り、判別式 D = b^2 - 4ac を計算して整理する。",
+     "result": "D = 49 - 8m",
+     "nodes": [
+      "discriminant_setup"
+     ]
+    },
+    {
+     "id": 2,
+     "title": "異なる2つの実数解をもつ条件の立式",
+     "description": "2次方程式が異なる2つの実数解をもつ条件は D > 0 であることから、不等式を立てる。",
+     "result": "49 - 8m > 0",
+     "nodes": [
+      "discriminant_sign"
+     ]
+    },
+    {
+     "id": 3,
+     "title": "不等式を解いてmの範囲を求める",
+     "description": "不等式 49 - 8m > 0 を解き、定数 m の値の範囲を求める。",
+     "result": "m < 49/8",
+     "nodes": [
+      "inequality_manipulation",
+      "exact_value"
+     ]
+    }
+   ],
+   "master": {
+    "kind": "master",
+    "status": "ok",
+    "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式と整理\n\n2次方程式 $ax^2 + bx + c = 0$ において、解の種類や個数を判別するために用いる式を判別式といい、$D = b^2 - 4ac$ で表されます。係数 $a, b, c$ を正しく読み取り、この公式へ代入することが解を調べるための第一歩となります。\n\nこのステップでは、公式 $D = b^2 - 4ac$ を使って判別式を計算し、整理した結果である $D = 49 - 8m$ を求めることを目指します。\n\n与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の係数を読み取ると、$a = 2$、$b = 5$、$c = m - 3$ です。この方程式の判別式を $D$ として、途中の計算を一つずつ進めていきましょう。\n\nまず、公式に各係数を代入します。\n$D = 5^2 - 4 \\cdot 2 \\cdot (m - 3)$\n\n次に、$5^2$ を計算し、後ろの積の数値部分である $4 \\cdot 2$ を計算します。\n$D = 25 - 8(m - 3)$\n\n続いて、分配法則を用いてかっこを展開します。\n$D = 25 - 8m + 24$\n\n最後に、定数項同士の足し算 $25 + 24$ をまとめます。\n$D = 49 - 8m$\n\n## ステップ2　異なる2つの実数解をもつ条件の立式\n\nまず、判別式の符号と実数解の個数の対応について復習しましょう。2次方程式の実数解の個数は、判別式 $D$ の符号によって決まり、$D > 0$ のときは異なる2つの実数解をもち（放物線と $x$ 軸の共有点は2個）、$D = 0$ のときは1つの実数解（重解）をもち（共有点は1個）、$D < 0$ のときは実数解をもちません（共有点は0個）。\n\nこのステップでは、2次方程式が異なる2つの実数解をもつ条件が $D > 0$ であるという考え方を用いて、不等式 $49 - 8m > 0$ を立てることを目指します。\n\nそれでは、条件を満たす不等式を立てていきましょう。\n\nまず、2次方程式が異なる2つの実数解をもつための条件を立式します。\n$D > 0$\n\nここで、ステップ1で求めた判別式の計算結果を確認します。\n$D = 49 - 8m$\n\n最後に、条件の不等式 $D > 0$ の左辺にある $D$ に、この整理した式を代入します。\n$49 - 8m > 0$\n\n## ステップ3　不等式を解いてmの範囲を求める\n\nまず、不等式を解く際の基本的なルールについて復習しましょう。不等式の両辺に同じ数を足したり引いたりしても不等号の向きは変わりませんが、両辺に負の数を掛けたり、両辺を負の数で割ったりすると、不等号の向きが逆転します。また、もとの不等式に等号が含まれていなければ、解の不等式にも等号は含めません。そして、割り切れない値が出てきたときは、小数の近似値にするのではなく、約分した分数の形のまま正確に表します。\n\nこのステップでは、不等式の性質を用いてステップ2で立てた不等式 $49 - 8m > 0$ を解き、定数 $m$ の値の範囲である $m < \\frac{49}{8}$ を求めることを目指します。\n\nそれでは、不等式を一段階ずつ解いていきましょう。\n\nまず、ステップ2で導いた不等式を確認します。\n$49 - 8m > 0$\n\n次に、$m$ を含む項を左辺に残すため、両辺から $49$ を引きます（$49$ を右辺に移項します）。\n$-8m > -49$\n\n続いて、$m$ の係数を $1$ にするために、両辺を負の数である $-8$ で割ります。負の数で割るため、不等号の向きが逆になります。\n$m < \\frac{-49}{-8}$\n\n最後に、右辺の符号の計算を行います。負の数同士の割り算なので符号はプラスになります。\n$\\frac{-49}{-8} = \\frac{49}{8}$\n\nしたがって、求める定数 $m$ の値の範囲が得られます。\n$m < \\frac{49}{8}$\n",
+    "steps": [
+     {
+      "step_id": 1,
+      "title": "判別式の立式と整理",
+      "nodes": [
+       "discriminant_setup"
+      ],
+      "decision": {
+       "step_id": 1,
+       "title": "判別式の立式と整理",
+       "nodes": [
+        "discriminant_setup"
+       ],
+       "elements": [
+        "result",
+        "reasoning",
+        "definition_review"
+       ],
+       "weakest_node": null,
+       "confidence": null,
+       "evidence_count": null,
+       "node_confidences": {},
+       "cautions": [],
+       "reasons": [
+        "マスター解説: 生徒によらず行間を全て埋めて書く"
+       ]
+      },
+      "text": "2次方程式 $ax^2 + bx + c = 0$ において、解の種類や個数を判別するために用いる式を判別式といい、$D = b^2 - 4ac$ で表されます。係数 $a, b, c$ を正しく読み取り、この公式へ代入することが解を調べるための第一歩となります。\n\nこのステップでは、公式 $D = b^2 - 4ac$ を使って判別式を計算し、整理した結果である $D = 49 - 8m$ を求めることを目指します。\n\n与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の係数を読み取ると、$a = 2$、$b = 5$、$c = m - 3$ です。この方程式の判別式を $D$ として、途中の計算を一つずつ進めていきましょう。\n\nまず、公式に各係数を代入します。\n$D = 5^2 - 4 \\cdot 2 \\cdot (m - 3)$\n\n次に、$5^2$ を計算し、後ろの積の数値部分である $4 \\cdot 2$ を計算します。\n$D = 25 - 8(m - 3)$\n\n続いて、分配法則を用いてかっこを展開します。\n$D = 25 - 8m + 24$\n\n最後に、定数項同士の足し算 $25 + 24$ をまとめます。\n$D = 49 - 8m$",
+      "status": "ok",
+      "attempt_count": 1,
+      "attempts": [
+       {
+        "attempt": 1,
+        "text": "2次方程式 $ax^2 + bx + c = 0$ において、解の種類や個数を判別するために用いる式を判別式といい、$D = b^2 - 4ac$ で表されます。係数 $a, b, c$ を正しく読み取り、この公式へ代入することが解を調べるための第一歩となります。\n\nこのステップでは、公式 $D = b^2 - 4ac$ を使って判別式を計算し、整理した結果である $D = 49 - 8m$ を求めることを目指します。\n\n与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の係数を読み取ると、$a = 2$、$b = 5$、$c = m - 3$ です。この方程式の判別式を $D$ として、途中の計算を一つずつ進めていきましょう。\n\nまず、公式に各係数を代入します。\n$D = 5^2 - 4 \\cdot 2 \\cdot (m - 3)$\n\n次に、$5^2$ を計算し、後ろの積の数値部分である $4 \\cdot 2$ を計算します。\n$D = 25 - 8(m - 3)$\n\n続いて、分配法則を用いてかっこを展開します。\n$D = 25 - 8m + 24$\n\n最後に、定数項同士の足し算 $25 + 24$ をまとめます。\n$D = 49 - 8m$",
+        "ok": true,
+        "claims": [
+         {
+          "lhs": "D",
+          "rhs": "b^2 - 4*a*c",
+          "lhs_text": "D",
+          "rhs_text": "b^2 - 4ac",
+          "status": "definition",
+          "true_value": null,
+          "detail": "D の定義として記録しました"
+         },
+         {
+          "lhs": "D",
+          "rhs": "b^2 - 4*a*c",
+          "lhs_text": "D",
+          "rhs_text": "b^2 - 4ac",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "D",
+          "rhs": "49 - 8*m",
+          "lhs_text": "D",
+          "rhs_text": "49 - 8m",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "a",
+          "rhs": "2",
+          "lhs_text": "a",
+          "rhs_text": "2",
+          "status": "definition",
+          "true_value": null,
+          "detail": "a の定義として記録しました"
+         },
+         {
+          "lhs": "b",
+          "rhs": "5",
+          "lhs_text": "b",
+          "rhs_text": "5",
+          "status": "definition",
+          "true_value": null,
+          "detail": "b の定義として記録しました"
+         },
+         {
+          "lhs": "c",
+          "rhs": "m - 3",
+          "lhs_text": "c",
+          "rhs_text": "m - 3",
+          "status": "definition",
+          "true_value": null,
+          "detail": "c の定義として記録しました"
+         },
+         {
+          "lhs": "D",
+          "rhs": "5^2 - 4 * 2 * (m - 3)",
+          "lhs_text": "D",
+          "rhs_text": "5^2 - 4 \\cdot 2 \\cdot (m - 3)",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "D",
+          "rhs": "25 - 8*(m - 3)",
+          "lhs_text": "D",
+          "rhs_text": "25 - 8(m - 3)",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "D",
+          "rhs": "25 - 8*m + 24",
+          "lhs_text": "D",
+          "rhs_text": "25 - 8m + 24",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "D",
+          "rhs": "49 - 8*m",
+          "lhs_text": "D",
+          "rhs_text": "49 - 8m",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         }
+        ],
+        "counts": {
+         "ok": 6,
+         "ng": 0,
+         "definition": 4,
+         "unverifiable": 0
+        },
+        "relations": [
+         {
+          "expr": "a*x^2 + b*x + c = 0",
+          "text": "ax^2 + bx + c = 0",
+          "transformed_from_previous": false,
+          "status": "condition",
+          "detail": "新しい条件のため比較しません",
+          "previous_expr": null,
+          "previous_solution": null,
+          "current_solution": null
+         },
+         {
+          "expr": "2*x^2 + 5*x + m - 3 = 0",
+          "text": "2x^2 + 5x + m - 3 = 0",
+          "transformed_from_previous": false,
+          "status": "condition",
+          "detail": "新しい条件のため比較しません",
+          "previous_expr": null,
+          "previous_solution": null,
+          "current_solution": null
+         }
+        ],
+        "relation_counts": {
+         "ok": 0,
+         "ng": 0,
+         "condition": 2,
+         "unverifiable": 0
+        },
+        "last_relation": "2*x^2 + 5*x + m - 3 = 0",
+        "final_check": null,
+        "feedback": null
+       }
+      ],
+      "warnings": []
+     },
+     {
+      "step_id": 2,
+      "title": "異なる2つの実数解をもつ条件の立式",
+      "nodes": [
+       "discriminant_sign"
+      ],
+      "decision": {
+       "step_id": 2,
+       "title": "異なる2つの実数解をもつ条件の立式",
+       "nodes": [
+        "discriminant_sign"
+       ],
+       "elements": [
+        "result",
+        "reasoning",
+        "definition_review"
+       ],
+       "weakest_node": null,
+       "confidence": null,
+       "evidence_count": null,
+       "node_confidences": {},
+       "cautions": [],
+       "reasons": [
+        "マスター解説: 生徒によらず行間を全て埋めて書く"
+       ]
+      },
+      "text": "まず、判別式の符号と実数解の個数の対応について復習しましょう。2次方程式の実数解の個数は、判別式 $D$ の符号によって決まり、$D > 0$ のときは異なる2つの実数解をもち（放物線と $x$ 軸の共有点は2個）、$D = 0$ のときは1つの実数解（重解）をもち（共有点は1個）、$D < 0$ のときは実数解をもちません（共有点は0個）。\n\nこのステップでは、2次方程式が異なる2つの実数解をもつ条件が $D > 0$ であるという考え方を用いて、不等式 $49 - 8m > 0$ を立てることを目指します。\n\nそれでは、条件を満たす不等式を立てていきましょう。\n\nまず、2次方程式が異なる2つの実数解をもつための条件を立式します。\n$D > 0$\n\nここで、ステップ1で求めた判別式の計算結果を確認します。\n$D = 49 - 8m$\n\n最後に、条件の不等式 $D > 0$ の左辺にある $D$ に、この整理した式を代入します。\n$49 - 8m > 0$",
+      "status": "ok",
+      "attempt_count": 1,
+      "attempts": [
+       {
+        "attempt": 1,
+        "text": "まず、判別式の符号と実数解の個数の対応について復習しましょう。2次方程式の実数解の個数は、判別式 $D$ の符号によって決まり、$D > 0$ のときは異なる2つの実数解をもち（放物線と $x$ 軸の共有点は2個）、$D = 0$ のときは1つの実数解（重解）をもち（共有点は1個）、$D < 0$ のときは実数解をもちません（共有点は0個）。\n\nこのステップでは、2次方程式が異なる2つの実数解をもつ条件が $D > 0$ であるという考え方を用いて、不等式 $49 - 8m > 0$ を立てることを目指します。\n\nそれでは、条件を満たす不等式を立てていきましょう。\n\nまず、2次方程式が異なる2つの実数解をもつための条件を立式します。\n$D > 0$\n\nここで、ステップ1で求めた判別式の計算結果を確認します。\n$D = 49 - 8m$\n\n最後に、条件の不等式 $D > 0$ の左辺にある $D$ に、この整理した式を代入します。\n$49 - 8m > 0$",
+        "ok": true,
+        "claims": [
+         {
+          "lhs": "D",
+          "rhs": "49 - 8*m",
+          "lhs_text": "D",
+          "rhs_text": "49 - 8m",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         }
+        ],
+        "counts": {
+         "ok": 1,
+         "ng": 0,
+         "definition": 0,
+         "unverifiable": 0
+        },
+        "relations": [
+         {
+          "expr": "D > 0",
+          "text": "D > 0",
+          "transformed_from_previous": false,
+          "status": "condition",
+          "detail": "新しい条件のため比較しません",
+          "previous_expr": null,
+          "previous_solution": null,
+          "current_solution": null
+         },
+         {
+          "expr": "D = 0",
+          "text": "D = 0",
+          "transformed_from_previous": false,
+          "status": "condition",
+          "detail": "新しい条件のため比較しません",
+          "previous_expr": null,
+          "previous_solution": null,
+          "current_solution": null
+         },
+         {
+          "expr": "D < 0",
+          "text": "D < 0",
+          "transformed_from_previous": false,
+          "status": "condition",
+          "detail": "新しい条件のため比較しません",
+          "previous_expr": null,
+          "previous_solution": null,
+          "current_solution": null
+         },
+         {
+          "expr": "D > 0",
+          "text": "D > 0",
+          "transformed_from_previous": false,
+          "status": "condition",
+          "detail": "新しい条件のため比較しません",
+          "previous_expr": null,
+          "previous_solution": null,
+          "current_solution": null
+         },
+         {
+          "expr": "49 - 8*m > 0",
+          "text": "49 - 8m > 0",
+          "transformed_from_previous": false,
+          "status": "condition",
+          "detail": "新しい条件のため比較しません",
+          "previous_expr": null,
+          "previous_solution": null,
+          "current_solution": null
+         },
+         {
+          "expr": "D > 0",
+          "text": "D > 0",
+          "transformed_from_previous": false,
+          "status": "condition",
+          "detail": "新しい条件のため比較しません",
+          "previous_expr": null,
+          "previous_solution": null,
+          "current_solution": null
+         },
+         {
+          "expr": "D > 0",
+          "text": "D > 0",
+          "transformed_from_previous": false,
+          "status": "condition",
+          "detail": "新しい条件のため比較しません",
+          "previous_expr": null,
+          "previous_solution": null,
+          "current_solution": null
+         },
+         {
+          "expr": "49 - 8*m > 0",
+          "text": "49 - 8m > 0",
+          "transformed_from_previous": true,
+          "status": "ok",
+          "detail": "解集合が一致します",
+          "previous_expr": "D > 0",
+          "previous_solution": "m < 49/8",
+          "current_solution": "m < 49/8"
+         }
+        ],
+        "relation_counts": {
+         "ok": 1,
+         "ng": 0,
+         "condition": 7,
+         "unverifiable": 0
+        },
+        "last_relation": "49 - 8*m > 0",
+        "final_check": null,
+        "feedback": null
+       }
+      ],
+      "warnings": []
+     },
+     {
+      "step_id": 3,
+      "title": "不等式を解いてmの範囲を求める",
+      "nodes": [
+       "inequality_manipulation",
+       "exact_value"
+      ],
+      "decision": {
+       "step_id": 3,
+       "title": "不等式を解いてmの範囲を求める",
+       "nodes": [
+        "inequality_manipulation",
+        "exact_value"
+       ],
+       "elements": [
+        "result",
+        "reasoning",
+        "definition_review"
+       ],
+       "weakest_node": null,
+       "confidence": null,
+       "evidence_count": null,
+       "node_confidences": {},
+       "cautions": [],
+       "reasons": [
+        "マスター解説: 生徒によらず行間を全て埋めて書く"
+       ]
+      },
+      "text": "まず、不等式を解く際の基本的なルールについて復習しましょう。不等式の両辺に同じ数を足したり引いたりしても不等号の向きは変わりませんが、両辺に負の数を掛けたり、両辺を負の数で割ったりすると、不等号の向きが逆転します。また、もとの不等式に等号が含まれていなければ、解の不等式にも等号は含めません。そして、割り切れない値が出てきたときは、小数の近似値にするのではなく、約分した分数の形のまま正確に表します。\n\nこのステップでは、不等式の性質を用いてステップ2で立てた不等式 $49 - 8m > 0$ を解き、定数 $m$ の値の範囲である $m < \\frac{49}{8}$ を求めることを目指します。\n\nそれでは、不等式を一段階ずつ解いていきましょう。\n\nまず、ステップ2で導いた不等式を確認します。\n$49 - 8m > 0$\n\n次に、$m$ を含む項を左辺に残すため、両辺から $49$ を引きます（$49$ を右辺に移項します）。\n$-8m > -49$\n\n続いて、$m$ の係数を $1$ にするために、両辺を負の数である $-8$ で割ります。負の数で割るため、不等号の向きが逆になります。\n$m < \\frac{-49}{-8}$\n\n最後に、右辺の符号の計算を行います。負の数同士の割り算なので符号はプラスになります。\n$\\frac{-49}{-8} = \\frac{49}{8}$\n\nしたがって、求める定数 $m$ の値の範囲が得られます。\n$m < \\frac{49}{8}$",
+      "status": "ok",
+      "attempt_count": 1,
+      "attempts": [
+       {
+        "attempt": 1,
+        "text": "まず、不等式を解く際の基本的なルールについて復習しましょう。不等式の両辺に同じ数を足したり引いたりしても不等号の向きは変わりませんが、両辺に負の数を掛けたり、両辺を負の数で割ったりすると、不等号の向きが逆転します。また、もとの不等式に等号が含まれていなければ、解の不等式にも等号は含めません。そして、割り切れない値が出てきたときは、小数の近似値にするのではなく、約分した分数の形のまま正確に表します。\n\nこのステップでは、不等式の性質を用いてステップ2で立てた不等式 $49 - 8m > 0$ を解き、定数 $m$ の値の範囲である $m < \\frac{49}{8}$ を求めることを目指します。\n\nそれでは、不等式を一段階ずつ解いていきましょう。\n\nまず、ステップ2で導いた不等式を確認します。\n$49 - 8m > 0$\n\n次に、$m$ を含む項を左辺に残すため、両辺から $49$ を引きます（$49$ を右辺に移項します）。\n$-8m > -49$\n\n続いて、$m$ の係数を $1$ にするために、両辺を負の数である $-8$ で割ります。負の数で割るため、不等号の向きが逆になります。\n$m < \\frac{-49}{-8}$\n\n最後に、右辺の符号の計算を行います。負の数同士の割り算なので符号はプラスになります。\n$\\frac{-49}{-8} = \\frac{49}{8}$\n\nしたがって、求める定数 $m$ の値の範囲が得られます。\n$m < \\frac{49}{8}$",
+        "ok": true,
+        "claims": [
+         {
+          "lhs": "-49/(-8)",
+          "rhs": "49/8",
+          "lhs_text": "\\frac{-49}{-8}",
+          "rhs_text": "\\frac{49}{8}",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         }
+        ],
+        "counts": {
+         "ok": 1,
+         "ng": 0,
+         "definition": 0,
+         "unverifiable": 0
+        },
+        "relations": [
+         {
+          "expr": "49 - 8*m > 0",
+          "text": "49 - 8m > 0",
+          "transformed_from_previous": false,
+          "status": "condition",
+          "detail": "新しい条件のため比較しません",
+          "previous_expr": null,
+          "previous_solution": null,
+          "current_solution": null
+         },
+         {
+          "expr": "-8*m > -49",
+          "text": "-8m > -49",
+          "transformed_from_previous": true,
+          "status": "ok",
+          "detail": "解集合が一致します",
+          "previous_expr": "49 - 8*m > 0",
+          "previous_solution": "m < 49/8",
+          "current_solution": "m < 49/8"
+         },
+         {
+          "expr": "m < -49/(-8)",
+          "text": "m < \\frac{-49}{-8}",
+          "transformed_from_previous": true,
+          "status": "ok",
+          "detail": "解集合が一致します",
+          "previous_expr": "-8*m > -49",
+          "previous_solution": "m < 49/8",
+          "current_solution": "m < 49/8"
+         },
+         {
+          "expr": "m < 49/8",
+          "text": "m < \\frac{49}{8}",
+          "transformed_from_previous": true,
+          "status": "ok",
+          "detail": "解集合が一致します",
+          "previous_expr": "m < -49/(-8)",
+          "previous_solution": "m < 49/8",
+          "current_solution": "m < 49/8"
+         }
+        ],
+        "relation_counts": {
+         "ok": 3,
+         "ng": 0,
+         "condition": 1,
+         "unverifiable": 0
+        },
+        "last_relation": "m < 49/8",
+        "final_check": {
+         "final_answer": "m < 49/8",
+         "correct_answer": "m<49/8",
+         "is_correct": true,
+         "method": "set_equal",
+         "detail": "解集合が一致します"
+        },
+        "feedback": null
+       }
+      ],
+      "warnings": []
+     }
+    ],
+    "warnings": [],
+    "model_name": "gemini-3.8-flash"
+   },
+   "students": {
+    "Q136": {
+     "individual": {
+      "kind": "individual",
+      "status": "ok",
+      "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式と整理\n\nこのステップでは、2次方程式の判別式を計算して $D = 49 - 8m$ を導きます。解の判別を行うために、2次方程式 $ax^2 + bx + c = 0$ における判別式の公式 $D = b^2 - 4ac$ を使います。\n\nまず、与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の各係数を確認すると、\n$a = 2$\n$b = 5$\n$c = m - 3$\nとなります。\n\nこれらを判別式の公式に代入して整理していきましょう。\n\n公式に各係数を代入すると、\n$D = 5^2 - 4 \\cdot 2 \\cdot (m - 3)$\nとなります。\n\n$5^2$ の計算と係数の掛け算を行うと、\n$D = 25 - 8(m - 3)$\nとなります。\n\nかっこを展開すると、\n$D = 25 - 8m + 24$\nとなります。\n\n同類項である定数同士を足し合わせると、\n$D = 49 - 8m$\nとなります。\n\n## ステップ2　異なる2つの実数解をもつ条件の立式\n\nこのステップでは、2次方程式が異なる2つの実数解をもつ条件を考えて、不等式 $49 - 8m > 0$ を立てます。使う考え方は、判別式 $D$ の符号と2次方程式の実数解の個数の関係です。\n\n2次方程式が異なる2つの実数解をもつための条件は、判別式が正となることですので、\n$D > 0$\nと表せます。\n\nここで、実数解が1個（重解）のときは $D = 0$、実数解をもたないときは $D < 0$ です。「異なる2つの実数解」という場合は等号を含めずに $D > 0$ となりますので、重解の条件である $D = 0$ や、単に実数解をもつ条件である $D \\geqq 0$ と混同しないように注意してください。\n\nステップ1で求めた判別式は、\n$D = 49 - 8m$\nでした。\n\nこの式の右辺を条件式 $D > 0$ の左辺に代入すると、\n$49 - 8m > 0$\nとなります。\n\n## ステップ3　不等式を解いてmの範囲を求める\n\nこのステップでは、不等式 $49 - 8m > 0$ を解いて、定数 $m$ の値の範囲である $m < \\frac{49}{8}$ を導きます。使う考え方は、1次不等式の性質と、両辺を負の数で割るときの不等号の向きの扱いです。\n\nステップ2で立てた不等式から解いていきましょう。\n$49 - 8m > 0$\n\nまず、両辺から $49$ を引いて、定数項を右辺に移項すると、\n$-8m > -49$\nとなります。\n\n次に、$m$ の範囲を求めるために両辺を $-8$ で割ります。\nここで、負の数で両辺を割ると不等号の向きが逆になります。また、もとの不等式に等号はついていませんので、勝手に等号を補ったりせず、不等号の向きだけを「$>$」から「$<$」へと反転させる点に注意してください。\n\n両辺を $-8$ で割ると、\n$m < \\frac{-49}{-8}$\nとなります。\n\n右辺のマイナス同士を約分して計算すると、\n$\\frac{-49}{-8} = \\frac{49}{8}$\nとなります。\n\nこの分数はこれ以上約分できず、割り切れない数ですので、小数の近似値に直さず分数のまま表します。\n\nしたがって、不等式に代入して整理すると、\n$m < \\frac{49}{8}$\nとなり、求める $m$ の値の範囲が得られます。\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "判別式の立式と整理",
+        "nodes": [
+         "discriminant_setup"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "判別式の立式と整理",
+         "nodes": [
+          "discriminant_setup"
+         ],
+         "elements": [
+          "result",
+          "reasoning"
+         ],
+         "weakest_node": "discriminant_setup",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_setup": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "discriminant_setup（判別式に代入する係数の読み取りと立式）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く"
+         ]
+        },
+        "text": "このステップでは、2次方程式の判別式を計算して $D = 49 - 8m$ を導きます。解の判別を行うために、2次方程式 $ax^2 + bx + c = 0$ における判別式の公式 $D = b^2 - 4ac$ を使います。\n\nまず、与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の各係数を確認すると、\n$a = 2$\n$b = 5$\n$c = m - 3$\nとなります。\n\nこれらを判別式の公式に代入して整理していきましょう。\n\n公式に各係数を代入すると、\n$D = 5^2 - 4 \\cdot 2 \\cdot (m - 3)$\nとなります。\n\n$5^2$ の計算と係数の掛け算を行うと、\n$D = 25 - 8(m - 3)$\nとなります。\n\nかっこを展開すると、\n$D = 25 - 8m + 24$\nとなります。\n\n同類項である定数同士を足し合わせると、\n$D = 49 - 8m$\nとなります。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "このステップでは、2次方程式の判別式を計算して $D = 49 - 8m$ を導きます。解の判別を行うために、2次方程式 $ax^2 + bx + c = 0$ における判別式の公式 $D = b^2 - 4ac$ を使います。\n\nまず、与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の各係数を確認すると、\n$a = 2$\n$b = 5$\n$c = m - 3$\nとなります。\n\nこれらを判別式の公式に代入して整理していきましょう。\n\n公式に各係数を代入すると、\n$D = 5^2 - 4 \\cdot 2 \\cdot (m - 3)$\nとなります。\n\n$5^2$ の計算と係数の掛け算を行うと、\n$D = 25 - 8(m - 3)$\nとなります。\n\nかっこを展開すると、\n$D = 25 - 8m + 24$\nとなります。\n\n同類項である定数同士を足し合わせると、\n$D = 49 - 8m$\nとなります。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "D",
+            "rhs": "49 - 8*m",
+            "lhs_text": "D",
+            "rhs_text": "49 - 8m",
+            "status": "definition",
+            "true_value": null,
+            "detail": "D の定義として記録しました"
+           },
+           {
+            "lhs": "D",
+            "rhs": "b^2 - 4*a*c",
+            "lhs_text": "D",
+            "rhs_text": "b^2 - 4ac",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "a",
+            "rhs": "2",
+            "lhs_text": "a",
+            "rhs_text": "2",
+            "status": "definition",
+            "true_value": null,
+            "detail": "a の定義として記録しました"
+           },
+           {
+            "lhs": "b",
+            "rhs": "5",
+            "lhs_text": "b",
+            "rhs_text": "5",
+            "status": "definition",
+            "true_value": null,
+            "detail": "b の定義として記録しました"
+           },
+           {
+            "lhs": "c",
+            "rhs": "m - 3",
+            "lhs_text": "c",
+            "rhs_text": "m - 3",
+            "status": "definition",
+            "true_value": null,
+            "detail": "c の定義として記録しました"
+           },
+           {
+            "lhs": "D",
+            "rhs": "5^2 - 4*2*(m - 3)",
+            "lhs_text": "D",
+            "rhs_text": "5^2 - 4 \\cdot 2 \\cdot (m - 3)",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "D",
+            "rhs": "25 - 8*(m - 3)",
+            "lhs_text": "D",
+            "rhs_text": "25 - 8(m - 3)",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "D",
+            "rhs": "25 - 8*m + 24",
+            "lhs_text": "D",
+            "rhs_text": "25 - 8m + 24",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "D",
+            "rhs": "49 - 8*m",
+            "lhs_text": "D",
+            "rhs_text": "49 - 8m",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           }
+          ],
+          "counts": {
+           "ok": 5,
+           "ng": 0,
+           "definition": 4,
+           "unverifiable": 0
+          },
+          "relations": [
+           {
+            "expr": "a*x^2 + b*x + c = 0",
+            "text": "ax^2 + bx + c = 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "2*x^2 + 5*x + m - 3 = 0",
+            "text": "2x^2 + 5x + m - 3 = 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           }
+          ],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 2,
+           "unverifiable": 0
+          },
+          "last_relation": "2*x^2 + 5*x + m - 3 = 0",
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "異なる2つの実数解をもつ条件の立式",
+        "nodes": [
+         "discriminant_sign"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "異なる2つの実数解をもつ条件の立式",
+         "nodes": [
+          "discriminant_sign"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "discriminant_sign",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_sign": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [
+          {
+           "node": "discriminant_sign",
+           "label": "判別式の符号と実数解の個数・共有点の個数の対応",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "このステップでは、2次方程式が異なる2つの実数解をもつ条件を考えて、不等式 $49 - 8m > 0$ を立てます。使う考え方は、判別式 $D$ の符号と2次方程式の実数解の個数の関係です。\n\n2次方程式が異なる2つの実数解をもつための条件は、判別式が正となることですので、\n$D > 0$\nと表せます。\n\nここで、実数解が1個（重解）のときは $D = 0$、実数解をもたないときは $D < 0$ です。「異なる2つの実数解」という場合は等号を含めずに $D > 0$ となりますので、重解の条件である $D = 0$ や、単に実数解をもつ条件である $D \\geqq 0$ と混同しないように注意してください。\n\nステップ1で求めた判別式は、\n$D = 49 - 8m$\nでした。\n\nこの式の右辺を条件式 $D > 0$ の左辺に代入すると、\n$49 - 8m > 0$\nとなります。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "このステップでは、2次方程式が異なる2つの実数解をもつ条件を考えて、不等式 $49 - 8m > 0$ を立てます。使う考え方は、判別式 $D$ の符号と2次方程式の実数解の個数の関係です。\n\n2次方程式が異なる2つの実数解をもつための条件は、判別式が正となることですので、\n$D > 0$\nと表せます。\n\nここで、実数解が1個（重解）のときは $D = 0$、実数解をもたないときは $D < 0$ です。「異なる2つの実数解」という場合は等号を含めずに $D > 0$ となりますので、重解の条件である $D = 0$ や、単に実数解をもつ条件である $D \\geqq 0$ と混同しないように注意してください。\n\nステップ1で求めた判別式は、\n$D = 49 - 8m$\nでした。\n\nこの式の右辺を条件式 $D > 0$ の左辺に代入すると、\n$49 - 8m > 0$\nとなります。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "D",
+            "rhs": "49 - 8*m",
+            "lhs_text": "D",
+            "rhs_text": "49 - 8m",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           }
+          ],
+          "counts": {
+           "ok": 1,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [
+           {
+            "expr": "49 - 8*m > 0",
+            "text": "49 - 8m > 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "D > 0",
+            "text": "D > 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "D = 0",
+            "text": "D = 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "D < 0",
+            "text": "D < 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "D > 0",
+            "text": "D > 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "D = 0",
+            "text": "D = 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "D >= 0",
+            "text": "D \\geqq 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "D > 0",
+            "text": "D > 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "49 - 8*m > 0",
+            "text": "49 - 8m > 0",
+            "transformed_from_previous": true,
+            "status": "ok",
+            "detail": "解集合が一致します",
+            "previous_expr": "D > 0",
+            "previous_solution": "m < 49/8",
+            "current_solution": "m < 49/8"
+           }
+          ],
+          "relation_counts": {
+           "ok": 1,
+           "ng": 0,
+           "condition": 8,
+           "unverifiable": 0
+          },
+          "last_relation": "49 - 8*m > 0",
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "不等式を解いてmの範囲を求める",
+        "nodes": [
+         "inequality_manipulation",
+         "exact_value"
+        ],
+        "decision": {
+         "step_id": 3,
+         "title": "不等式を解いてmの範囲を求める",
+         "nodes": [
+          "inequality_manipulation",
+          "exact_value"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "inequality_manipulation",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "inequality_manipulation": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          },
+          "exact_value": {
+           "confidence": 0.5,
+           "evidence_count": 0
+          }
+         },
+         "cautions": [
+          {
+           "node": "inequality_manipulation",
+           "label": "不等号の向き（負の数で割る）と等号の有無",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "このステップでは、不等式 $49 - 8m > 0$ を解いて、定数 $m$ の値の範囲である $m < \\frac{49}{8}$ を導きます。使う考え方は、1次不等式の性質と、両辺を負の数で割るときの不等号の向きの扱いです。\n\nステップ2で立てた不等式から解いていきましょう。\n$49 - 8m > 0$\n\nまず、両辺から $49$ を引いて、定数項を右辺に移項すると、\n$-8m > -49$\nとなります。\n\n次に、$m$ の範囲を求めるために両辺を $-8$ で割ります。\nここで、負の数で両辺を割ると不等号の向きが逆になります。また、もとの不等式に等号はついていませんので、勝手に等号を補ったりせず、不等号の向きだけを「$>$」から「$<$」へと反転させる点に注意してください。\n\n両辺を $-8$ で割ると、\n$m < \\frac{-49}{-8}$\nとなります。\n\n右辺のマイナス同士を約分して計算すると、\n$\\frac{-49}{-8} = \\frac{49}{8}$\nとなります。\n\nこの分数はこれ以上約分できず、割り切れない数ですので、小数の近似値に直さず分数のまま表します。\n\nしたがって、不等式に代入して整理すると、\n$m < \\frac{49}{8}$\nとなり、求める $m$ の値の範囲が得られます。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "このステップでは、不等式 $49 - 8m > 0$ を解いて、定数 $m$ の値の範囲である $m < \\frac{49}{8}$ を導きます。使う考え方は、1次不等式の性質と、両辺を負の数で割るときの不等号の向きの扱いです。\n\nステップ2で立てた不等式から解いていきましょう。\n$49 - 8m > 0$\n\nまず、両辺から $49$ を引いて、定数項を右辺に移項すると、\n$-8m > -49$\nとなります。\n\n次に、$m$ の範囲を求めるために両辺を $-8$ で割ります。\nここで、負の数で両辺を割ると不等号の向きが逆になります。また、もとの不等式に等号はついていませんので、勝手に等号を補ったりせず、不等号の向きだけを「$>$」から「$<$」へと反転させる点に注意してください。\n\n両辺を $-8$ で割ると、\n$m < \\frac{-49}{-8}$\nとなります。\n\n右辺のマイナス同士を約分して計算すると、\n$\\frac{-49}{-8} = \\frac{49}{8}$\nとなります。\n\nこの分数はこれ以上約分できず、割り切れない数ですので、小数の近似値に直さず分数のまま表します。\n\nしたがって、不等式に代入して整理すると、\n$m < \\frac{49}{8}$\nとなり、求める $m$ の値の範囲が得られます。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "-49/(-8)",
+            "rhs": "49/8",
+            "lhs_text": "\\frac{-49}{-8}",
+            "rhs_text": "\\frac{49}{8}",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           }
+          ],
+          "counts": {
+           "ok": 1,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [
+           {
+            "expr": "49 - 8*m > 0",
+            "text": "49 - 8m > 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "-8*m > -49",
+            "text": "-8m > -49",
+            "transformed_from_previous": true,
+            "status": "ok",
+            "detail": "解集合が一致します",
+            "previous_expr": "49 - 8*m > 0",
+            "previous_solution": "m < 49/8",
+            "current_solution": "m < 49/8"
+           },
+           {
+            "expr": "m < -49/(-8)",
+            "text": "m < \\frac{-49}{-8}",
+            "transformed_from_previous": true,
+            "status": "ok",
+            "detail": "解集合が一致します",
+            "previous_expr": "-8*m > -49",
+            "previous_solution": "m < 49/8",
+            "current_solution": "m < 49/8"
+           },
+           {
+            "expr": "m < 49/8",
+            "text": "m < \\frac{49}{8}",
+            "transformed_from_previous": true,
+            "status": "ok",
+            "detail": "解集合が一致します",
+            "previous_expr": "m < -49/(-8)",
+            "previous_solution": "m < 49/8",
+            "current_solution": "m < 49/8"
+           }
+          ],
+          "relation_counts": {
+           "ok": 3,
+           "ng": 0,
+           "condition": 1,
+           "unverifiable": 0
+          },
+          "last_relation": "m < 49/8",
+          "final_check": {
+           "final_answer": "m < 49/8",
+           "correct_answer": "m<49/8",
+           "is_correct": true,
+           "method": "set_equal",
+           "detail": "解集合が一致します"
+          },
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     },
+     "subtractive": {
+      "kind": "subtractive",
+      "status": "ok",
+      "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式と整理\n\n2次方程式 $ax^2 + bx + c = 0$ において、解の種類や個数を判別するために用いる式を判別式といい、$D = b^2 - 4ac$ で表されます。係数 $a, b, c$ を正しく読み取り、この公式へ代入することが解を調べるための第一歩となります。\n\nこのステップでは、公式 $D = b^2 - 4ac$ を使って判別式を計算し、整理した結果である $D = 49 - 8m$ を求めることを目指します。\n\n与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の係数を読み取ると、$a = 2$、$b = 5$、$c = m - 3$ です。この方程式の判別式を $D$ として、途中の計算を一つずつ進めていきましょう。\n\nまず、公式に各係数を代入します。\n$D = 5^2 - 4 \\cdot 2 \\cdot (m - 3)$\n\n次に、$5^2$ を計算し、後ろの積の数値部分である $4 \\cdot 2$ を計算します。\n$D = 25 - 8(m - 3)$\n\n続いて、分配法則を用いてかっこを展開します。\n$D = 25 - 8m + 24$\n\n最後に、定数項同士の足し算 $25 + 24$ をまとめます。\n$D = 49 - 8m$\n\n## ステップ2　異なる2つの実数解をもつ条件の立式\n\nまず、判別式の符号と実数解の個数の対応について復習しましょう。2次方程式の実数解の個数は、判別式 $D$ の符号によって決まり、$D > 0$ のときは異なる2つの実数解をもち（放物線と $x$ 軸の共有点は2個）、$D = 0$ のときは1つの実数解（重解）をもち（共有点は1個）、$D < 0$ のときは実数解をもちません（共有点は0個）。\n\nこのステップでは、2次方程式が異なる2つの実数解をもつ条件が $D > 0$ であるという考え方を用いて、不等式 $49 - 8m > 0$ を立てることを目指します。\n\nそれでは、条件を満たす不等式を立てていきましょう。\n\nまず、2次方程式が異なる2つの実数解をもつための条件を立式します。\n$D > 0$\n\nここで、ステップ1で求めた判別式の計算結果を確認します。\n$D = 49 - 8m$\n\n最後に、条件の不等式 $D > 0$ の左辺にある $D$ に、この整理した式を代入します。\n$49 - 8m > 0$\n\n## ステップ3　不等式を解いてmの範囲を求める\n\nまず、不等式を解く際の基本的なルールについて復習しましょう。不等式の両辺に同じ数を足したり引いたりしても不等号の向きは変わりませんが、両辺に負の数を掛けたり、両辺を負の数で割ったりすると、不等号の向きが逆転します。また、もとの不等式に等号が含まれていなければ、解の不等式にも等号は含めません。そして、割り切れない値が出てきたときは、小数の近似値にするのではなく、約分した分数の形のまま正確に表します。\n\nこのステップでは、不等式の性質を用いてステップ2で立てた不等式 $49 - 8m > 0$ を解き、定数 $m$ の値の範囲である $m < \\frac{49}{8}$ を求めることを目指します。\n\nそれでは、不等式を一段階ずつ解いていきましょう。\n\nまず、ステップ2で導いた不等式を確認します。\n$49 - 8m > 0$\n\n次に、$m$ を含む項を左辺に残すため、両辺から $49$ を引きます（$49$ を右辺に移項します）。\n$-8m > -49$\n\n続いて、$m$ の係数を $1$ にするために、両辺を負の数である $-8$ で割ります。負の数で割るため、不等号の向きが逆になります。\n$m < \\frac{-49}{-8}$\n\n最後に、右辺の符号の計算を行います。負の数同士の割り算なので符号はプラスになります。\n$\\frac{-49}{-8} = \\frac{49}{8}$\n\nしたがって、求める定数 $m$ の値の範囲が得られます。\n$m < \\frac{49}{8}$\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "判別式の立式と整理",
+        "nodes": [
+         "discriminant_setup"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "判別式の立式と整理",
+         "nodes": [
+          "discriminant_setup"
+         ],
+         "elements": [
+          "result",
+          "reasoning"
+         ],
+         "weakest_node": "discriminant_setup",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_setup": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "discriminant_setup（判別式に代入する係数の読み取りと立式）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く"
+         ]
+        },
+        "text": "2次方程式 $ax^2 + bx + c = 0$ において、解の種類や個数を判別するために用いる式を判別式といい、$D = b^2 - 4ac$ で表されます。係数 $a, b, c$ を正しく読み取り、この公式へ代入することが解を調べるための第一歩となります。\n\nこのステップでは、公式 $D = b^2 - 4ac$ を使って判別式を計算し、整理した結果である $D = 49 - 8m$ を求めることを目指します。\n\n与えられた2次方程式 $2x^2 + 5x + m - 3 = 0$ の係数を読み取ると、$a = 2$、$b = 5$、$c = m - 3$ です。この方程式の判別式を $D$ として、途中の計算を一つずつ進めていきましょう。\n\nまず、公式に各係数を代入します。\n$D = 5^2 - 4 \\cdot 2 \\cdot (m - 3)$\n\n次に、$5^2$ を計算し、後ろの積の数値部分である $4 \\cdot 2$ を計算します。\n$D = 25 - 8(m - 3)$\n\n続いて、分配法則を用いてかっこを展開します。\n$D = 25 - 8m + 24$\n\n最後に、定数項同士の足し算 $25 + 24$ をまとめます。\n$D = 49 - 8m$",
+        "status": "ok",
+        "kept_from_master": true,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "異なる2つの実数解をもつ条件の立式",
+        "nodes": [
+         "discriminant_sign"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "異なる2つの実数解をもつ条件の立式",
+         "nodes": [
+          "discriminant_sign"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "discriminant_sign",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_sign": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [
+          {
+           "node": "discriminant_sign",
+           "label": "判別式の符号と実数解の個数・共有点の個数の対応",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "まず、判別式の符号と実数解の個数の対応について復習しましょう。2次方程式の実数解の個数は、判別式 $D$ の符号によって決まり、$D > 0$ のときは異なる2つの実数解をもち（放物線と $x$ 軸の共有点は2個）、$D = 0$ のときは1つの実数解（重解）をもち（共有点は1個）、$D < 0$ のときは実数解をもちません（共有点は0個）。\n\nこのステップでは、2次方程式が異なる2つの実数解をもつ条件が $D > 0$ であるという考え方を用いて、不等式 $49 - 8m > 0$ を立てることを目指します。\n\nそれでは、条件を満たす不等式を立てていきましょう。\n\nまず、2次方程式が異なる2つの実数解をもつための条件を立式します。\n$D > 0$\n\nここで、ステップ1で求めた判別式の計算結果を確認します。\n$D = 49 - 8m$\n\n最後に、条件の不等式 $D > 0$ の左辺にある $D$ に、この整理した式を代入します。\n$49 - 8m > 0$",
+        "status": "ok",
+        "kept_from_master": true,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "不等式を解いてmの範囲を求める",
+        "nodes": [
+         "inequality_manipulation",
+         "exact_value"
+        ],
+        "decision": {
+         "step_id": 3,
+         "title": "不等式を解いてmの範囲を求める",
+         "nodes": [
+          "inequality_manipulation",
+          "exact_value"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "inequality_manipulation",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "inequality_manipulation": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          },
+          "exact_value": {
+           "confidence": 0.5,
+           "evidence_count": 0
+          }
+         },
+         "cautions": [
+          {
+           "node": "inequality_manipulation",
+           "label": "不等号の向き（負の数で割る）と等号の有無",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "まず、不等式を解く際の基本的なルールについて復習しましょう。不等式の両辺に同じ数を足したり引いたりしても不等号の向きは変わりませんが、両辺に負の数を掛けたり、両辺を負の数で割ったりすると、不等号の向きが逆転します。また、もとの不等式に等号が含まれていなければ、解の不等式にも等号は含めません。そして、割り切れない値が出てきたときは、小数の近似値にするのではなく、約分した分数の形のまま正確に表します。\n\nこのステップでは、不等式の性質を用いてステップ2で立てた不等式 $49 - 8m > 0$ を解き、定数 $m$ の値の範囲である $m < \\frac{49}{8}$ を求めることを目指します。\n\nそれでは、不等式を一段階ずつ解いていきましょう。\n\nまず、ステップ2で導いた不等式を確認します。\n$49 - 8m > 0$\n\n次に、$m$ を含む項を左辺に残すため、両辺から $49$ を引きます（$49$ を右辺に移項します）。\n$-8m > -49$\n\n続いて、$m$ の係数を $1$ にするために、両辺を負の数である $-8$ で割ります。負の数で割るため、不等号の向きが逆になります。\n$m < \\frac{-49}{-8}$\n\n最後に、右辺の符号の計算を行います。負の数同士の割り算なので符号はプラスになります。\n$\\frac{-49}{-8} = \\frac{49}{8}$\n\nしたがって、求める定数 $m$ の値の範囲が得られます。\n$m < \\frac{49}{8}$",
+        "status": "ok",
+        "kept_from_master": true,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     }
+    },
+    "Q063": {
+     "individual": {
+      "kind": "individual",
+      "status": "ok",
+      "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式と整理\n\n2次方程式 $2x^2 + 5x + m - 3 = 0$ の判別式を $D$ とし，公式 $D = b^2 - 4ac$ を用いて式を整理します。係数を代入して計算すると，$D = 49 - 8m$ が得られます。\n\n## ステップ2　異なる2つの実数解をもつ条件の立式\n\nこのステップでは，2次方程式が異なる2つの実数解をもつ条件を利用して，不等式 $49 - 8m > 0$ を導きます。\n\n2次方程式が異なる2つの実数解をもつための条件は，判別式 $D$ について $D > 0$ が成り立つことです。\nここで，「実数解をもつ」という条件の場合は重解（解が1つ）を含むため $D \\geqq 0$ となりますが，今回は「異なる2つの実数解」ですので等号は入らず，$D > 0$ となる点に注意してください。\n\n条件式を書き出すと，\n$D > 0$\nとなります。\n\nステップ1で求めた判別式の式は，\n$D = 49 - 8m$\nです。\n\nこの $D$ を条件式の左辺に代入すると，\n$49 - 8m > 0$\nという不等式が得られます。\n\n## ステップ3　不等式を解いてmの範囲を求める\n\nこのステップでは，ステップ2で立てた1次不等式を解き，定数 $m$ の値の範囲として $m < \\frac{49}{8}$ を求めます。不等式の両辺に同じ数を足したり引いたりする性質や，両辺を同じ数で割る性質を用いて式を変形していきます。\n\n解くべき不等式は次の通りです。\n$49 - 8m > 0$\n\nまず，左辺の定数項 $49$ を右辺に移項するために，両辺から $49$ を引きます。\n$-8m > -49$\n\n次に，$m$ の係数である $-8$ で両辺を割ります。負の数で両辺を割るときは不等号の向きが入れ替わる点に注意してください。また，もとの不等式に等号が含まれていないため，向きを変えたあとの不等号にも「$\\leqq$」のように等号をつけず「$<$」のままにします。\n\nそれぞれの辺を $-8$ で割る計算をすると，\n左辺 $= \\frac{-8m}{-8} = m$\n右辺 $= \\frac{-49}{-8} = \\frac{49}{8}$\nとなります。\n\n不等号の向きを逆にしてこれらを不等式に当てはめると，\n$m < \\frac{49}{8}$\nが得られます。\n\nしたがって，求める定数 $m$ の値の範囲は $m < \\frac{49}{8}$ です。\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "判別式の立式と整理",
+        "nodes": [
+         "discriminant_setup"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "判別式の立式と整理",
+         "nodes": [
+          "discriminant_setup"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_setup",
+         "confidence": 0.65,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_setup": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_setup（判別式に代入する係数の読み取りと立式）の定着度 0.65（根拠 1 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "2次方程式 $2x^2 + 5x + m - 3 = 0$ の判別式を $D$ とし，公式 $D = b^2 - 4ac$ を用いて式を整理します。係数を代入して計算すると，$D = 49 - 8m$ が得られます。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "2次方程式 $2x^2 + 5x + m - 3 = 0$ の判別式を $D$ とし，公式 $D = b^2 - 4ac$ を用いて式を整理します。係数を代入して計算すると，$D = 49 - 8m$ が得られます。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "D",
+            "rhs": "b^2 - 4*a*c",
+            "lhs_text": "D",
+            "rhs_text": "b^2 - 4ac",
+            "status": "definition",
+            "true_value": null,
+            "detail": "D の定義として記録しました"
+           },
+           {
+            "lhs": "D",
+            "rhs": "49 - 8*m",
+            "lhs_text": "D",
+            "rhs_text": "49 - 8m",
+            "status": "unverifiable",
+            "true_value": null,
+            "detail": "両辺の文字が異なるため，恒等式として検算できません"
+           }
+          ],
+          "counts": {
+           "ok": 0,
+           "ng": 0,
+           "definition": 1,
+           "unverifiable": 1
+          },
+          "relations": [
+           {
+            "expr": "2*x^2 + 5*x + m - 3 = 0",
+            "text": "2x^2 + 5x + m - 3 = 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           }
+          ],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 1,
+           "unverifiable": 0
+          },
+          "last_relation": "2*x^2 + 5*x + m - 3 = 0",
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "異なる2つの実数解をもつ条件の立式",
+        "nodes": [
+         "discriminant_sign"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "異なる2つの実数解をもつ条件の立式",
+         "nodes": [
+          "discriminant_sign"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "discriminant_sign",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_sign": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [
+          {
+           "node": "discriminant_sign",
+           "label": "判別式の符号と実数解の個数・共有点の個数の対応",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "このステップでは，2次方程式が異なる2つの実数解をもつ条件を利用して，不等式 $49 - 8m > 0$ を導きます。\n\n2次方程式が異なる2つの実数解をもつための条件は，判別式 $D$ について $D > 0$ が成り立つことです。\nここで，「実数解をもつ」という条件の場合は重解（解が1つ）を含むため $D \\geqq 0$ となりますが，今回は「異なる2つの実数解」ですので等号は入らず，$D > 0$ となる点に注意してください。\n\n条件式を書き出すと，\n$D > 0$\nとなります。\n\nステップ1で求めた判別式の式は，\n$D = 49 - 8m$\nです。\n\nこの $D$ を条件式の左辺に代入すると，\n$49 - 8m > 0$\nという不等式が得られます。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "このステップでは，2次方程式が異なる2つの実数解をもつ条件を利用して，不等式 $49 - 8m > 0$ を導きます。\n\n2次方程式が異なる2つの実数解をもつための条件は，判別式 $D$ について $D > 0$ が成り立つことです。\nここで，「実数解をもつ」という条件の場合は重解（解が1つ）を含むため $D \\geqq 0$ となりますが，今回は「異なる2つの実数解」ですので等号は入らず，$D > 0$ となる点に注意してください。\n\n条件式を書き出すと，\n$D > 0$\nとなります。\n\nステップ1で求めた判別式の式は，\n$D = 49 - 8m$\nです。\n\nこの $D$ を条件式の左辺に代入すると，\n$49 - 8m > 0$\nという不等式が得られます。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "D",
+            "rhs": "49 - 8*m",
+            "lhs_text": "D",
+            "rhs_text": "49 - 8m",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           }
+          ],
+          "counts": {
+           "ok": 1,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [
+           {
+            "expr": "D > 0",
+            "text": "D > 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "49 - 8*m > 0",
+            "text": "49 - 8m > 0",
+            "transformed_from_previous": true,
+            "status": "ok",
+            "detail": "解集合が一致します",
+            "previous_expr": "D > 0",
+            "previous_solution": "m < 49/8",
+            "current_solution": "m < 49/8"
+           }
+          ],
+          "relation_counts": {
+           "ok": 1,
+           "ng": 0,
+           "condition": 1,
+           "unverifiable": 0
+          },
+          "last_relation": "49 - 8*m > 0",
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "不等式を解いてmの範囲を求める",
+        "nodes": [
+         "inequality_manipulation",
+         "exact_value"
+        ],
+        "decision": {
+         "step_id": 3,
+         "title": "不等式を解いてmの範囲を求める",
+         "nodes": [
+          "inequality_manipulation",
+          "exact_value"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "inequality_manipulation",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "inequality_manipulation": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          },
+          "exact_value": {
+           "confidence": 0.5,
+           "evidence_count": 0
+          }
+         },
+         "cautions": [
+          {
+           "node": "inequality_manipulation",
+           "label": "不等号の向き（負の数で割る）と等号の有無",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "このステップでは，ステップ2で立てた1次不等式を解き，定数 $m$ の値の範囲として $m < \\frac{49}{8}$ を求めます。不等式の両辺に同じ数を足したり引いたりする性質や，両辺を同じ数で割る性質を用いて式を変形していきます。\n\n解くべき不等式は次の通りです。\n$49 - 8m > 0$\n\nまず，左辺の定数項 $49$ を右辺に移項するために，両辺から $49$ を引きます。\n$-8m > -49$\n\n次に，$m$ の係数である $-8$ で両辺を割ります。負の数で両辺を割るときは不等号の向きが入れ替わる点に注意してください。また，もとの不等式に等号が含まれていないため，向きを変えたあとの不等号にも「$\\leqq$」のように等号をつけず「$<$」のままにします。\n\nそれぞれの辺を $-8$ で割る計算をすると，\n左辺 $= \\frac{-8m}{-8} = m$\n右辺 $= \\frac{-49}{-8} = \\frac{49}{8}$\nとなります。\n\n不等号の向きを逆にしてこれらを不等式に当てはめると，\n$m < \\frac{49}{8}$\nが得られます。\n\nしたがって，求める定数 $m$ の値の範囲は $m < \\frac{49}{8}$ です。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "このステップでは，ステップ2で立てた1次不等式を解き，定数 $m$ の値の範囲として $m < \\frac{49}{8}$ を求めます。不等式の両辺に同じ数を足したり引いたりする性質や，両辺を同じ数で割る性質を用いて式を変形していきます。\n\n解くべき不等式は次の通りです。\n$49 - 8m > 0$\n\nまず，左辺の定数項 $49$ を右辺に移項するために，両辺から $49$ を引きます。\n$-8m > -49$\n\n次に，$m$ の係数である $-8$ で両辺を割ります。負の数で両辺を割るときは不等号の向きが入れ替わる点に注意してください。また，もとの不等式に等号が含まれていないため，向きを変えたあとの不等号にも「$\\leqq$」のように等号をつけず「$<$」のままにします。\n\nそれぞれの辺を $-8$ で割る計算をすると，\n左辺 $= \\frac{-8m}{-8} = m$\n右辺 $= \\frac{-49}{-8} = \\frac{49}{8}$\nとなります。\n\n不等号の向きを逆にしてこれらを不等式に当てはめると，\n$m < \\frac{49}{8}$\nが得られます。\n\nしたがって，求める定数 $m$ の値の範囲は $m < \\frac{49}{8}$ です。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "-8*m/(-8)",
+            "rhs": "m",
+            "lhs_text": "\\frac{-8m}{-8}",
+            "rhs_text": "m",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "-49/(-8)",
+            "rhs": "49/8",
+            "lhs_text": "\\frac{-49}{-8}",
+            "rhs_text": "\\frac{49}{8}",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           }
+          ],
+          "counts": {
+           "ok": 2,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [
+           {
+            "expr": "m < 49/8",
+            "text": "m < \\frac{49}{8}",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "49 - 8*m > 0",
+            "text": "49 - 8m > 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "-8*m > -49",
+            "text": "-8m > -49",
+            "transformed_from_previous": true,
+            "status": "ok",
+            "detail": "解集合が一致します",
+            "previous_expr": "49 - 8*m > 0",
+            "previous_solution": "m < 49/8",
+            "current_solution": "m < 49/8"
+           },
+           {
+            "expr": "m < 49/8",
+            "text": "m < \\frac{49}{8}",
+            "transformed_from_previous": true,
+            "status": "ok",
+            "detail": "解集合が一致します",
+            "previous_expr": "-8*m > -49",
+            "previous_solution": "m < 49/8",
+            "current_solution": "m < 49/8"
+           },
+           {
+            "expr": "m < 49/8",
+            "text": "m < \\frac{49}{8}",
+            "transformed_from_previous": true,
+            "status": "ok",
+            "detail": "解集合が一致します",
+            "previous_expr": "m < 49/8",
+            "previous_solution": "m < 49/8",
+            "current_solution": "m < 49/8"
+           }
+          ],
+          "relation_counts": {
+           "ok": 3,
+           "ng": 0,
+           "condition": 2,
+           "unverifiable": 0
+          },
+          "last_relation": "m < 49/8",
+          "final_check": {
+           "final_answer": "m < 49/8",
+           "correct_answer": "m<49/8",
+           "is_correct": true,
+           "method": "set_equal",
+           "detail": "解集合が一致します"
+          },
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     },
+     "subtractive": {
+      "kind": "subtractive",
+      "status": "ok",
+      "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式と整理\n\nD = 49 - 8m\n\n## ステップ2　異なる2つの実数解をもつ条件の立式\n\nまず、判別式の符号と実数解の個数の対応について復習しましょう。2次方程式の実数解の個数は、判別式 $D$ の符号によって決まり、$D > 0$ のときは異なる2つの実数解をもち（放物線と $x$ 軸の共有点は2個）、$D = 0$ のときは1つの実数解（重解）をもち（共有点は1個）、$D < 0$ のときは実数解をもちません（共有点は0個）。\n\nこのステップでは、2次方程式が異なる2つの実数解をもつ条件が $D > 0$ であるという考え方を用いて、不等式 $49 - 8m > 0$ を立てることを目指します。\n\nそれでは、条件を満たす不等式を立てていきましょう。\n\nまず、2次方程式が異なる2つの実数解をもつための条件を立式します。\n$D > 0$\n\nここで、ステップ1で求めた判別式の計算結果を確認します。\n$D = 49 - 8m$\n\n最後に、条件の不等式 $D > 0$ の左辺にある $D$ に、この整理した式を代入します。\n$49 - 8m > 0$\n\n## ステップ3　不等式を解いてmの範囲を求める\n\nまず、不等式を解く際の基本的なルールについて復習しましょう。不等式の両辺に同じ数を足したり引いたりしても不等号の向きは変わりませんが、両辺に負の数を掛けたり、両辺を負の数で割ったりすると、不等号の向きが逆転します。また、もとの不等式に等号が含まれていなければ、解の不等式にも等号は含めません。そして、割り切れない値が出てきたときは、小数の近似値にするのではなく、約分した分数の形のまま正確に表します。\n\nこのステップでは、不等式の性質を用いてステップ2で立てた不等式 $49 - 8m > 0$ を解き、定数 $m$ の値の範囲である $m < \\frac{49}{8}$ を求めることを目指します。\n\nそれでは、不等式を一段階ずつ解いていきましょう。\n\nまず、ステップ2で導いた不等式を確認します。\n$49 - 8m > 0$\n\n次に、$m$ を含む項を左辺に残すため、両辺から $49$ を引きます（$49$ を右辺に移項します）。\n$-8m > -49$\n\n続いて、$m$ の係数を $1$ にするために、両辺を負の数である $-8$ で割ります。負の数で割るため、不等号の向きが逆になります。\n$m < \\frac{-49}{-8}$\n\n最後に、右辺の符号の計算を行います。負の数同士の割り算なので符号はプラスになります。\n$\\frac{-49}{-8} = \\frac{49}{8}$\n\nしたがって、求める定数 $m$ の値の範囲が得られます。\n$m < \\frac{49}{8}$\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "判別式の立式と整理",
+        "nodes": [
+         "discriminant_setup"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "判別式の立式と整理",
+         "nodes": [
+          "discriminant_setup"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_setup",
+         "confidence": 0.65,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_setup": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_setup（判別式に代入する係数の読み取りと立式）の定着度 0.65（根拠 1 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "D = 49 - 8m",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "異なる2つの実数解をもつ条件の立式",
+        "nodes": [
+         "discriminant_sign"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "異なる2つの実数解をもつ条件の立式",
+         "nodes": [
+          "discriminant_sign"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "discriminant_sign",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_sign": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [
+          {
+           "node": "discriminant_sign",
+           "label": "判別式の符号と実数解の個数・共有点の個数の対応",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "まず、判別式の符号と実数解の個数の対応について復習しましょう。2次方程式の実数解の個数は、判別式 $D$ の符号によって決まり、$D > 0$ のときは異なる2つの実数解をもち（放物線と $x$ 軸の共有点は2個）、$D = 0$ のときは1つの実数解（重解）をもち（共有点は1個）、$D < 0$ のときは実数解をもちません（共有点は0個）。\n\nこのステップでは、2次方程式が異なる2つの実数解をもつ条件が $D > 0$ であるという考え方を用いて、不等式 $49 - 8m > 0$ を立てることを目指します。\n\nそれでは、条件を満たす不等式を立てていきましょう。\n\nまず、2次方程式が異なる2つの実数解をもつための条件を立式します。\n$D > 0$\n\nここで、ステップ1で求めた判別式の計算結果を確認します。\n$D = 49 - 8m$\n\n最後に、条件の不等式 $D > 0$ の左辺にある $D$ に、この整理した式を代入します。\n$49 - 8m > 0$",
+        "status": "ok",
+        "kept_from_master": true,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "不等式を解いてmの範囲を求める",
+        "nodes": [
+         "inequality_manipulation",
+         "exact_value"
+        ],
+        "decision": {
+         "step_id": 3,
+         "title": "不等式を解いてmの範囲を求める",
+         "nodes": [
+          "inequality_manipulation",
+          "exact_value"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "inequality_manipulation",
+         "confidence": 0.35,
+         "evidence_count": 1,
+         "node_confidences": {
+          "inequality_manipulation": {
+           "confidence": 0.35,
+           "evidence_count": 1
+          },
+          "exact_value": {
+           "confidence": 0.5,
+           "evidence_count": 0
+          }
+         },
+         "cautions": [
+          {
+           "node": "inequality_manipulation",
+           "label": "不等号の向き（負の数で割る）と等号の有無",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）の定着度 0.35（根拠 1 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）で誤りの記録が 1 回あり，定着度 0.35 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "まず、不等式を解く際の基本的なルールについて復習しましょう。不等式の両辺に同じ数を足したり引いたりしても不等号の向きは変わりませんが、両辺に負の数を掛けたり、両辺を負の数で割ったりすると、不等号の向きが逆転します。また、もとの不等式に等号が含まれていなければ、解の不等式にも等号は含めません。そして、割り切れない値が出てきたときは、小数の近似値にするのではなく、約分した分数の形のまま正確に表します。\n\nこのステップでは、不等式の性質を用いてステップ2で立てた不等式 $49 - 8m > 0$ を解き、定数 $m$ の値の範囲である $m < \\frac{49}{8}$ を求めることを目指します。\n\nそれでは、不等式を一段階ずつ解いていきましょう。\n\nまず、ステップ2で導いた不等式を確認します。\n$49 - 8m > 0$\n\n次に、$m$ を含む項を左辺に残すため、両辺から $49$ を引きます（$49$ を右辺に移項します）。\n$-8m > -49$\n\n続いて、$m$ の係数を $1$ にするために、両辺を負の数である $-8$ で割ります。負の数で割るため、不等号の向きが逆になります。\n$m < \\frac{-49}{-8}$\n\n最後に、右辺の符号の計算を行います。負の数同士の割り算なので符号はプラスになります。\n$\\frac{-49}{-8} = \\frac{49}{8}$\n\nしたがって、求める定数 $m$ の値の範囲が得られます。\n$m < \\frac{49}{8}$",
+        "status": "ok",
+        "kept_from_master": true,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     }
+    },
+    "Q001": {
+     "individual": {
+      "kind": "individual",
+      "status": "ok",
+      "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式と整理\n\n2次方程式 $2x^2 + 5x + m - 3 = 0$ の実数解の個数を調べるために，判別式 $D = b^2 - 4ac$ を利用します。\n係数を代入して整理すると，$D = 5^2 - 4 \\cdot 2 \\cdot (m - 3) = 49 - 8m$ となります。\n\n## ステップ2　異なる2つの実数解をもつ条件の立式\n\n2次方程式が異なる2つの実数解をもつ条件は，判別式について $D > 0$ が成り立つことです。\nしたがって，ステップ1で求めた式より，$49 - 8m > 0$ という不等式が成り立ちます。\n\n## ステップ3　不等式を解いてmの範囲を求める\n\n不等式 $49 - 8m > 0$ を解くために，両辺を負の数で割ると不等号の向きが逆転するという不等式の性質を用います。\nこの不等式を解くことで，求める定数 $m$ の値の範囲は $m < \\frac{49}{8}$ となります。\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "判別式の立式と整理",
+        "nodes": [
+         "discriminant_setup"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "判別式の立式と整理",
+         "nodes": [
+          "discriminant_setup"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_setup",
+         "confidence": 0.65,
+         "evidence_count": 2,
+         "node_confidences": {
+          "discriminant_setup": {
+           "confidence": 0.65,
+           "evidence_count": 2
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_setup（判別式に代入する係数の読み取りと立式）の定着度 0.65（根拠 2 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "2次方程式 $2x^2 + 5x + m - 3 = 0$ の実数解の個数を調べるために，判別式 $D = b^2 - 4ac$ を利用します。\n係数を代入して整理すると，$D = 5^2 - 4 \\cdot 2 \\cdot (m - 3) = 49 - 8m$ となります。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "2次方程式 $2x^2 + 5x + m - 3 = 0$ の実数解の個数を調べるために，判別式 $D = b^2 - 4ac$ を利用します。\n係数を代入して整理すると，$D = 5^2 - 4 \\cdot 2 \\cdot (m - 3) = 49 - 8m$ となります。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "D",
+            "rhs": "b^2 - 4*a*c",
+            "lhs_text": "D",
+            "rhs_text": "b^2 - 4ac",
+            "status": "definition",
+            "true_value": null,
+            "detail": "D の定義として記録しました"
+           },
+           {
+            "lhs": "D",
+            "rhs": "5^2 - 4*2*(m - 3)",
+            "lhs_text": "D",
+            "rhs_text": "5^2 - 4 \\cdot 2 \\cdot (m - 3)",
+            "status": "unverifiable",
+            "true_value": null,
+            "detail": "両辺の文字が異なるため，恒等式として検算できません"
+           },
+           {
+            "lhs": "5^2 - 4*2*(m - 3)",
+            "rhs": "49 - 8*m",
+            "lhs_text": "5^2 - 4 \\cdot 2 \\cdot (m - 3)",
+            "rhs_text": "49 - 8m",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           }
+          ],
+          "counts": {
+           "ok": 1,
+           "ng": 0,
+           "definition": 1,
+           "unverifiable": 1
+          },
+          "relations": [
+           {
+            "expr": "2*x^2 + 5*x + m - 3 = 0",
+            "text": "2x^2 + 5x + m - 3 = 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           }
+          ],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 1,
+           "unverifiable": 0
+          },
+          "last_relation": "2*x^2 + 5*x + m - 3 = 0",
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "異なる2つの実数解をもつ条件の立式",
+        "nodes": [
+         "discriminant_sign"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "異なる2つの実数解をもつ条件の立式",
+         "nodes": [
+          "discriminant_sign"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_sign",
+         "confidence": 0.65,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_sign": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）の定着度 0.65（根拠 1 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "2次方程式が異なる2つの実数解をもつ条件は，判別式について $D > 0$ が成り立つことです。\nしたがって，ステップ1で求めた式より，$49 - 8m > 0$ という不等式が成り立ちます。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "2次方程式が異なる2つの実数解をもつ条件は，判別式について $D > 0$ が成り立つことです。\nしたがって，ステップ1で求めた式より，$49 - 8m > 0$ という不等式が成り立ちます。",
+          "ok": true,
+          "claims": [],
+          "counts": {
+           "ok": 0,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [
+           {
+            "expr": "D > 0",
+            "text": "D > 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "49 - 8*m > 0",
+            "text": "49 - 8m > 0",
+            "transformed_from_previous": true,
+            "status": "ok",
+            "detail": "解集合が一致します",
+            "previous_expr": "D > 0",
+            "previous_solution": "m < 49/8",
+            "current_solution": "m < 49/8"
+           }
+          ],
+          "relation_counts": {
+           "ok": 1,
+           "ng": 0,
+           "condition": 1,
+           "unverifiable": 0
+          },
+          "last_relation": "49 - 8*m > 0",
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "不等式を解いてmの範囲を求める",
+        "nodes": [
+         "inequality_manipulation",
+         "exact_value"
+        ],
+        "decision": {
+         "step_id": 3,
+         "title": "不等式を解いてmの範囲を求める",
+         "nodes": [
+          "inequality_manipulation",
+          "exact_value"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "inequality_manipulation",
+         "confidence": 0.65,
+         "evidence_count": 1,
+         "node_confidences": {
+          "inequality_manipulation": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          },
+          "exact_value": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）の定着度 0.65（根拠 1 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "不等式 $49 - 8m > 0$ を解くために，両辺を負の数で割ると不等号の向きが逆転するという不等式の性質を用います。\nこの不等式を解くことで，求める定数 $m$ の値の範囲は $m < \\frac{49}{8}$ となります。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "不等式 $49 - 8m > 0$ を解くために，両辺を負の数で割ると不等号の向きが逆転するという不等式の性質を用います。\nこの不等式を解くことで，求める定数 $m$ の値の範囲は $m < \\frac{49}{8}$ となります。",
+          "ok": true,
+          "claims": [],
+          "counts": {
+           "ok": 0,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [
+           {
+            "expr": "49 - 8*m > 0",
+            "text": "49 - 8m > 0",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "m < 49/8",
+            "text": "m < \\frac{49}{8}",
+            "transformed_from_previous": true,
+            "status": "ok",
+            "detail": "解集合が一致します",
+            "previous_expr": "49 - 8*m > 0",
+            "previous_solution": "m < 49/8",
+            "current_solution": "m < 49/8"
+           }
+          ],
+          "relation_counts": {
+           "ok": 1,
+           "ng": 0,
+           "condition": 1,
+           "unverifiable": 0
+          },
+          "last_relation": "m < 49/8",
+          "final_check": {
+           "final_answer": "m < 49/8",
+           "correct_answer": "m<49/8",
+           "is_correct": true,
+           "method": "set_equal",
+           "detail": "解集合が一致します"
+          },
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     },
+     "subtractive": {
+      "kind": "subtractive",
+      "status": "ok",
+      "content": "# 判別式と定数の範囲\n\n## ステップ1　判別式の立式と整理\n\nD = 49 - 8m\n\n## ステップ2　異なる2つの実数解をもつ条件の立式\n\n49 - 8m > 0\n\n## ステップ3　不等式を解いてmの範囲を求める\n\nm < 49/8\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "判別式の立式と整理",
+        "nodes": [
+         "discriminant_setup"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "判別式の立式と整理",
+         "nodes": [
+          "discriminant_setup"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_setup",
+         "confidence": 0.65,
+         "evidence_count": 2,
+         "node_confidences": {
+          "discriminant_setup": {
+           "confidence": 0.65,
+           "evidence_count": 2
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_setup（判別式に代入する係数の読み取りと立式）の定着度 0.65（根拠 2 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "D = 49 - 8m",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "異なる2つの実数解をもつ条件の立式",
+        "nodes": [
+         "discriminant_sign"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "異なる2つの実数解をもつ条件の立式",
+         "nodes": [
+          "discriminant_sign"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "discriminant_sign",
+         "confidence": 0.65,
+         "evidence_count": 1,
+         "node_confidences": {
+          "discriminant_sign": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は discriminant_sign（判別式の符号と実数解の個数・共有点の個数の対応）の定着度 0.65（根拠 1 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "49 - 8m > 0",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "不等式を解いてmの範囲を求める",
+        "nodes": [
+         "inequality_manipulation",
+         "exact_value"
+        ],
+        "decision": {
+         "step_id": 3,
+         "title": "不等式を解いてmの範囲を求める",
+         "nodes": [
+          "inequality_manipulation",
+          "exact_value"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "inequality_manipulation",
+         "confidence": 0.65,
+         "evidence_count": 1,
+         "node_confidences": {
+          "inequality_manipulation": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          },
+          "exact_value": {
+           "confidence": 0.65,
+           "evidence_count": 1
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は inequality_manipulation（不等号の向き（負の数で割る）と等号の有無）の定着度 0.65（根拠 1 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "m < 49/8",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     }
+    }
+   },
+   "comparison": {
+    "per_student": [
+     {
+      "student_id": "Q136",
+      "individual": {
+       "weak_step_count": 3,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 0,
+       "mastered_steps_chars": 0,
+       "total_chars": 1375,
+       "text_sim_to_master": 0.422,
+       "semantic_sim_to_master": 0.988
+      },
+      "subtractive": {
+       "weak_step_count": 3,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 0,
+       "mastered_steps_chars": 0,
+       "total_chars": 1620,
+       "text_sim_to_master": 1.0,
+       "semantic_sim_to_master": 1.0
+      },
+      "master": {
+       "weak_step_count": 3,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 0,
+       "mastered_steps_chars": 0,
+       "total_chars": 1620
+      }
+     },
+     {
+      "student_id": "Q063",
+      "individual": {
+       "weak_step_count": 2,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 1,
+       "mastered_steps_chars": 108,
+       "total_chars": 979,
+       "text_sim_to_master": 0.337,
+       "semantic_sim_to_master": 0.975
+      },
+      "subtractive": {
+       "weak_step_count": 2,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 1,
+       "mastered_steps_chars": 11,
+       "total_chars": 1091,
+       "text_sim_to_master": 0.817,
+       "semantic_sim_to_master": 0.963
+      },
+      "master": {
+       "weak_step_count": 2,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 1,
+       "mastered_steps_chars": 540,
+       "total_chars": 1620
+      }
+     },
+     {
+      "student_id": "Q001",
+      "individual": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 3,
+       "mastered_steps_chars": 350,
+       "total_chars": 350,
+       "text_sim_to_master": 0.279,
+       "semantic_sim_to_master": 0.963
+      },
+      "subtractive": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 3,
+       "mastered_steps_chars": 30,
+       "total_chars": 30,
+       "text_sim_to_master": 0.118,
+       "semantic_sim_to_master": 0.913
+      },
+      "master": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 3,
+       "mastered_steps_chars": 1620,
+       "total_chars": 1620
+      }
+     }
+    ],
+    "between_students": {
+     "individual": {
+      "pairs": 3,
+      "mean_text_sim": 0.356,
+      "mean_semantic_sim": 0.98
+     },
+     "subtractive": {
+      "pairs": 3,
+      "mean_text_sim": 0.376,
+      "mean_semantic_sim": 0.944
+     }
+    },
+    "semantic_error": null,
+    "embedding_model": "gemini-embedding-2"
+   },
+   "profile_summary": {
+    "students": 142,
+    "nodes": {
+     "discriminant_setup": {
+      "mean": 0.638,
+      "below": 2,
+      "with_errors": 5
+     },
+     "discriminant_sign": {
+      "mean": 0.635,
+      "below": 7,
+      "with_errors": 6
+     },
+     "double_root": {
+      "mean": 0.592,
+      "below": 26,
+      "with_errors": 19
+     },
+     "inequality_manipulation": {
+      "mean": 0.629,
+      "below": 9,
+      "with_errors": 9
+     },
+     "exact_value": {
+      "mean": 0.64,
+      "below": 4,
+      "with_errors": 4
+     }
+    }
+   },
+   "diagnosis_summary": {
+    "total": 43,
+    "by_method": {
+     "llm": 43
+    },
+    "by_node": {
+     "double_root": 19,
+     "inequality_manipulation": 9,
+     "discriminant_setup": 5,
+     "discriminant_sign": 6,
+     "exact_value": 4
+    }
+   },
+   "selected_profiles": {
+    "Q136": {
+     "node_states": {
+      "discriminant_sign": {
+       "confidence": 0.35,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 0.0,
+         "question_count": 1,
+         "confidence": 0.35
+        }
+       ]
+      },
+      "inequality_manipulation": {
+       "confidence": 0.35,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 0.0,
+         "question_count": 1,
+         "confidence": 0.35
+        }
+       ]
+      },
+      "discriminant_setup": {
+       "confidence": 0.35,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 0.0,
+         "question_count": 1,
+         "confidence": 0.35
+        }
+       ]
+      },
+      "double_root": {
+       "confidence": 0.35,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 0.0,
+         "question_count": 1,
+         "confidence": 0.35
+        }
+       ]
+      }
+     },
+     "error_tendencies": {
+      "discriminant_sign": 1,
+      "inequality_manipulation": 1
+     },
+     "judgment_counts": {
+      "wrong": 2,
+      "blank": 1
+     },
+     "exercise_count": 1
+    },
+    "Q063": {
+     "node_states": {
+      "discriminant_sign": {
+       "confidence": 0.35,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 0.0,
+         "question_count": 1,
+         "confidence": 0.35
+        }
+       ]
+      },
+      "inequality_manipulation": {
+       "confidence": 0.35,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 0.0,
+         "question_count": 1,
+         "confidence": 0.35
+        }
+       ]
+      },
+      "discriminant_setup": {
+       "confidence": 0.65,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 1.0,
+         "question_count": 1,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "double_root": {
+       "confidence": 0.65,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 1.0,
+         "question_count": 1,
+         "confidence": 0.65
+        }
+       ]
+      }
+     },
+     "error_tendencies": {
+      "discriminant_sign": 1,
+      "inequality_manipulation": 1
+     },
+     "judgment_counts": {
+      "wrong": 2,
+      "correct": 1
+     },
+     "exercise_count": 1
+    },
+    "Q001": {
+     "node_states": {
+      "discriminant_setup": {
+       "confidence": 0.65,
+       "evidence_count": 2,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 1.0,
+         "question_count": 2,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "discriminant_sign": {
+       "confidence": 0.65,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 1.0,
+         "question_count": 1,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "inequality_manipulation": {
+       "confidence": 0.65,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 1.0,
+         "question_count": 1,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "exact_value": {
+       "confidence": 0.65,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 1.0,
+         "question_count": 1,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "double_root": {
+       "confidence": 0.35,
+       "evidence_count": 1,
+       "history": [
+        {
+         "answer_sheet_id": "No.1",
+         "exercise_name": "No.1（判別式）",
+         "exercise_date": "2026-09-16",
+         "correct_rate": 0.0,
+         "question_count": 1,
+         "confidence": 0.35
+        }
+       ]
+      }
+     },
+     "error_tendencies": {
+      "double_root": 1
+     },
+     "judgment_counts": {
+      "correct": 2,
+      "incomplete": 1
+     },
+     "exercise_count": 1
+    }
+   }
+  },
+  {
+   "problem": {
+    "unit": "trigonometry",
+    "title": "塔の高さ（仰角）",
+    "problem_text": "塔から水平に 20 m 離れた地点に立って塔の先端を見上げたところ，仰角は 35° であった。目の高さを 1.5 m とするとき，塔の高さを小数第2位を四捨五入して求めよ。ただし，tan35° = 0.7002 とする。",
+    "correct_answer": "15.5",
+    "exercise": "No.8",
+    "steps": [
+     {
+      "id": 1,
+      "title": "目の高さより上の高さを立式する",
+      "description": "観測者の目の高さを基準とした水平線と塔で直角三角形を作り、目の位置から塔までの水平距離20mと仰角35°から、目の高さより上の塔の高さをhとして正接（tan）を用いた関係式を立てる。",
+      "result": "h = 20 tan 35°",
+      "nodes": [
+       "application_modeling",
+       "side_identification"
+      ]
+     },
+     {
+      "id": 2,
+      "title": "目の高さより上の高さを計算する",
+      "description": "与えられた tan 35° = 0.7002 を代入して、目の高さより上の塔の高さ h を計算する。",
+      "result": "h = 14.004 m",
+      "nodes": [
+       "trig_table_reading"
+      ]
+     },
+     {
+      "id": 3,
+      "title": "目の高さを加えて四捨五入する",
+      "description": "目の高さ1.5mを加え、塔全体の高さを求めた後、小数第2位を四捨五入する。",
+      "result": "15.5 m",
+      "nodes": []
+     }
+    ]
+   },
+   "steps": [
+    {
+     "id": 1,
+     "title": "目の高さより上の高さを立式する",
+     "description": "観測者の目の高さを基準とした水平線と塔で直角三角形を作り、目の位置から塔までの水平距離20mと仰角35°から、目の高さより上の塔の高さをhとして正接（tan）を用いた関係式を立てる。",
+     "result": "h = 20 tan 35°",
+     "nodes": [
+      "application_modeling",
+      "side_identification"
+     ]
+    },
+    {
+     "id": 2,
+     "title": "目の高さより上の高さを計算する",
+     "description": "与えられた tan 35° = 0.7002 を代入して、目の高さより上の塔の高さ h を計算する。",
+     "result": "h = 14.004 m",
+     "nodes": [
+      "trig_table_reading"
+     ]
+    },
+    {
+     "id": 3,
+     "title": "目の高さを加えて四捨五入する",
+     "description": "目の高さ1.5mを加え、塔全体の高さを求めた後、小数第2位を四捨五入する。",
+     "result": "15.5 m",
+     "nodes": []
+    }
+   ],
+   "master": {
+    "kind": "master",
+    "status": "ok",
+    "content": "# 塔の高さ（仰角）\n\n## ステップ1　目の高さより上の高さを立式する\n\n水平面より上を見上げる角度を「仰角」とよびます。直角三角形において，着目する角を挟む直角を挟んだ2辺のうち，角に隣り合う辺を「隣辺」，向かい合う辺を「対辺」とするとき，正接の定義は $\\tan \\theta = \\frac{\\text{対辺}}{\\text{隣辺}}$ で表されます。図がどのような向きであっても，基準となる角の位置から直角三角形の隣辺と対辺を正しく特定して立式することが大切です。\n\nこのステップでは，正接（$\\tan$）の定義を用いて，目の高さより上にある塔の高さ $h$ を表す関係式 $h = 20 \\tan 35^\\circ$ を導きます。\n\n目の位置を通り地面に平行な水平線を引くと，目の位置，塔との交点，塔の先端の3点を頂点とする直角三角形ができます。この直角三角形において，角 $35^\\circ$ に対する隣辺の長さは $20$ m，対辺の長さは $h$ m です。\n\n正接の定義に従って関係式を立てます。\n$\\frac{h}{20} = \\tan 35^\\circ$\n\n両辺に $20$ を掛けます。\n$h = 20 \\tan 35^\\circ$\n\n## ステップ2　目の高さより上の高さを計算する\n\n三角比の表や問題文で与えられる三角比の値は，特定の角度に対する比の値を小数で表したものです。計算の途中で端数処理を行ってしまうと誤差が大きくなってしまうため，指定された最後の四捨五入を行う直前までは，与えられた小数の桁数をすべて残したまま正確に計算を進めることが大切です。\n\nこのステップでは，ステップ1で導いた式 $h = 20 \\tan 35^\\circ$ に $\\tan 35^\\circ = 0.7002$ を代入し，目の高さより上にある塔の高さ $h = 14.004\\text{ m}$ を求めます。\n\nステップ1で導いた等式から計算を始めます。\n$h = 20 \\tan 35^\\circ$\n\n$\\tan 35^\\circ$ に与えられた値 $0.7002$ を代入します。\n$h = 20 \\times 0.7002$\n\n右辺のかけ算を実行します。\n$h = 14.004$\n\nこれにより，目の高さより上にある塔の高さは $14.004\\text{ m}$ であることがわかりました。\n\n## ステップ3　目の高さを加えて四捨五入する\n\n地面からの全体の高さを測る計算では，直角三角形から求めた「目の高さより上の高さ」に観測者の「目の高さ」を足し合わせる必要があります。また，小数第2位を四捨五入するときは，小数第2位の数字が $4$ 以下であれば切り捨て，$5$ 以上であれば切り上げて小数第1位までの値にします。\n\nこのステップでは，目の高さより上の高さに目の高さ $1.5\\text{ m}$ を加え，得られた値の小数第2位を四捨五入して，塔の高さ $15.5\\text{ m}$ を求めます。\n\n塔全体の高さを $H\\text{ m}$ とおき，目の高さより上の高さ $h$ に目の高さ $1.5$ を加える式を立てます。\n$H = h + 1.5$\n\nステップ2で求めた $h = 14.004$ を代入します。\n$H = 14.004 + 1.5$\n\n右辺の足し算を計算します。\n$H = 15.504$\n\n小数第2位の数字は $0$ であるため，切り捨てて四捨五入します。\n$H \\fallingdotseq 15.5$\n\nしたがって，塔の高さは $15.5\\text{ m}$ です。\n",
+    "steps": [
+     {
+      "step_id": 1,
+      "title": "目の高さより上の高さを立式する",
+      "nodes": [
+       "application_modeling",
+       "side_identification"
+      ],
+      "decision": {
+       "step_id": 1,
+       "title": "目の高さより上の高さを立式する",
+       "nodes": [
+        "application_modeling",
+        "side_identification"
+       ],
+       "elements": [
+        "result",
+        "reasoning",
+        "definition_review"
+       ],
+       "weakest_node": null,
+       "confidence": null,
+       "evidence_count": null,
+       "node_confidences": {},
+       "cautions": [],
+       "reasons": [
+        "マスター解説: 生徒によらず行間を全て埋めて書く"
+       ]
+      },
+      "text": "水平面より上を見上げる角度を「仰角」とよびます。直角三角形において，着目する角を挟む直角を挟んだ2辺のうち，角に隣り合う辺を「隣辺」，向かい合う辺を「対辺」とするとき，正接の定義は $\\tan \\theta = \\frac{\\text{対辺}}{\\text{隣辺}}$ で表されます。図がどのような向きであっても，基準となる角の位置から直角三角形の隣辺と対辺を正しく特定して立式することが大切です。\n\nこのステップでは，正接（$\\tan$）の定義を用いて，目の高さより上にある塔の高さ $h$ を表す関係式 $h = 20 \\tan 35^\\circ$ を導きます。\n\n目の位置を通り地面に平行な水平線を引くと，目の位置，塔との交点，塔の先端の3点を頂点とする直角三角形ができます。この直角三角形において，角 $35^\\circ$ に対する隣辺の長さは $20$ m，対辺の長さは $h$ m です。\n\n正接の定義に従って関係式を立てます。\n$\\frac{h}{20} = \\tan 35^\\circ$\n\n両辺に $20$ を掛けます。\n$h = 20 \\tan 35^\\circ$",
+      "status": "ok",
+      "attempt_count": 1,
+      "attempts": [
+       {
+        "attempt": 1,
+        "text": "水平面より上を見上げる角度を「仰角」とよびます。直角三角形において，着目する角を挟む直角を挟んだ2辺のうち，角に隣り合う辺を「隣辺」，向かい合う辺を「対辺」とするとき，正接の定義は $\\tan \\theta = \\frac{\\text{対辺}}{\\text{隣辺}}$ で表されます。図がどのような向きであっても，基準となる角の位置から直角三角形の隣辺と対辺を正しく特定して立式することが大切です。\n\nこのステップでは，正接（$\\tan$）の定義を用いて，目の高さより上にある塔の高さ $h$ を表す関係式 $h = 20 \\tan 35^\\circ$ を導きます。\n\n目の位置を通り地面に平行な水平線を引くと，目の位置，塔との交点，塔の先端の3点を頂点とする直角三角形ができます。この直角三角形において，角 $35^\\circ$ に対する隣辺の長さは $20$ m，対辺の長さは $h$ m です。\n\n正接の定義に従って関係式を立てます。\n$\\frac{h}{20} = \\tan 35^\\circ$\n\n両辺に $20$ を掛けます。\n$h = 20 \\tan 35^\\circ$",
+        "ok": true,
+        "claims": [
+         {
+          "lhs": "h/20",
+          "rhs": "tan(35°)",
+          "lhs_text": "\\frac{h}{20}",
+          "rhs_text": "\\tan 35^\\circ",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "h",
+          "rhs": "20 * tan(35°)",
+          "lhs_text": "h",
+          "rhs_text": "20 \\tan 35^\\circ",
+          "status": "definition",
+          "true_value": null,
+          "detail": "h の定義として記録しました"
+         }
+        ],
+        "counts": {
+         "ok": 1,
+         "ng": 0,
+         "definition": 1,
+         "unverifiable": 0
+        },
+        "relations": [
+         {
+          "expr": "h/20 = tan(35°)",
+          "text": "\\frac{h}{20} = \\tan 35^\\circ",
+          "transformed_from_previous": false,
+          "status": "condition",
+          "detail": "新しい条件のため比較しません",
+          "previous_expr": null,
+          "previous_solution": null,
+          "current_solution": null
+         },
+         {
+          "expr": "h = 20 * tan(35°)",
+          "text": "h = 20 \\tan 35^\\circ",
+          "transformed_from_previous": true,
+          "status": "unverifiable",
+          "detail": "文字を含まない関係式になる",
+          "previous_expr": "h/20 = tan(35°)",
+          "previous_solution": null,
+          "current_solution": null
+         }
+        ],
+        "relation_counts": {
+         "ok": 0,
+         "ng": 0,
+         "condition": 1,
+         "unverifiable": 1
+        },
+        "last_relation": "h = 20 * tan(35°)",
+        "final_check": null,
+        "feedback": null
+       }
+      ],
+      "warnings": []
+     },
+     {
+      "step_id": 2,
+      "title": "目の高さより上の高さを計算する",
+      "nodes": [
+       "trig_table_reading"
+      ],
+      "decision": {
+       "step_id": 2,
+       "title": "目の高さより上の高さを計算する",
+       "nodes": [
+        "trig_table_reading"
+       ],
+       "elements": [
+        "result",
+        "reasoning",
+        "definition_review"
+       ],
+       "weakest_node": null,
+       "confidence": null,
+       "evidence_count": null,
+       "node_confidences": {},
+       "cautions": [],
+       "reasons": [
+        "マスター解説: 生徒によらず行間を全て埋めて書く"
+       ]
+      },
+      "text": "三角比の表や問題文で与えられる三角比の値は，特定の角度に対する比の値を小数で表したものです。計算の途中で端数処理を行ってしまうと誤差が大きくなってしまうため，指定された最後の四捨五入を行う直前までは，与えられた小数の桁数をすべて残したまま正確に計算を進めることが大切です。\n\nこのステップでは，ステップ1で導いた式 $h = 20 \\tan 35^\\circ$ に $\\tan 35^\\circ = 0.7002$ を代入し，目の高さより上にある塔の高さ $h = 14.004\\text{ m}$ を求めます。\n\nステップ1で導いた等式から計算を始めます。\n$h = 20 \\tan 35^\\circ$\n\n$\\tan 35^\\circ$ に与えられた値 $0.7002$ を代入します。\n$h = 20 \\times 0.7002$\n\n右辺のかけ算を実行します。\n$h = 14.004$\n\nこれにより，目の高さより上にある塔の高さは $14.004\\text{ m}$ であることがわかりました。",
+      "status": "ok",
+      "attempt_count": 1,
+      "attempts": [
+       {
+        "attempt": 1,
+        "text": "三角比の表や問題文で与えられる三角比の値は，特定の角度に対する比の値を小数で表したものです。計算の途中で端数処理を行ってしまうと誤差が大きくなってしまうため，指定された最後の四捨五入を行う直前までは，与えられた小数の桁数をすべて残したまま正確に計算を進めることが大切です。\n\nこのステップでは，ステップ1で導いた式 $h = 20 \\tan 35^\\circ$ に $\\tan 35^\\circ = 0.7002$ を代入し，目の高さより上にある塔の高さ $h = 14.004\\text{ m}$ を求めます。\n\nステップ1で導いた等式から計算を始めます。\n$h = 20 \\tan 35^\\circ$\n\n$\\tan 35^\\circ$ に与えられた値 $0.7002$ を代入します。\n$h = 20 \\times 0.7002$\n\n右辺のかけ算を実行します。\n$h = 14.004$\n\nこれにより，目の高さより上にある塔の高さは $14.004\\text{ m}$ であることがわかりました。",
+        "ok": true,
+        "claims": [
+         {
+          "lhs": "h",
+          "rhs": "20 * tan(35°)",
+          "lhs_text": "h",
+          "rhs_text": "20 \\tan 35^\\circ",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "tan(35°)",
+          "rhs": "0.7002",
+          "lhs_text": "\\tan 35^\\circ",
+          "rhs_text": "0.7002",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数値が許容誤差0.0003501以内で一致します"
+         },
+         {
+          "lhs": "h",
+          "rhs": "14.004",
+          "lhs_text": "h",
+          "rhs_text": "14.004\\text{ m}",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数値が許容誤差0.0007002以内で一致します"
+         },
+         {
+          "lhs": "h",
+          "rhs": "20 * tan(35°)",
+          "lhs_text": "h",
+          "rhs_text": "20 \\tan 35^\\circ",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数値が許容誤差0.000700208以内で一致します"
+         },
+         {
+          "lhs": "h",
+          "rhs": "20 * 0.7002",
+          "lhs_text": "h",
+          "rhs_text": "20 \\times 0.7002",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数値が許容誤差0.007002以内で一致します"
+         },
+         {
+          "lhs": "h",
+          "rhs": "14.004",
+          "lhs_text": "h",
+          "rhs_text": "14.004",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数値が許容誤差0.007002以内で一致します"
+         }
+        ],
+        "counts": {
+         "ok": 6,
+         "ng": 0,
+         "definition": 0,
+         "unverifiable": 0
+        },
+        "relations": [],
+        "relation_counts": {
+         "ok": 0,
+         "ng": 0,
+         "condition": 0,
+         "unverifiable": 0
+        },
+        "last_relation": "h = 20 * tan(35°)",
+        "final_check": null,
+        "feedback": null
+       }
+      ],
+      "warnings": []
+     },
+     {
+      "step_id": 3,
+      "title": "目の高さを加えて四捨五入する",
+      "nodes": [],
+      "decision": {
+       "step_id": 3,
+       "title": "目の高さを加えて四捨五入する",
+       "nodes": [],
+       "elements": [
+        "result",
+        "reasoning",
+        "definition_review"
+       ],
+       "weakest_node": null,
+       "confidence": null,
+       "evidence_count": null,
+       "node_confidences": {},
+       "cautions": [],
+       "reasons": [
+        "マスター解説: 生徒によらず行間を全て埋めて書く"
+       ]
+      },
+      "text": "地面からの全体の高さを測る計算では，直角三角形から求めた「目の高さより上の高さ」に観測者の「目の高さ」を足し合わせる必要があります。また，小数第2位を四捨五入するときは，小数第2位の数字が $4$ 以下であれば切り捨て，$5$ 以上であれば切り上げて小数第1位までの値にします。\n\nこのステップでは，目の高さより上の高さに目の高さ $1.5\\text{ m}$ を加え，得られた値の小数第2位を四捨五入して，塔の高さ $15.5\\text{ m}$ を求めます。\n\n塔全体の高さを $H\\text{ m}$ とおき，目の高さより上の高さ $h$ に目の高さ $1.5$ を加える式を立てます。\n$H = h + 1.5$\n\nステップ2で求めた $h = 14.004$ を代入します。\n$H = 14.004 + 1.5$\n\n右辺の足し算を計算します。\n$H = 15.504$\n\n小数第2位の数字は $0$ であるため，切り捨てて四捨五入します。\n$H \\fallingdotseq 15.5$\n\nしたがって，塔の高さは $15.5\\text{ m}$ です。",
+      "status": "ok",
+      "attempt_count": 1,
+      "attempts": [
+       {
+        "attempt": 1,
+        "text": "地面からの全体の高さを測る計算では，直角三角形から求めた「目の高さより上の高さ」に観測者の「目の高さ」を足し合わせる必要があります。また，小数第2位を四捨五入するときは，小数第2位の数字が $4$ 以下であれば切り捨て，$5$ 以上であれば切り上げて小数第1位までの値にします。\n\nこのステップでは，目の高さより上の高さに目の高さ $1.5\\text{ m}$ を加え，得られた値の小数第2位を四捨五入して，塔の高さ $15.5\\text{ m}$ を求めます。\n\n塔全体の高さを $H\\text{ m}$ とおき，目の高さより上の高さ $h$ に目の高さ $1.5$ を加える式を立てます。\n$H = h + 1.5$\n\nステップ2で求めた $h = 14.004$ を代入します。\n$H = 14.004 + 1.5$\n\n右辺の足し算を計算します。\n$H = 15.504$\n\n小数第2位の数字は $0$ であるため，切り捨てて四捨五入します。\n$H \\fallingdotseq 15.5$\n\nしたがって，塔の高さは $15.5\\text{ m}$ です。",
+        "ok": true,
+        "claims": [
+         {
+          "lhs": "H",
+          "rhs": "h + 1.5",
+          "lhs_text": "H",
+          "rhs_text": "h + 1.5",
+          "status": "definition",
+          "true_value": null,
+          "detail": "H の定義として記録しました"
+         },
+         {
+          "lhs": "h",
+          "rhs": "14.004",
+          "lhs_text": "h",
+          "rhs_text": "14.004",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "H",
+          "rhs": "14.004 + 1.5",
+          "lhs_text": "H",
+          "rhs_text": "14.004 + 1.5",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         },
+         {
+          "lhs": "H",
+          "rhs": "15.504",
+          "lhs_text": "H",
+          "rhs_text": "15.504",
+          "status": "ok",
+          "true_value": null,
+          "detail": "数式として同値です"
+         }
+        ],
+        "counts": {
+         "ok": 3,
+         "ng": 0,
+         "definition": 1,
+         "unverifiable": 0
+        },
+        "relations": [],
+        "relation_counts": {
+         "ok": 0,
+         "ng": 0,
+         "condition": 0,
+         "unverifiable": 0
+        },
+        "last_relation": "h = 20 * tan(35°)",
+        "final_check": {
+         "final_answer": "15.5",
+         "correct_answer": "15.5",
+         "is_correct": true,
+         "method": "symbolic_equal",
+         "detail": "数式として同値です"
+        },
+        "feedback": null
+       }
+      ],
+      "warnings": []
+     }
+    ],
+    "warnings": [],
+    "model_name": "gemini-3.8-flash"
+   },
+   "students": {
+    "T01": {
+     "individual": {
+      "kind": "individual",
+      "status": "ok",
+      "content": "# 塔の高さ（仰角）\n\n## ステップ1　目の高さより上の高さを立式する\n\n目の位置を通る水平線をもとに直角三角形を作ると、仰角 $35^\\circ$ は地面からではなく目の高さの水平線から見上げた角であり、この角に隣り合う水平距離 $20\\text{ m}$ が隣辺、目の高さより上の塔の高さ $h\\text{ m}$ が対辺となります。したがって、$\\tan\\theta = \\frac{\\text{対辺}}{\\text{隣辺}}$ の関係を用いることで、目の高さより上の高さは $h = 20\\tan 35^\\circ$ と立式できます。\n\n## ステップ2　目の高さより上の高さを計算する\n\nステップ1で立てた式 $h = 20\\tan 35^\\circ$ に，与えられた $\\tan 35^\\circ = 0.7002$ を代入して計算します。計算の途中で数値を丸めてしまうと誤差の原因になりますので，ここでは端数処理をせずそのまま計算すると，$h = 20 \\times 0.7002 = 14.004\\text{ m}$ となります。\n\n## ステップ3　目の高さを加えて四捨五入する\n\n塔全体の高さは，ステップ2で求めた目の高さより上の高さに目の高さを加えることで求められます。したがって，塔の高さ $= 14.004 + 1.5 = 15.504\\text{ m}$ となり，小数第2位を四捨五入すると $15.5\\text{ m}$ になります。\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "目の高さより上の高さを立式する",
+        "nodes": [
+         "application_modeling",
+         "side_identification"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "目の高さより上の高さを立式する",
+         "nodes": [
+          "application_modeling",
+          "side_identification"
+         ],
+         "elements": [
+          "result",
+          "error_caution"
+         ],
+         "weakest_node": "application_modeling",
+         "confidence": 0.5,
+         "evidence_count": 2,
+         "node_confidences": {
+          "application_modeling": {
+           "confidence": 0.5,
+           "evidence_count": 2
+          },
+          "side_identification": {
+           "confidence": 0.55,
+           "evidence_count": 3
+          }
+         },
+         "cautions": [
+          {
+           "node": "application_modeling",
+           "label": "仰角・傾斜などの場面の図示と立式",
+           "error_count": 1
+          },
+          {
+           "node": "side_identification",
+           "label": "対辺・隣辺・斜辺の特定（図の向きによらない）",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は application_modeling（仰角・傾斜などの場面の図示と立式）の定着度 0.50（根拠 2 問））のため，結果と使う公式だけを簡潔に書く",
+          "application_modeling（仰角・傾斜などの場面の図示と立式）で誤りの記録が 1 回あり，定着度 0.50 < 0.7 のため，誤りへの注意を添える",
+          "side_identification（対辺・隣辺・斜辺の特定（図の向きによらない））で誤りの記録が 1 回あり，定着度 0.55 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "目の位置を通る水平線をもとに直角三角形を作ると、仰角 $35^\\circ$ は地面からではなく目の高さの水平線から見上げた角であり、この角に隣り合う水平距離 $20\\text{ m}$ が隣辺、目の高さより上の塔の高さ $h\\text{ m}$ が対辺となります。したがって、$\\tan\\theta = \\frac{\\text{対辺}}{\\text{隣辺}}$ の関係を用いることで、目の高さより上の高さは $h = 20\\tan 35^\\circ$ と立式できます。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "目の位置を通る水平線をもとに直角三角形を作ると、仰角 $35^\\circ$ は地面からではなく目の高さの水平線から見上げた角であり、この角に隣り合う水平距離 $20\\text{ m}$ が隣辺、目の高さより上の塔の高さ $h\\text{ m}$ が対辺となります。したがって、$\\tan\\theta = \\frac{\\text{対辺}}{\\text{隣辺}}$ の関係を用いることで、目の高さより上の高さは $h = 20\\tan 35^\\circ$ と立式できます。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "h",
+            "rhs": "20 * tan(35°)",
+            "lhs_text": "h",
+            "rhs_text": "20\\tan 35^\\circ",
+            "status": "definition",
+            "true_value": null,
+            "detail": "h の定義として記録しました"
+           }
+          ],
+          "counts": {
+           "ok": 0,
+           "ng": 0,
+           "definition": 1,
+           "unverifiable": 0
+          },
+          "relations": [],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 0,
+           "unverifiable": 0
+          },
+          "last_relation": null,
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "目の高さより上の高さを計算する",
+        "nodes": [
+         "trig_table_reading"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "目の高さより上の高さを計算する",
+         "nodes": [
+          "trig_table_reading"
+         ],
+         "elements": [
+          "result",
+          "error_caution"
+         ],
+         "weakest_node": "trig_table_reading",
+         "confidence": 0.575,
+         "evidence_count": 4,
+         "node_confidences": {
+          "trig_table_reading": {
+           "confidence": 0.575,
+           "evidence_count": 4
+          }
+         },
+         "cautions": [
+          {
+           "node": "trig_table_reading",
+           "label": "三角比の表の読み取りと桁の扱い",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は trig_table_reading（三角比の表の読み取りと桁の扱い）の定着度 0.57（根拠 4 問））のため，結果と使う公式だけを簡潔に書く",
+          "trig_table_reading（三角比の表の読み取りと桁の扱い）で誤りの記録が 1 回あり，定着度 0.57 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "ステップ1で立てた式 $h = 20\\tan 35^\\circ$ に，与えられた $\\tan 35^\\circ = 0.7002$ を代入して計算します。計算の途中で数値を丸めてしまうと誤差の原因になりますので，ここでは端数処理をせずそのまま計算すると，$h = 20 \\times 0.7002 = 14.004\\text{ m}$ となります。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "ステップ1で立てた式 $h = 20\\tan 35^\\circ$ に，与えられた $\\tan 35^\\circ = 0.7002$ を代入して計算します。計算の途中で数値を丸めてしまうと誤差の原因になりますので，ここでは端数処理をせずそのまま計算すると，$h = 20 \\times 0.7002 = 14.004\\text{ m}$ となります。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "h",
+            "rhs": "20*tan(35°)",
+            "lhs_text": "h",
+            "rhs_text": "20\\tan 35^\\circ",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "tan(35°)",
+            "rhs": "0.7002",
+            "lhs_text": "\\tan 35^\\circ",
+            "rhs_text": "0.7002",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数値が許容誤差0.0003501以内で一致します"
+           },
+           {
+            "lhs": "h",
+            "rhs": "20*0.7002",
+            "lhs_text": "h",
+            "rhs_text": "20 \\times 0.7002",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数値が許容誤差0.007002以内で一致します"
+           },
+           {
+            "lhs": "20*0.7002",
+            "rhs": "14.004",
+            "lhs_text": "20 \\times 0.7002",
+            "rhs_text": "14.004\\text{ m}",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数値が許容誤差0.007002以内で一致します"
+           }
+          ],
+          "counts": {
+           "ok": 4,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 0,
+           "unverifiable": 0
+          },
+          "last_relation": null,
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "目の高さを加えて四捨五入する",
+        "nodes": [],
+        "decision": {
+         "step_id": 3,
+         "title": "目の高さを加えて四捨五入する",
+         "nodes": [],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": null,
+         "confidence": null,
+         "evidence_count": null,
+         "node_confidences": {},
+         "cautions": [],
+         "reasons": [
+          "依存する前提知識ノードがないため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "塔全体の高さは，ステップ2で求めた目の高さより上の高さに目の高さを加えることで求められます。したがって，塔の高さ $= 14.004 + 1.5 = 15.504\\text{ m}$ となり，小数第2位を四捨五入すると $15.5\\text{ m}$ になります。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "塔全体の高さは，ステップ2で求めた目の高さより上の高さに目の高さを加えることで求められます。したがって，塔の高さ $= 14.004 + 1.5 = 15.504\\text{ m}$ となり，小数第2位を四捨五入すると $15.5\\text{ m}$ になります。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "14.004 + 1.5",
+            "rhs": "15.504",
+            "lhs_text": "14.004 + 1.5",
+            "rhs_text": "15.504",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           }
+          ],
+          "counts": {
+           "ok": 1,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 0,
+           "unverifiable": 0
+          },
+          "last_relation": null,
+          "final_check": {
+           "final_answer": "15.5",
+           "correct_answer": "15.5",
+           "is_correct": true,
+           "method": "symbolic_equal",
+           "detail": "数式として同値です"
+          },
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     },
+     "subtractive": {
+      "kind": "subtractive",
+      "status": "ok",
+      "content": "# 塔の高さ（仰角）\n\n## ステップ1　目の高さより上の高さを立式する\n\nh = 20 tan 35°\n\n## ステップ2　目の高さより上の高さを計算する\n\nh = 14.004 m\n\n## ステップ3　目の高さを加えて四捨五入する\n\n15.5 m\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "目の高さより上の高さを立式する",
+        "nodes": [
+         "application_modeling",
+         "side_identification"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "目の高さより上の高さを立式する",
+         "nodes": [
+          "application_modeling",
+          "side_identification"
+         ],
+         "elements": [
+          "result",
+          "error_caution"
+         ],
+         "weakest_node": "application_modeling",
+         "confidence": 0.5,
+         "evidence_count": 2,
+         "node_confidences": {
+          "application_modeling": {
+           "confidence": 0.5,
+           "evidence_count": 2
+          },
+          "side_identification": {
+           "confidence": 0.55,
+           "evidence_count": 3
+          }
+         },
+         "cautions": [
+          {
+           "node": "application_modeling",
+           "label": "仰角・傾斜などの場面の図示と立式",
+           "error_count": 1
+          },
+          {
+           "node": "side_identification",
+           "label": "対辺・隣辺・斜辺の特定（図の向きによらない）",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は application_modeling（仰角・傾斜などの場面の図示と立式）の定着度 0.50（根拠 2 問））のため，結果と使う公式だけを簡潔に書く",
+          "application_modeling（仰角・傾斜などの場面の図示と立式）で誤りの記録が 1 回あり，定着度 0.50 < 0.7 のため，誤りへの注意を添える",
+          "side_identification（対辺・隣辺・斜辺の特定（図の向きによらない））で誤りの記録が 1 回あり，定着度 0.55 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "h = 20 tan 35°",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "目の高さより上の高さを計算する",
+        "nodes": [
+         "trig_table_reading"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "目の高さより上の高さを計算する",
+         "nodes": [
+          "trig_table_reading"
+         ],
+         "elements": [
+          "result",
+          "error_caution"
+         ],
+         "weakest_node": "trig_table_reading",
+         "confidence": 0.575,
+         "evidence_count": 4,
+         "node_confidences": {
+          "trig_table_reading": {
+           "confidence": 0.575,
+           "evidence_count": 4
+          }
+         },
+         "cautions": [
+          {
+           "node": "trig_table_reading",
+           "label": "三角比の表の読み取りと桁の扱い",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は trig_table_reading（三角比の表の読み取りと桁の扱い）の定着度 0.57（根拠 4 問））のため，結果と使う公式だけを簡潔に書く",
+          "trig_table_reading（三角比の表の読み取りと桁の扱い）で誤りの記録が 1 回あり，定着度 0.57 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "h = 14.004 m",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "目の高さを加えて四捨五入する",
+        "nodes": [],
+        "decision": {
+         "step_id": 3,
+         "title": "目の高さを加えて四捨五入する",
+         "nodes": [],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": null,
+         "confidence": null,
+         "evidence_count": null,
+         "node_confidences": {},
+         "cautions": [],
+         "reasons": [
+          "依存する前提知識ノードがないため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "15.5 m",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     }
+    },
+    "T03": {
+     "individual": {
+      "kind": "individual",
+      "status": "ok",
+      "content": "# 塔の高さ（仰角）\n\n## ステップ1　目の高さより上の高さを立式する\n\n目の位置を基準とした直角三角形において，正接（$\\tan$）の定義「$\\tan \\theta = \\frac{\\text{対辺}}{\\text{隣辺}}$」を用いると，目の高さより上の塔の高さ $h\\text{ [m]}$ について $\\frac{h}{20} = \\tan 35^\\circ$ が成り立ちます。\nしたがって，目の高さより上の高さは $h = 20 \\tan 35^\\circ$ と表せます。\n\n## ステップ2　目の高さより上の高さを計算する\n\nこのステップでは，ステップ1で導いた式に与えられた三角比の値を代入して計算し，目の高さより上の塔の高さ $h = 14.004\\text{ m}$ を求めます。\n\nステップ1で導いた式は次の形でした。\n\n$h = 20 \\times \\tan 35^\\circ$\n\nここで，問題文にある $\\tan 35^\\circ = 0.7002$ を代入します。小数の桁数や「0」の個数をよく確認し，桁を飛ばしたり小数点の位置を間違えたりしないように注意して代入しましょう。\n\n$h = 20 \\times 0.7002$\n\n右辺の掛け算を計算します。小数点の位置（位取り）に気をつけて計算します。\n\n$h = 14.004$\n\nこれにより，目の高さより上の高さは $14.004\\text{ m}$ と求まります。\n\n## ステップ3　目の高さを加えて四捨五入する\n\nこのステップでは，ステップ2で求めた高さに目の高さ $1.5\\text{ m}$ を足して塔全体の高さを求め，小数第2位を四捨五入します。\n塔全体の高さは，$(\\text{塔の高さ}) = 14.004 + 1.5 = 15.504\\text{ m}$ と計算できます。\nこの値の小数第2位を四捨五入することにより，塔の高さとして $15.5\\text{ m}$ が得られます。\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "目の高さより上の高さを立式する",
+        "nodes": [
+         "application_modeling",
+         "side_identification"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "目の高さより上の高さを立式する",
+         "nodes": [
+          "application_modeling",
+          "side_identification"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "application_modeling",
+         "confidence": 0.65,
+         "evidence_count": 2,
+         "node_confidences": {
+          "application_modeling": {
+           "confidence": 0.65,
+           "evidence_count": 2
+          },
+          "side_identification": {
+           "confidence": 0.65,
+           "evidence_count": 3
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は application_modeling（仰角・傾斜などの場面の図示と立式）の定着度 0.65（根拠 2 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "目の位置を基準とした直角三角形において，正接（$\\tan$）の定義「$\\tan \\theta = \\frac{\\text{対辺}}{\\text{隣辺}}$」を用いると，目の高さより上の塔の高さ $h\\text{ [m]}$ について $\\frac{h}{20} = \\tan 35^\\circ$ が成り立ちます。\nしたがって，目の高さより上の高さは $h = 20 \\tan 35^\\circ$ と表せます。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "目の位置を基準とした直角三角形において，正接（$\\tan$）の定義「$\\tan \\theta = \\frac{\\text{対辺}}{\\text{隣辺}}$」を用いると，目の高さより上の塔の高さ $h\\text{ [m]}$ について $\\frac{h}{20} = \\tan 35^\\circ$ が成り立ちます。\nしたがって，目の高さより上の高さは $h = 20 \\tan 35^\\circ$ と表せます。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "tan(t)",
+            "rhs": "対辺 / 隣辺",
+            "lhs_text": "\\tan \\theta",
+            "rhs_text": "\\frac{\\text{対辺}}{\\text{隣辺}}",
+            "status": "unverifiable",
+            "true_value": null,
+            "detail": "式として解釈できませんでした（式として解釈できない文字を含む）"
+           },
+           {
+            "lhs": "h / 20",
+            "rhs": "tan(35°)",
+            "lhs_text": "\\frac{h}{20}",
+            "rhs_text": "\\tan 35^\\circ",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "h",
+            "rhs": "20 * tan(35°)",
+            "lhs_text": "h",
+            "rhs_text": "20 \\tan 35^\\circ",
+            "status": "definition",
+            "true_value": null,
+            "detail": "h の定義として記録しました"
+           }
+          ],
+          "counts": {
+           "ok": 1,
+           "ng": 0,
+           "definition": 1,
+           "unverifiable": 1
+          },
+          "relations": [],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 0,
+           "unverifiable": 0
+          },
+          "last_relation": null,
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "目の高さより上の高さを計算する",
+        "nodes": [
+         "trig_table_reading"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "目の高さより上の高さを計算する",
+         "nodes": [
+          "trig_table_reading"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "trig_table_reading",
+         "confidence": 0.41,
+         "evidence_count": 5,
+         "node_confidences": {
+          "trig_table_reading": {
+           "confidence": 0.41,
+           "evidence_count": 5
+          }
+         },
+         "cautions": [
+          {
+           "node": "trig_table_reading",
+           "label": "三角比の表の読み取りと桁の扱い",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "trig_table_reading（三角比の表の読み取りと桁の扱い）の定着度 0.41（根拠 5 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "trig_table_reading（三角比の表の読み取りと桁の扱い）で誤りの記録が 1 回あり，定着度 0.41 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "このステップでは，ステップ1で導いた式に与えられた三角比の値を代入して計算し，目の高さより上の塔の高さ $h = 14.004\\text{ m}$ を求めます。\n\nステップ1で導いた式は次の形でした。\n\n$h = 20 \\times \\tan 35^\\circ$\n\nここで，問題文にある $\\tan 35^\\circ = 0.7002$ を代入します。小数の桁数や「0」の個数をよく確認し，桁を飛ばしたり小数点の位置を間違えたりしないように注意して代入しましょう。\n\n$h = 20 \\times 0.7002$\n\n右辺の掛け算を計算します。小数点の位置（位取り）に気をつけて計算します。\n\n$h = 14.004$\n\nこれにより，目の高さより上の高さは $14.004\\text{ m}$ と求まります。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "このステップでは，ステップ1で導いた式に与えられた三角比の値を代入して計算し，目の高さより上の塔の高さ $h = 14.004\\text{ m}$ を求めます。\n\nステップ1で導いた式は次の形でした。\n\n$h = 20 \\times \\tan 35^\\circ$\n\nここで，問題文にある $\\tan 35^\\circ = 0.7002$ を代入します。小数の桁数や「0」の個数をよく確認し，桁を飛ばしたり小数点の位置を間違えたりしないように注意して代入しましょう。\n\n$h = 20 \\times 0.7002$\n\n右辺の掛け算を計算します。小数点の位置（位取り）に気をつけて計算します。\n\n$h = 14.004$\n\nこれにより，目の高さより上の高さは $14.004\\text{ m}$ と求まります。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "h",
+            "rhs": "20 * tan(35°)",
+            "lhs_text": "h",
+            "rhs_text": "20 \\times \\tan 35^\\circ",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "tan(35°)",
+            "rhs": "0.7002",
+            "lhs_text": "\\tan 35^\\circ",
+            "rhs_text": "0.7002",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数値が許容誤差0.0003501以内で一致します"
+           },
+           {
+            "lhs": "h",
+            "rhs": "20 * 0.7002",
+            "lhs_text": "h",
+            "rhs_text": "20 \\times 0.7002",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数値が許容誤差0.007002以内で一致します"
+           },
+           {
+            "lhs": "h",
+            "rhs": "14.004",
+            "lhs_text": "h",
+            "rhs_text": "14.004",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数値が許容誤差0.007002以内で一致します"
+           }
+          ],
+          "counts": {
+           "ok": 4,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 0,
+           "unverifiable": 0
+          },
+          "last_relation": null,
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "目の高さを加えて四捨五入する",
+        "nodes": [],
+        "decision": {
+         "step_id": 3,
+         "title": "目の高さを加えて四捨五入する",
+         "nodes": [],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": null,
+         "confidence": null,
+         "evidence_count": null,
+         "node_confidences": {},
+         "cautions": [],
+         "reasons": [
+          "依存する前提知識ノードがないため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "このステップでは，ステップ2で求めた高さに目の高さ $1.5\\text{ m}$ を足して塔全体の高さを求め，小数第2位を四捨五入します。\n塔全体の高さは，$(\\text{塔の高さ}) = 14.004 + 1.5 = 15.504\\text{ m}$ と計算できます。\nこの値の小数第2位を四捨五入することにより，塔の高さとして $15.5\\text{ m}$ が得られます。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "このステップでは，ステップ2で求めた高さに目の高さ $1.5\\text{ m}$ を足して塔全体の高さを求め，小数第2位を四捨五入します。\n塔全体の高さは，$(\\text{塔の高さ}) = 14.004 + 1.5 = 15.504\\text{ m}$ と計算できます。\nこの値の小数第2位を四捨五入することにより，塔の高さとして $15.5\\text{ m}$ が得られます。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "14.004 + 1.5",
+            "rhs": "15.504",
+            "lhs_text": "14.004 + 1.5",
+            "rhs_text": "15.504",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           }
+          ],
+          "counts": {
+           "ok": 1,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 0,
+           "unverifiable": 0
+          },
+          "last_relation": null,
+          "final_check": {
+           "final_answer": "15.5",
+           "correct_answer": "15.5",
+           "is_correct": true,
+           "method": "symbolic_equal",
+           "detail": "数式として同値です"
+          },
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     },
+     "subtractive": {
+      "kind": "subtractive",
+      "status": "ok",
+      "content": "# 塔の高さ（仰角）\n\n## ステップ1　目の高さより上の高さを立式する\n\nh = 20 tan 35°\n\n## ステップ2　目の高さより上の高さを計算する\n\n三角比の表や問題文で与えられる三角比の値は，特定の角度に対する比の値を小数で表したものです。計算の途中で端数処理を行ってしまうと誤差が大きくなってしまうため，指定された最後の四捨五入を行う直前までは，与えられた小数の桁数をすべて残したまま正確に計算を進めることが大切です。\n\nこのステップでは，ステップ1で導いた式 $h = 20 \\tan 35^\\circ$ に $\\tan 35^\\circ = 0.7002$ を代入し，目の高さより上にある塔の高さ $h = 14.004\\text{ m}$ を求めます。\n\nステップ1で導いた等式から計算を始めます。\n$h = 20 \\tan 35^\\circ$\n\n$\\tan 35^\\circ$ に与えられた値 $0.7002$ を代入します。\n$h = 20 \\times 0.7002$\n\n右辺のかけ算を実行します。\n$h = 14.004$\n\nこれにより，目の高さより上にある塔の高さは $14.004\\text{ m}$ であることがわかりました。\n\n## ステップ3　目の高さを加えて四捨五入する\n\n15.5 m\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "目の高さより上の高さを立式する",
+        "nodes": [
+         "application_modeling",
+         "side_identification"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "目の高さより上の高さを立式する",
+         "nodes": [
+          "application_modeling",
+          "side_identification"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "application_modeling",
+         "confidence": 0.65,
+         "evidence_count": 2,
+         "node_confidences": {
+          "application_modeling": {
+           "confidence": 0.65,
+           "evidence_count": 2
+          },
+          "side_identification": {
+           "confidence": 0.65,
+           "evidence_count": 3
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は application_modeling（仰角・傾斜などの場面の図示と立式）の定着度 0.65（根拠 2 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "h = 20 tan 35°",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "目の高さより上の高さを計算する",
+        "nodes": [
+         "trig_table_reading"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "目の高さより上の高さを計算する",
+         "nodes": [
+          "trig_table_reading"
+         ],
+         "elements": [
+          "result",
+          "reasoning",
+          "error_caution"
+         ],
+         "weakest_node": "trig_table_reading",
+         "confidence": 0.41,
+         "evidence_count": 5,
+         "node_confidences": {
+          "trig_table_reading": {
+           "confidence": 0.41,
+           "evidence_count": 5
+          }
+         },
+         "cautions": [
+          {
+           "node": "trig_table_reading",
+           "label": "三角比の表の読み取りと桁の扱い",
+           "error_count": 1
+          }
+         ],
+         "reasons": [
+          "trig_table_reading（三角比の表の読み取りと桁の扱い）の定着度 0.41（根拠 5 問） が閾値 0.5 を下回るため，途中の式変形を省略せずに書く",
+          "trig_table_reading（三角比の表の読み取りと桁の扱い）で誤りの記録が 1 回あり，定着度 0.41 < 0.7 のため，誤りへの注意を添える"
+         ]
+        },
+        "text": "三角比の表や問題文で与えられる三角比の値は，特定の角度に対する比の値を小数で表したものです。計算の途中で端数処理を行ってしまうと誤差が大きくなってしまうため，指定された最後の四捨五入を行う直前までは，与えられた小数の桁数をすべて残したまま正確に計算を進めることが大切です。\n\nこのステップでは，ステップ1で導いた式 $h = 20 \\tan 35^\\circ$ に $\\tan 35^\\circ = 0.7002$ を代入し，目の高さより上にある塔の高さ $h = 14.004\\text{ m}$ を求めます。\n\nステップ1で導いた等式から計算を始めます。\n$h = 20 \\tan 35^\\circ$\n\n$\\tan 35^\\circ$ に与えられた値 $0.7002$ を代入します。\n$h = 20 \\times 0.7002$\n\n右辺のかけ算を実行します。\n$h = 14.004$\n\nこれにより，目の高さより上にある塔の高さは $14.004\\text{ m}$ であることがわかりました。",
+        "status": "ok",
+        "kept_from_master": true,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "目の高さを加えて四捨五入する",
+        "nodes": [],
+        "decision": {
+         "step_id": 3,
+         "title": "目の高さを加えて四捨五入する",
+         "nodes": [],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": null,
+         "confidence": null,
+         "evidence_count": null,
+         "node_confidences": {},
+         "cautions": [],
+         "reasons": [
+          "依存する前提知識ノードがないため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "15.5 m",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     }
+    },
+    "T04": {
+     "individual": {
+      "kind": "individual",
+      "status": "ok",
+      "content": "# 塔の高さ（仰角）\n\n## ステップ1　目の高さより上の高さを立式する\n\n観測者の目の位置を基準とした直角三角形を考えると，正接の定義から $\\frac{h}{20} = \\tan 35^\\circ$ という関係が成り立ちます。これより，目の高さより上の塔の高さ $h$ は $h = 20 \\tan 35^\\circ$ と表せます。\n\n## ステップ2　目の高さより上の高さを計算する\n\nステップ1で立てた式 $h = 20 \\tan 35^\\circ$ に，与えられた $\\tan 35^\\circ = 0.7002$ を代入して計算します。$h = 20 \\times 0.7002 = 14.004\\text{ m}$ となり，目の高さより上の塔の高さが求まります。\n\n## ステップ3　目の高さを加えて四捨五入する\n\nステップ2で求めた高さに観測者の目の高さ $1.5\\text{ m}$ を加えることで，塔全体の高さを求めます。塔全体の高さは，$(\\text{塔全体の高さ}) = 14.004 + 1.5 = 15.504\\text{ m}$ となります。この値の小数第2位を四捨五入すると，求める塔の高さは $15.5\\text{ m}$ となります。\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "目の高さより上の高さを立式する",
+        "nodes": [
+         "application_modeling",
+         "side_identification"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "目の高さより上の高さを立式する",
+         "nodes": [
+          "application_modeling",
+          "side_identification"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "application_modeling",
+         "confidence": 0.65,
+         "evidence_count": 3,
+         "node_confidences": {
+          "application_modeling": {
+           "confidence": 0.65,
+           "evidence_count": 3
+          },
+          "side_identification": {
+           "confidence": 0.65,
+           "evidence_count": 3
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は application_modeling（仰角・傾斜などの場面の図示と立式）の定着度 0.65（根拠 3 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "観測者の目の位置を基準とした直角三角形を考えると，正接の定義から $\\frac{h}{20} = \\tan 35^\\circ$ という関係が成り立ちます。これより，目の高さより上の塔の高さ $h$ は $h = 20 \\tan 35^\\circ$ と表せます。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "観測者の目の位置を基準とした直角三角形を考えると，正接の定義から $\\frac{h}{20} = \\tan 35^\\circ$ という関係が成り立ちます。これより，目の高さより上の塔の高さ $h$ は $h = 20 \\tan 35^\\circ$ と表せます。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "h / 20",
+            "rhs": "tan(35°)",
+            "lhs_text": "\\frac{h}{20}",
+            "rhs_text": "\\tan 35^\\circ",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "h",
+            "rhs": "20 * tan(35°)",
+            "lhs_text": "h",
+            "rhs_text": "20 \\tan 35^\\circ",
+            "status": "definition",
+            "true_value": null,
+            "detail": "h の定義として記録しました"
+           }
+          ],
+          "counts": {
+           "ok": 1,
+           "ng": 0,
+           "definition": 1,
+           "unverifiable": 0
+          },
+          "relations": [
+           {
+            "expr": "Eq(h / 20, tan(35°))",
+            "text": "\\frac{h}{20} = \\tan 35^\\circ",
+            "transformed_from_previous": false,
+            "status": "condition",
+            "detail": "新しい条件のため比較しません",
+            "previous_expr": null,
+            "previous_solution": null,
+            "current_solution": null
+           },
+           {
+            "expr": "Eq(h, 20 * tan(35°))",
+            "text": "h = 20 \\tan 35^\\circ",
+            "transformed_from_previous": true,
+            "status": "unverifiable",
+            "detail": "式として解釈できない（解釈失敗: TypeError）",
+            "previous_expr": "Eq(h / 20, tan(35°))",
+            "previous_solution": null,
+            "current_solution": null
+           }
+          ],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 1,
+           "unverifiable": 1
+          },
+          "last_relation": "Eq(h, 20 * tan(35°))",
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "目の高さより上の高さを計算する",
+        "nodes": [
+         "trig_table_reading"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "目の高さより上の高さを計算する",
+         "nodes": [
+          "trig_table_reading"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "trig_table_reading",
+         "confidence": 0.65,
+         "evidence_count": 5,
+         "node_confidences": {
+          "trig_table_reading": {
+           "confidence": 0.65,
+           "evidence_count": 5
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は trig_table_reading（三角比の表の読み取りと桁の扱い）の定着度 0.65（根拠 5 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "ステップ1で立てた式 $h = 20 \\tan 35^\\circ$ に，与えられた $\\tan 35^\\circ = 0.7002$ を代入して計算します。$h = 20 \\times 0.7002 = 14.004\\text{ m}$ となり，目の高さより上の塔の高さが求まります。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "ステップ1で立てた式 $h = 20 \\tan 35^\\circ$ に，与えられた $\\tan 35^\\circ = 0.7002$ を代入して計算します。$h = 20 \\times 0.7002 = 14.004\\text{ m}$ となり，目の高さより上の塔の高さが求まります。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "h",
+            "rhs": "20 * tan(35°)",
+            "lhs_text": "h",
+            "rhs_text": "20 \\tan 35^\\circ",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           },
+           {
+            "lhs": "tan(35°)",
+            "rhs": "0.7002",
+            "lhs_text": "\\tan 35^\\circ",
+            "rhs_text": "0.7002",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数値が許容誤差0.0003501以内で一致します"
+           },
+           {
+            "lhs": "h",
+            "rhs": "20 * 0.7002",
+            "lhs_text": "h",
+            "rhs_text": "20 \\times 0.7002",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数値が許容誤差0.007002以内で一致します"
+           },
+           {
+            "lhs": "20 * 0.7002",
+            "rhs": "14.004",
+            "lhs_text": "20 \\times 0.7002",
+            "rhs_text": "14.004",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数値が許容誤差0.007002以内で一致します"
+           }
+          ],
+          "counts": {
+           "ok": 4,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 0,
+           "unverifiable": 0
+          },
+          "last_relation": "Eq(h, 20 * tan(35°))",
+          "final_check": null,
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "目の高さを加えて四捨五入する",
+        "nodes": [],
+        "decision": {
+         "step_id": 3,
+         "title": "目の高さを加えて四捨五入する",
+         "nodes": [],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": null,
+         "confidence": null,
+         "evidence_count": null,
+         "node_confidences": {},
+         "cautions": [],
+         "reasons": [
+          "依存する前提知識ノードがないため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "ステップ2で求めた高さに観測者の目の高さ $1.5\\text{ m}$ を加えることで，塔全体の高さを求めます。塔全体の高さは，$(\\text{塔全体の高さ}) = 14.004 + 1.5 = 15.504\\text{ m}$ となります。この値の小数第2位を四捨五入すると，求める塔の高さは $15.5\\text{ m}$ となります。",
+        "status": "ok",
+        "attempt_count": 1,
+        "attempts": [
+         {
+          "attempt": 1,
+          "text": "ステップ2で求めた高さに観測者の目の高さ $1.5\\text{ m}$ を加えることで，塔全体の高さを求めます。塔全体の高さは，$(\\text{塔全体の高さ}) = 14.004 + 1.5 = 15.504\\text{ m}$ となります。この値の小数第2位を四捨五入すると，求める塔の高さは $15.5\\text{ m}$ となります。",
+          "ok": true,
+          "claims": [
+           {
+            "lhs": "14.004 + 1.5",
+            "rhs": "15.504",
+            "lhs_text": "14.004 + 1.5",
+            "rhs_text": "15.504",
+            "status": "ok",
+            "true_value": null,
+            "detail": "数式として同値です"
+           }
+          ],
+          "counts": {
+           "ok": 1,
+           "ng": 0,
+           "definition": 0,
+           "unverifiable": 0
+          },
+          "relations": [],
+          "relation_counts": {
+           "ok": 0,
+           "ng": 0,
+           "condition": 0,
+           "unverifiable": 0
+          },
+          "last_relation": "Eq(h, 20 * tan(35°))",
+          "final_check": {
+           "final_answer": "15.5",
+           "correct_answer": "15.5",
+           "is_correct": true,
+           "method": "symbolic_equal",
+           "detail": "数式として同値です"
+          },
+          "feedback": null
+         }
+        ],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     },
+     "subtractive": {
+      "kind": "subtractive",
+      "status": "ok",
+      "content": "# 塔の高さ（仰角）\n\n## ステップ1　目の高さより上の高さを立式する\n\nh = 20 tan 35°\n\n## ステップ2　目の高さより上の高さを計算する\n\nh = 14.004 m\n\n## ステップ3　目の高さを加えて四捨五入する\n\n15.5 m\n",
+      "steps": [
+       {
+        "step_id": 1,
+        "title": "目の高さより上の高さを立式する",
+        "nodes": [
+         "application_modeling",
+         "side_identification"
+        ],
+        "decision": {
+         "step_id": 1,
+         "title": "目の高さより上の高さを立式する",
+         "nodes": [
+          "application_modeling",
+          "side_identification"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "application_modeling",
+         "confidence": 0.65,
+         "evidence_count": 3,
+         "node_confidences": {
+          "application_modeling": {
+           "confidence": 0.65,
+           "evidence_count": 3
+          },
+          "side_identification": {
+           "confidence": 0.65,
+           "evidence_count": 3
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は application_modeling（仰角・傾斜などの場面の図示と立式）の定着度 0.65（根拠 3 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "h = 20 tan 35°",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 2,
+        "title": "目の高さより上の高さを計算する",
+        "nodes": [
+         "trig_table_reading"
+        ],
+        "decision": {
+         "step_id": 2,
+         "title": "目の高さより上の高さを計算する",
+         "nodes": [
+          "trig_table_reading"
+         ],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": "trig_table_reading",
+         "confidence": 0.65,
+         "evidence_count": 5,
+         "node_confidences": {
+          "trig_table_reading": {
+           "confidence": 0.65,
+           "evidence_count": 5
+          }
+         },
+         "cautions": [],
+         "reasons": [
+          "依存するノードの定着度がすべて 0.5 以上（最小は trig_table_reading（三角比の表の読み取りと桁の扱い）の定着度 0.65（根拠 5 問））のため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "h = 14.004 m",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       },
+       {
+        "step_id": 3,
+        "title": "目の高さを加えて四捨五入する",
+        "nodes": [],
+        "decision": {
+         "step_id": 3,
+         "title": "目の高さを加えて四捨五入する",
+         "nodes": [],
+         "elements": [
+          "result"
+         ],
+         "weakest_node": null,
+         "confidence": null,
+         "evidence_count": null,
+         "node_confidences": {},
+         "cautions": [],
+         "reasons": [
+          "依存する前提知識ノードがないため，結果と使う公式だけを簡潔に書く"
+         ]
+        },
+        "text": "15.5 m",
+        "status": "ok",
+        "kept_from_master": false,
+        "attempt_count": 0,
+        "attempts": [],
+        "warnings": []
+       }
+      ],
+      "warnings": [],
+      "model_name": "gemini-3.8-flash"
+     }
+    }
+   },
+   "comparison": {
+    "per_student": [
+     {
+      "student_id": "T01",
+      "individual": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 2,
+       "mastered_steps_chars": 408,
+       "total_chars": 540,
+       "text_sim_to_master": 0.263,
+       "semantic_sim_to_master": 0.966
+      },
+      "subtractive": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 2,
+       "mastered_steps_chars": 26,
+       "total_chars": 32,
+       "text_sim_to_master": 0.132,
+       "semantic_sim_to_master": 0.926
+      },
+      "master": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 2,
+       "mastered_steps_chars": 941,
+       "total_chars": 1422
+      }
+     },
+     {
+      "student_id": "T03",
+      "individual": {
+       "weak_step_count": 1,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 1,
+       "mastered_steps_chars": 204,
+       "total_chars": 746,
+       "text_sim_to_master": 0.317,
+       "semantic_sim_to_master": 0.973
+      },
+      "subtractive": {
+       "weak_step_count": 1,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 1,
+       "mastered_steps_chars": 14,
+       "total_chars": 470,
+       "text_sim_to_master": 0.532,
+       "semantic_sim_to_master": 0.959
+      },
+      "master": {
+       "weak_step_count": 1,
+       "weak_steps_detailed_ratio": 1.0,
+       "mastered_step_count": 1,
+       "mastered_steps_chars": 491,
+       "total_chars": 1422
+      }
+     },
+     {
+      "student_id": "T04",
+      "individual": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 2,
+       "mastered_steps_chars": 272,
+       "total_chars": 442,
+       "text_sim_to_master": 0.288,
+       "semantic_sim_to_master": 0.956
+      },
+      "subtractive": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 2,
+       "mastered_steps_chars": 26,
+       "total_chars": 32,
+       "text_sim_to_master": 0.132,
+       "semantic_sim_to_master": 0.926
+      },
+      "master": {
+       "weak_step_count": 0,
+       "weak_steps_detailed_ratio": null,
+       "mastered_step_count": 2,
+       "mastered_steps_chars": 941,
+       "total_chars": 1422
+      }
+     }
+    ],
+    "between_students": {
+     "individual": {
+      "pairs": 3,
+      "mean_text_sim": 0.452,
+      "mean_semantic_sim": 0.982
+     },
+     "subtractive": {
+      "pairs": 3,
+      "mean_text_sim": 0.577,
+      "mean_semantic_sim": 0.966
+     }
+    },
+    "semantic_error": null,
+    "embedding_model": "gemini-embedding-2"
+   },
+   "profile_summary": {
+    "students": 70,
+    "nodes": {
+     "side_identification": {
+      "mean": 0.636,
+      "below": 1,
+      "with_errors": 8
+     },
+     "special_angle_values": {
+      "mean": 0.64,
+      "below": 2,
+      "with_errors": 4
+     },
+     "trig_table_reading": {
+      "mean": 0.624,
+      "below": 4,
+      "with_errors": 13
+     },
+     "inverse_table_lookup": {
+      "mean": 0.624,
+      "below": 5,
+      "with_errors": 4
+     },
+     "application_modeling": {
+      "mean": 0.626,
+      "below": 2,
+      "with_errors": 3
+     }
+    }
+   },
+   "diagnosis_summary": {
+    "total": 45,
+    "by_method": {
+     "single_node": 35,
+     "llm": 10
+    },
+    "by_node": {
+     "side_identification": 9,
+     "trig_table_reading": 17,
+     "application_modeling": 3,
+     "special_angle_values": 6,
+     "inverse_table_lookup": 10
+    }
+   },
+   "selected_profiles": {
+    "T01": {
+     "node_states": {
+      "side_identification": {
+       "confidence": 0.55,
+       "evidence_count": 3,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 0.6667,
+         "question_count": 3,
+         "confidence": 0.55
+        }
+       ]
+      },
+      "special_angle_values": {
+       "confidence": 0.65,
+       "evidence_count": 3,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 1.0,
+         "question_count": 3,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "trig_table_reading": {
+       "confidence": 0.575,
+       "evidence_count": 4,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 0.75,
+         "question_count": 4,
+         "confidence": 0.575
+        }
+       ]
+      },
+      "inverse_table_lookup": {
+       "confidence": 0.65,
+       "evidence_count": 4,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 1.0,
+         "question_count": 4,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "application_modeling": {
+       "confidence": 0.5,
+       "evidence_count": 2,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 0.5,
+         "question_count": 2,
+         "confidence": 0.5
+        }
+       ]
+      }
+     },
+     "error_tendencies": {
+      "side_identification": 1,
+      "trig_table_reading": 1,
+      "application_modeling": 1
+     },
+     "judgment_counts": {
+      "correct": 12,
+      "wrong": 3
+     },
+     "exercise_count": 1
+    },
+    "T03": {
+     "node_states": {
+      "side_identification": {
+       "confidence": 0.65,
+       "evidence_count": 3,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 1.0,
+         "question_count": 3,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "special_angle_values": {
+       "confidence": 0.35,
+       "evidence_count": 2,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 0.0,
+         "question_count": 2,
+         "confidence": 0.35
+        }
+       ]
+      },
+      "trig_table_reading": {
+       "confidence": 0.41,
+       "evidence_count": 5,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 0.2,
+         "question_count": 5,
+         "confidence": 0.41
+        }
+       ]
+      },
+      "inverse_table_lookup": {
+       "confidence": 0.65,
+       "evidence_count": 4,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 1.0,
+         "question_count": 4,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "application_modeling": {
+       "confidence": 0.65,
+       "evidence_count": 2,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 1.0,
+         "question_count": 2,
+         "confidence": 0.65
+        }
+       ]
+      }
+     },
+     "error_tendencies": {
+      "special_angle_values": 2,
+      "trig_table_reading": 1
+     },
+     "judgment_counts": {
+      "correct": 8,
+      "wrong": 3,
+      "unreadable": 1,
+      "blank": 3
+     },
+     "exercise_count": 1
+    },
+    "T04": {
+     "node_states": {
+      "side_identification": {
+       "confidence": 0.65,
+       "evidence_count": 3,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 1.0,
+         "question_count": 3,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "special_angle_values": {
+       "confidence": 0.65,
+       "evidence_count": 3,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 1.0,
+         "question_count": 3,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "trig_table_reading": {
+       "confidence": 0.65,
+       "evidence_count": 5,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 1.0,
+         "question_count": 5,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "inverse_table_lookup": {
+       "confidence": 0.65,
+       "evidence_count": 4,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 1.0,
+         "question_count": 4,
+         "confidence": 0.65
+        }
+       ]
+      },
+      "application_modeling": {
+       "confidence": 0.65,
+       "evidence_count": 3,
+       "history": [
+        {
+         "answer_sheet_id": "No.8",
+         "exercise_name": "No.8（三角比）",
+         "exercise_date": "2026-10-01",
+         "correct_rate": 1.0,
+         "question_count": 3,
+         "confidence": 0.65
+        }
+       ]
+      }
+     },
+     "error_tendencies": {},
+     "judgment_counts": {
+      "correct": 15
+     },
+     "exercise_count": 1
+    }
+   }
+  }
+ ],
+ "diagnoses": {
+  "No.1": [
+   {
+    "student_id": "Q001",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=-1",
+    "judgment": "incomplete",
+    "corrected": true,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "m=2に対する重解は正しく求められているものの、重解をもつもう一つの条件であるm=-6の場合についての計算が抜け落ちているため。"
+   },
+   {
+    "student_id": "Q005",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "16/3>=m",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "境界値 16/3 は正しく求められているものの、等号を含めない不等号を扱うべきところで等号をつけてしまっているため。"
+   },
+   {
+    "student_id": "Q009",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2，m=-6 のとき x=3",
+    "judgment": "incomplete",
+    "corrected": true,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "$m$ の値は求められているものの、$m=2$ のときの重解 $x=-1$ の計算や記述が欠けているため。"
+   },
+   {
+    "student_id": "Q016",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6 のとき x=3，m=2 のとき x=1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値自体は正しく求められているものの、m=2のときの重解の計算で符号を誤ってx=1としてしまっているため。"
+   },
+   {
+    "student_id": "Q017",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "D<16/3",
+    "judgment": "form_issue",
+    "corrected": false,
+    "source_result": "form_issue",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "判別式Dを計算して定数mの満たす不等式を導くべきところを、文字mではなくDの不等式として答えており、判別式を用いた立式の仕方に不備があるため。"
+   },
+   {
+    "student_id": "Q022",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 0, 0",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "discriminant_sign",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "3つ目の問題において、判別式が0のときに実数解（共有点）の個数が1個となる対応を取り違え、0個と誤解している可能性が高いため。"
+   },
+   {
+    "student_id": "Q026",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6，m=2",
+    "judgment": "incomplete",
+    "corrected": false,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値を正しく求められているものの、それぞれのmに対応する重解xの計算を行っていないため。"
+   },
+   {
+    "student_id": "Q027",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m<5",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "exact_value",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解である分数の値16/3を正確に扱わず、整数値5に近似または切り捨てて解答してしまっているため。"
+   },
+   {
+    "student_id": "Q027",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=0，m=12",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong_m",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "重解をもつ条件である判別式D=0の立式や係数の扱いに誤りがあり、mの値を正しく導けていないため。"
+   },
+   {
+    "student_id": "Q029",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 1, 1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "discriminant_sign",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "2番目の問いで正解が0個であるところを1個と答えており、判別式の値（符号）と共有点の個数との対応を正しく把握できていないと考えられるため。"
+   },
+   {
+    "student_id": "Q030",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=-1，m=-6",
+    "judgment": "incomplete",
+    "corrected": false,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "m=-6のときの重解xの値を求めていないため。"
+   },
+   {
+    "student_id": "Q031",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m>16/3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "値は正しく求められているものの、負の数で割る際の不等号の向きの反転を誤っているため。"
+   },
+   {
+    "student_id": "Q034",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=1+2*sqrt(3)，m=1-2*sqrt(3)",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_m",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "重解をもつ条件として判別式 D=0 を立式する際に係数の読み取りや計算を誤り、誤った m の方程式を解いているため。"
+   },
+   {
+    "student_id": "Q037",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m>16/3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "値の計算は正しくできているものの、不等号の向きが逆になっているため。"
+   },
+   {
+    "student_id": "Q048",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=1，m=-6 のとき x=-3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値は正しく求められているものの、重解を求める計算において符号の処理を誤って逆の符号を出力しているため。"
+   },
+   {
+    "student_id": "Q049",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=11/4",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong_m",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "重解をもつ条件として判別式 D=0 を正しく立式・計算できず、m の値の導出を誤っているため。"
+   },
+   {
+    "student_id": "Q050",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m<5",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "exact_value",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解の値である16/3を近似して5と答えてしまっているため。"
+   },
+   {
+    "student_id": "Q057",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=6，m=-2",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong_m",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "問題で求められている重解の計算を行っておらず、定数mの値のみを答えているため。"
+   },
+   {
+    "student_id": "Q058",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2，m=-6",
+    "judgment": "incomplete",
+    "corrected": true,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "m の値は正しく求められているものの、それぞれの m に対する重解 x の値の計算を行っていないため。"
+   },
+   {
+    "student_id": "Q060",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m<5.3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "exact_value",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解である分数16/3を小数5.3に近似して答えてしまっているため。"
+   },
+   {
+    "student_id": "Q062",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6 のとき x=3",
+    "judgment": "incomplete",
+    "corrected": true,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "重解をもつ条件を満たす定数 m の値が2つ存在するにもかかわらず、片方の値に対する重解の計算しか記述されていません。"
+   },
+   {
+    "student_id": "Q063",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 2, 1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "discriminant_sign",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "2つ目の問題において、判別式の符号から実数解や共有点の個数を0個と正しく導けず、2個と誤って対応づけているため。"
+   },
+   {
+    "student_id": "Q063",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m>16/3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "値の計算は正しく行えているものの、不等式の変形において不等号の向きを反転させ忘れているため。"
+   },
+   {
+    "student_id": "Q066",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=-1，m=3 のとき x=3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_m",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "m=-6 のときに重解が x=3 となる計算において、重解 x=-b/(2a) や重解の条件に基づく m の値の導出を誤っているため。"
+   },
+   {
+    "student_id": "Q067",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m>16/3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "値は正しく求められているが、不等式の変形において負の数で割る際などに不等号の向きを反転させていないため。"
+   },
+   {
+    "student_id": "Q068",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m>16/3",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "値は合っているものの不等号の向きが逆になっており、負の数で割る際などに不等号の向きを反転させる処理を誤っているため。"
+   },
+   {
+    "student_id": "Q083",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "m<=16/3",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "生徒は数値の計算は正しく行えているものの、不等号に等号を含めるかどうかの判断を誤っているため。"
+   },
+   {
+    "student_id": "Q095",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=-1，m=-6 のとき x=-6",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "m=-6 のときの重解の計算において、x=-b/(2a) を正しく計算できずに誤った解を導いているため。"
+   },
+   {
+    "student_id": "Q097",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 2, 1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "discriminant_sign",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "2番目の問題において正解が0個であるところを2個と答えており、判別式の符号と共有点の個数の対応を誤って判断しているため。"
+   },
+   {
+    "student_id": "Q098",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6，m=2",
+    "judgment": "incomplete",
+    "corrected": true,
+    "source_result": "incomplete",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "$m$ の値は正しく求められているものの、それぞれの $m$ に対する重解 $x$ の計算が行われていないため。"
+   },
+   {
+    "student_id": "Q103",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=1，m=-6 のとき x=3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値は正しく求められているが，m=2のときの重解の計算において符号を誤ってx=1としているため。"
+   },
+   {
+    "student_id": "Q104",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "Eq(m,16/3)",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "値の計算自体は正しく行えているものの、不等式の問題に対して不等号ではなく等号を用いて答えてしまっているため。"
+   },
+   {
+    "student_id": "Q104",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6 のとき x=3，m=2 のとき x=1",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値は正しく求められているものの、m=2のときの重解の計算で符号を誤り、x=-1とすべきところをx=1としているため。"
+   },
+   {
+    "student_id": "Q105",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "(1<=m)&(m<=5)",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "discriminant_setup",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "判別式に代入する係数の読み取りや立式を誤り、本来1次不等式になるはずのところをmについての2次不等式などとして解いてしまっているため。"
+   },
+   {
+    "student_id": "Q106",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "(0<=m)&(m<=5)",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "exact_value",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正答である分数の値16/3を正確な値として扱わず、5などの整数に近似してしまっているため。"
+   },
+   {
+    "student_id": "Q113",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-2，m=6",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_m",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "重解となる定数mの値の符号が誤っているだけでなく、問われている重解xの値を計算して答えることができていません。"
+   },
+   {
+    "student_id": "Q118",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-6 のとき x=3，m=2 のとき x=1",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値自体は正しく求められているが、m=2のときの重解の計算において符号を誤りx=-1をx=1としているため。"
+   },
+   {
+    "student_id": "Q121",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=-1，m=-6 のとき x=3+2*sqrt(3)",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "m=-6のときの重解の計算において、重解 x=-b/(2a) を正しく求めることができていないため。"
+   },
+   {
+    "student_id": "Q122",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=2 のとき x=1，m=-6 のとき x=3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_root",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "mの値は正しく求められているが、m=2のときの重解xの符号を誤って計算しているため。"
+   },
+   {
+    "student_id": "Q133",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習31",
+    "nodes": [
+     "discriminant_setup",
+     "double_root"
+    ],
+    "expected": "m=2 のとき x=-1，m=-6 のとき x=3",
+    "answer": "m=-1 のとき x=2，m=3 のとき x=6",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong_m",
+    "error_node": "double_root",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解におけるパラメータ m と重解 x の値を逆に答えており，重解の条件や重解 x=−b/2a の扱いに誤りがあると考えられるため。"
+   },
+   {
+    "student_id": "Q136",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 2, 1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "discriminant_sign",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "2番目の小問において正解が0個であるところを2個と答えており、判別式の符号と共有点の個数の対応を正しく把握できていないため。"
+   },
+   {
+    "student_id": "Q136",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習30",
+    "nodes": [
+     "discriminant_setup",
+     "inequality_manipulation",
+     "exact_value"
+    ],
+    "expected": "m<16/3",
+    "answer": "Eq(m,16/3)",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "error_node": "inequality_manipulation",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "境界値の計算は正しくできているものの、不等号ではなく等号を用いてしまっており、不等式の扱いに関する知識に誤りがあると考えられるため。"
+   },
+   {
+    "student_id": "Q137",
+    "answer_sheet_id": "No.1",
+    "exercise_name": "No.1（判別式）",
+    "exercise_date": "2026-09-16",
+    "question": "練習29",
+    "nodes": [
+     "discriminant_setup",
+     "discriminant_sign"
+    ],
+    "expected": "2, 0, 1",
+    "answer": "2, 1, 1",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "error_node": "discriminant_sign",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "2つ目の問題において、判別式が負のときに共有点の個数が0個となる符号と個数の関係を正しく対応づけられていないため。"
+   }
+  ],
+  "No.8": [
+   {
+    "student_id": "T01",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P1_3",
+    "nodes": [
+     "side_identification"
+    ],
+    "expected": "sqrt(3)/2, 1/2, sqrt(3)",
+    "answer": "1/2, sqrt(3)/2, 1/sqrt(3)",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "side_identification",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T01",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P5",
+    "nodes": [
+     "application_modeling",
+     "trig_table_reading"
+    ],
+    "expected": "171, 470",
+    "answer": "171, 460.85",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "1つ目の値は正解しているものの、2つ目の値で指定された四捨五入などの桁の処理を行わずに小数のまま答えているため。"
+   },
+   {
+    "student_id": "T01",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P6",
+    "nodes": [
+     "application_modeling",
+     "trig_table_reading"
+    ],
+    "expected": "26.8",
+    "answer": "19.284",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "application_modeling",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "問題文の状況から正しく立式できず、正接を用いるべき場面で正弦を用いるなどの立式の誤りがあるため。"
+   },
+   {
+    "student_id": "T02",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P3_2",
+    "nodes": [
+     "trig_table_reading"
+    ],
+    "expected": "0.1219",
+    "answer": "0.9925",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T03",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P2_1",
+    "nodes": [
+     "special_angle_values"
+    ],
+    "expected": "sqrt(3)/2, sqrt(3)/3",
+    "answer": "sqrt(3)/2, 1/2",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "special_angle_values",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T03",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P2_2",
+    "nodes": [
+     "special_angle_values"
+    ],
+    "expected": "sqrt(2)/2, 1",
+    "answer": "1/sqrt(2), 1/sqrt(2)",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "special_angle_values",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T03",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P5",
+    "nodes": [
+     "application_modeling",
+     "trig_table_reading"
+    ],
+    "expected": "171, 470",
+    "answer": "141, 470",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "一方の値は正しく求められているものの、もう一方の値で三角比の表の読み取りやその後の数値処理を誤っているため。"
+   },
+   {
+    "student_id": "T05",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P1_3",
+    "nodes": [
+     "side_identification"
+    ],
+    "expected": "sqrt(3)/2, 1/2, sqrt(3)",
+    "answer": "1/2, sqrt(3)/2, 1/sqrt(3)",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "side_identification",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T05",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P4_1",
+    "nodes": [
+     "inverse_table_lookup"
+    ],
+    "expected": "15",
+    "answer": "sin(15*pi/180)",
+    "judgment": "form_issue",
+    "corrected": false,
+    "source_result": "form_issue",
+    "note": "θ=sin15° と記述",
+    "error_node": "inverse_table_lookup",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T05",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P4_2",
+    "nodes": [
+     "inverse_table_lookup"
+    ],
+    "expected": "58",
+    "answer": "cos(58*pi/180)",
+    "judgment": "form_issue",
+    "corrected": false,
+    "source_result": "form_issue",
+    "note": "θ=cos58° と記述",
+    "error_node": "inverse_table_lookup",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T05",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P4_3",
+    "nodes": [
+     "inverse_table_lookup"
+    ],
+    "expected": "77",
+    "answer": "tan(77*pi/180)",
+    "judgment": "form_issue",
+    "corrected": false,
+    "source_result": "form_issue",
+    "note": "θ=tan77° と記述",
+    "error_node": "inverse_table_lookup",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T14",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P1_3",
+    "nodes": [
+     "side_identification"
+    ],
+    "expected": "sqrt(3)/2, 1/2, sqrt(3)",
+    "answer": "1/2, sqrt(3)/2, sqrt(3)/3",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "side_identification",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T14",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P2_1",
+    "nodes": [
+     "special_angle_values"
+    ],
+    "expected": "sqrt(3)/2, sqrt(3)/3",
+    "answer": "sqrt(3)/2, 1/2",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "special_angle_values",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T14",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P2_3",
+    "nodes": [
+     "special_angle_values"
+    ],
+    "expected": "sqrt(3)/2, 1/2",
+    "answer": "sqrt(3)/2, sqrt(3)/2",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "special_angle_values",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T15",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P6",
+    "nodes": [
+     "application_modeling",
+     "trig_table_reading"
+    ],
+    "expected": "26.8",
+    "answer": "23.6",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": "25.2−1.6 と目の高さを引いた",
+    "error_node": "application_modeling",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "目の高さである1.6mを足すべきところを誤って引いて計算したと考えられ、場面の図示と立式に誤りがあります。"
+   },
+   {
+    "student_id": "T22",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P1_3",
+    "nodes": [
+     "side_identification"
+    ],
+    "expected": "sqrt(3)/2, 1/2, sqrt(3)",
+    "answer": "1/2, sqrt(3)/2, 1/sqrt(3)",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "side_identification",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T25",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P1_3",
+    "nodes": [
+     "side_identification"
+    ],
+    "expected": "sqrt(3)/2, 1/2, sqrt(3)",
+    "answer": "1/2, sqrt(3)/2, 1/sqrt(3)",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "side_identification",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T32",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P6",
+    "nodes": [
+     "application_modeling",
+     "trig_table_reading"
+    ],
+    "expected": "26.8",
+    "answer": "26.6",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": "30tan40°を25に丸めてから1.6を足した",
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "立式自体は概ね合っているものの、三角比の表の値を読み取る際に行や数値を誤ったか、端数処理の段階で数値を誤って読み取って計算したと考えられます。"
+   },
+   {
+    "student_id": "T37",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P3_1",
+    "nodes": [
+     "trig_table_reading"
+    ],
+    "expected": "0.4067",
+    "answer": "0.9135",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": "sin24°にcos24°の値（列の読み違い）",
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T38",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P6",
+    "nodes": [
+     "application_modeling",
+     "trig_table_reading"
+    ],
+    "expected": "26.8",
+    "answer": "26.6",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解の26.8に対して26.6とわずかな数値のずれが生じており、三角比の表から読み取った値や小数の端数処理を誤ったと考えられます。"
+   },
+   {
+    "student_id": "T39",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P2_1",
+    "nodes": [
+     "special_angle_values"
+    ],
+    "expected": "sqrt(3)/2, sqrt(3)/3",
+    "answer": "sqrt(3)/2, 1/2",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "special_angle_values",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T42",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P6",
+    "nodes": [
+     "application_modeling",
+     "trig_table_reading"
+    ],
+    "expected": "26.8",
+    "answer": "26.2",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": "25.2+1.6 の足し算ミス",
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解と値がわずかに異なっていることから、三角比の表から値を読み取る際に行や列、数値を誤って参照したと考えられます。"
+   },
+   {
+    "student_id": "T43",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P4_1",
+    "nodes": [
+     "inverse_table_lookup"
+    ],
+    "expected": "15",
+    "answer": "16",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "inverse_table_lookup",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T45",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P3_3",
+    "nodes": [
+     "trig_table_reading"
+    ],
+    "expected": "2.246",
+    "answer": "1.7321",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": "tan66°にtan60°の値（行の読み違い）",
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T46",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P3_1",
+    "nodes": [
+     "trig_table_reading"
+    ],
+    "expected": "0.4067",
+    "answer": "0.41",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": "小数第2位に丸めた",
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T46",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P3_2",
+    "nodes": [
+     "trig_table_reading"
+    ],
+    "expected": "0.1219",
+    "answer": "0.12",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": "小数第2位に丸めた",
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T46",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P3_3",
+    "nodes": [
+     "trig_table_reading"
+    ],
+    "expected": "2.246",
+    "answer": "2.2",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": "小数第1位に丸めた",
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T46",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P5",
+    "nodes": [
+     "application_modeling",
+     "trig_table_reading"
+    ],
+    "expected": "171, 470",
+    "answer": "170, 460",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": "0.34, 0.93 と丸めた値で計算",
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "正解に対して数値がわずかにずれており、三角比の表の読み取りや端数処理などの桁の扱いに誤りがあると考えられるため。"
+   },
+   {
+    "student_id": "T47",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P1_3",
+    "nodes": [
+     "side_identification"
+    ],
+    "expected": "sqrt(3)/2, 1/2, sqrt(3)",
+    "answer": "1/2, sqrt(3)/2, 1/sqrt(3)",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "side_identification",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T50",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P5",
+    "nodes": [
+     "application_modeling",
+     "trig_table_reading"
+    ],
+    "expected": "171, 470",
+    "answer": "171, 500",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "1つ目の値は正しく求められていることから立式はできており、2つ目の値において三角比の表の読み取りや指定された桁への四捨五入などの処理を誤ったと考えられます。"
+   },
+   {
+    "student_id": "T52",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P4_1",
+    "nodes": [
+     "inverse_table_lookup"
+    ],
+    "expected": "15",
+    "answer": "sin(15*pi/180)",
+    "judgment": "form_issue",
+    "corrected": true,
+    "source_result": "form_issue",
+    "note": "sin15° と記述",
+    "error_node": "inverse_table_lookup",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T52",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P4_2",
+    "nodes": [
+     "inverse_table_lookup"
+    ],
+    "expected": "58",
+    "answer": "cos(58*pi/180)",
+    "judgment": "form_issue",
+    "corrected": true,
+    "source_result": "form_issue",
+    "note": "cos58° と記述",
+    "error_node": "inverse_table_lookup",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T52",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P4_3",
+    "nodes": [
+     "inverse_table_lookup"
+    ],
+    "expected": "77",
+    "answer": "tan(77*pi/180)",
+    "judgment": "form_issue",
+    "corrected": true,
+    "source_result": "form_issue",
+    "note": "tan77° と記述",
+    "error_node": "inverse_table_lookup",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T52",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P6",
+    "nodes": [
+     "application_modeling",
+     "trig_table_reading"
+    ],
+    "expected": "26.8",
+    "answer": "37.3",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": "0.84x=30 と tan の向きを逆に立式",
+    "error_node": "application_modeling",
+    "diagnosis_method": "llm",
+    "diagnosis_note": "仰角や距離の関係から高さを求める直角三角形の立式において、乗除の計算や三角比の適用を誤っているため。"
+   },
+   {
+    "student_id": "T57",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P4_1",
+    "nodes": [
+     "inverse_table_lookup"
+    ],
+    "expected": "15",
+    "answer": "sin(15*pi/180)",
+    "judgment": "form_issue",
+    "corrected": false,
+    "source_result": "form_issue",
+    "note": "sin15° と記述",
+    "error_node": "inverse_table_lookup",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T57",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P4_2",
+    "nodes": [
+     "inverse_table_lookup"
+    ],
+    "expected": "58",
+    "answer": "cos(58*pi/180)",
+    "judgment": "form_issue",
+    "corrected": false,
+    "source_result": "form_issue",
+    "note": "cos58° と記述",
+    "error_node": "inverse_table_lookup",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T57",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P4_3",
+    "nodes": [
+     "inverse_table_lookup"
+    ],
+    "expected": "77",
+    "answer": "tan(77*pi/180)",
+    "judgment": "form_issue",
+    "corrected": false,
+    "source_result": "form_issue",
+    "note": "tan77° と記述",
+    "error_node": "inverse_table_lookup",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T59",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P3_2",
+    "nodes": [
+     "trig_table_reading"
+    ],
+    "expected": "0.1219",
+    "answer": "0.7880",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": "cos83°にcos38°の値（角度の読み違い）",
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T61",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P1_1",
+    "nodes": [
+     "side_identification"
+    ],
+    "expected": "sqrt(5)/5, 2*sqrt(5)/5, 1/2",
+    "answer": "1/sqrt(5), 2/sqrt(5), sqrt(5)/2",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "side_identification",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T61",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P1_2",
+    "nodes": [
+     "side_identification"
+    ],
+    "expected": "5/13, 12/13, 5/12",
+    "answer": "5/13, 12/13, 13/12",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "side_identification",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T63",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P3_2",
+    "nodes": [
+     "trig_table_reading"
+    ],
+    "expected": "0.1219",
+    "answer": "0.12",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": "小数第2位に丸めた",
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T63",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P3_3",
+    "nodes": [
+     "trig_table_reading"
+    ],
+    "expected": "2.246",
+    "answer": "2.25",
+    "judgment": "wrong",
+    "corrected": true,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T68",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P2_1",
+    "nodes": [
+     "special_angle_values"
+    ],
+    "expected": "sqrt(3)/2, sqrt(3)/3",
+    "answer": "sqrt(3)/2, 1/2",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "special_angle_values",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T69",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P1_3",
+    "nodes": [
+     "side_identification"
+    ],
+    "expected": "sqrt(3)/2, 1/2, sqrt(3)",
+    "answer": "1/2, sqrt(3)/2, sqrt(3)/3",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": null,
+    "error_node": "side_identification",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   },
+   {
+    "student_id": "T70",
+    "answer_sheet_id": "No.8",
+    "exercise_name": "No.8（三角比）",
+    "exercise_date": "2026-10-01",
+    "question": "P3_3",
+    "nodes": [
+     "trig_table_reading"
+    ],
+    "expected": "2.246",
+    "answer": "1.7321",
+    "judgment": "wrong",
+    "corrected": false,
+    "source_result": "wrong",
+    "note": "tan66°にtan60°の値（行の読み違い）",
+    "error_node": "trig_table_reading",
+    "diagnosis_method": "single_node",
+    "diagnosis_note": "依存するノードが一つのため，そのノードの誤りとした"
+   }
+  ]
+ }
+}

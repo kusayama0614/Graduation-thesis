@@ -404,12 +404,37 @@
                     `${L.escapeHtml(page.file_id ? fileName(page.file_id) : '')} ${page.page_index + 1}ページ目`, false);
             }).concat(groups.map((g) => reviewRow(g.front_page_id, g.issue_labels,
                 `<strong>${L.escapeHtml(groupLabel(g))}</strong>　No.${g.print_no || '?'}　${L.escapeHtml(g.file_name || '')} ${detail.pages[g.front_page_id].page_index + 1}ページ目${g.page_ids.length > 1 ? `（＋裏面 ${g.page_ids.length - 1}）` : ''}`,
-                g.issues.every((i) => ['low_confidence', 'class_mismatch'].includes(i)))));
+                g.issues.every((i) => ['low_confidence', 'class_mismatch'].includes(i)), quickActions(g))));
             document.getElementById('reviewList').innerHTML = rows.length ? rows.join('')
                 : `<p class="empty">${detail.batch.reading ? '読み取りの途中です' : '確認が必要な答案はありません'}</p>`;
         }
 
-        function reviewRow(pageId, issues, label, canConfirm) {
+        /* よくある直し方をボタン1つで: ファイルのクラスに合わせる・重複の相手を示して対象外にする */
+        function quickActions(g) {
+            const file = detail.batch.files.find((f) => f.id === g.file_id) || {};
+            const parts = [];
+            if ((g.issues.includes('class_mismatch') || g.issues.includes('missing_class')) && file.class_no) {
+                parts.push(`<button class="button button-small" onclick="quickFix('${g.front_page_id}', { class_no: ${file.class_no}${file.grade && !g.grade ? `, grade: ${file.grade}` : ''} })">${file.class_no}組に直す</button>`);
+            }
+            if (g.issues.includes('duplicate')) {
+                const others = detail.groups.filter((o) => o !== g && o.key && g.key && o.key.join('-') === g.key.join('-'));
+                const where = others.map((o) => `<a href="#" onclick="openModal('${o.front_page_id}'); return false;">${L.escapeHtml(o.file_name || '')} ${detail.pages[o.front_page_id].page_index + 1}ページ目</a>`).join('，');
+                parts.push(`<button class="button button-light button-small" onclick="quickFix('${g.front_page_id}', { kind: 'excluded' })">この答案を対象外にする</button>`);
+                parts.push(`<span class="muted">もう一方: ${where}（別の生徒の番号の読み違いなら「直す」で番号を直す）</span>`);
+            }
+            return parts.join(' ');
+        }
+
+        async function quickFix(pageId, body) {
+            try {
+                await L.api('PATCH', `/bulk/pages/${pageId}`, body);
+                await openBatch(currentBatchId);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        function reviewRow(pageId, issues, label, canConfirm, actions) {
             const page = detail.pages[pageId];
             return `<div class="review-row">
                 <img class="thumb" loading="lazy" src="${imageUrl(pageId)}" onclick="openModal('${pageId}')" alt="ページの見出し">
@@ -420,6 +445,7 @@
                     <div class="button-row" style="margin-top: 8px;">
                         <button class="button button-light button-small" onclick="openModal('${pageId}')">直す</button>
                         ${canConfirm ? `<button class="button button-small" onclick="confirmPages(['${pageId}'])">正しい</button>` : ''}
+                        ${actions || ''}
                     </div>
                 </div>
             </div>`;

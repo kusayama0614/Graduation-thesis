@@ -1,0 +1,267 @@
+{
+ "No.1|Q001|練習31|m=2 のとき x=-1|incomplete|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "重解をもつためのmの値が2つ存在するにもかかわらず、1つしか求めていないため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q005|練習30|16/3>=m|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正答は等号を含まない不等式ですが、生徒の解答は等号を含んでしまっているため。",
+  "error_node": "inequality_manipulation"
+ },
+ "No.1|Q009|練習31|m=2，m=-6 のとき x=3|incomplete|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "mの値は正しく求めているが、それぞれのmの値に応じた重解xの計算を正しく行えていないため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q016|練習31|m=-6 のとき x=3，m=2 のとき x=1|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "mの値は正しく求められているが、m=2のときの重解の計算で符号を誤っているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q017|練習30|D<16/3|form_issue|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "求めるべきパラメータmではなく判別式Dを変数として答えてしまっているため。",
+  "error_node": "discriminant_setup"
+ },
+ "No.1|Q022|練習29|2, 0, 0|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "3つ目の問題において、判別式がD=0となる場合の実数解または共有点の個数を1個ではなく0個と誤認しているため。",
+  "error_node": "discriminant_sign"
+ },
+ "No.1|Q026|練習31|m=-6，m=2|incomplete|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "mの値は正しく求められているが対応する重解xの値を計算していないため",
+  "error_node": "double_root"
+ },
+ "No.1|Q027|練習30|m<5|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解である分数16/3を近似し、不適切に整数の5として解答しているため。",
+  "error_node": "exact_value"
+ },
+ "No.1|Q027|練習31|m=0，m=12|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "誤ったmの値を導いており、重解の計算にも至っていないことから、判別式に正しい係数を代入して立式できていないと考えられるため。",
+  "error_node": "discriminant_setup"
+ },
+ "No.1|Q029|練習29|2, 1, 1|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "判別式が負となる問題において、共有点の個数を0個とすべきところを誤って1個と答えているため。",
+  "error_node": "discriminant_sign"
+ },
+ "No.1|Q030|練習31|m=2 のとき x=-1，m=-6|incomplete|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "m=-6のときの重解の値を計算して解答に含めていないため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q031|練習30|m>16/3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解と比較して不等号の向きが逆になっているため、不等式の処理において負の数で割るなどの操作で誤ったと考えられます。",
+  "error_node": "inequality_manipulation"
+ },
+ "No.1|Q034|練習31|m=1+2*sqrt(3)，m=1-2*sqrt(3)|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "生徒の解答は重解をもつためのmの値が正解と異なっており、判別式を立式する際の係数の読み取りや計算を誤ったと考えられるため。",
+  "error_node": "discriminant_setup"
+ },
+ "No.1|Q037|練習30|m>16/3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解と数値は完全に一致しているが、不等号の向きが逆になっているため。",
+  "error_node": "inequality_manipulation"
+ },
+ "No.1|Q048|練習31|m=2 のとき x=1，m=-6 のとき x=-3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "重解となるmの値は正しく求められているが、重解x=-b/2aを求める計算で符号のミスをしているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q049|練習31|m=11/4|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "重解をもつためのmの値が1つしか求まっておらず、重解自体も答えていないことから、判別式の立式において係数の読み取りや代入を誤っていると考えられるため。",
+  "error_node": "discriminant_setup"
+ },
+ "No.1|Q050|練習30|m<5|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解である分数16/3を整数5に丸めてしまっているため。",
+  "error_node": "exact_value"
+ },
+ "No.1|Q057|練習31|m=6，m=-2|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "生徒はmの値を求めているがその符号が正解と逆になっており、判別式を立てて解く過程で係数の読み取りや立式を誤ったと考えられるため。",
+  "error_node": "discriminant_setup"
+ },
+ "No.1|Q058|練習31|m=2，m=-6|incomplete|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "mの値を求めた後、それぞれのmに対する重解xの値を計算する過程が不足しているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q060|練習30|m<5.3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解の分数である16/3を小数5.3で近似して答えているため。",
+  "error_node": "exact_value"
+ },
+ "No.1|Q062|練習31|m=-6 のとき x=3|incomplete|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "m=-6のときの重解は正しく求められているが、重解の条件から得られるもう一つの値であるm=2を見落としているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q063|練習29|2, 2, 1|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "判別式が負の場合の実数解または共有点の個数を0個ではなく2個と誤って判定していると考えられるため。",
+  "error_node": "discriminant_sign"
+ },
+ "No.1|Q063|練習30|m>16/3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解と不等号の向きが逆になっており、不等式を解く過程で負の数で割る際などの不等号の向きの処理を誤ったと考えられるため。",
+  "error_node": "inequality_manipulation"
+ },
+ "No.1|Q066|練習31|m=2 のとき x=-1，m=3 のとき x=3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "生徒の解答にあるm=3のときの重解x=3という組は、重解の公式x=-b/2aの関係を満たしておらず、重解の計算において誤っているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q067|練習30|m>16/3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "生徒の解答は正解と比べて不等号の向きが逆になっているため、不等式の変形における誤りだと判断できます。",
+  "error_node": "inequality_manipulation"
+ },
+ "No.1|Q068|練習30|m>16/3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解と不等号の向きが逆になっているため、負の数で割る際の不等号の反転を忘れたと考えられます。",
+  "error_node": "inequality_manipulation"
+ },
+ "No.1|Q083|練習30|m<=16/3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解の不等号「<」に対して等号付きの不等号「<=」を誤って使用しているため。",
+  "error_node": "inequality_manipulation"
+ },
+ "No.1|Q095|練習31|m=2 のとき x=-1，m=-6 のとき x=-6|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "m=-6のときの重解の計算を誤っているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q097|練習29|2, 2, 1|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解が0個である問題に対して2個と答えていることから、判別式の立式や計算を誤って判別式を正の値にしてしまったと考えられるため。",
+  "error_node": "discriminant_setup"
+ },
+ "No.1|Q098|練習31|m=-6，m=2|incomplete|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "定数mの値は正しく求められているが、そのときの重解xの値を求める手順が不足しているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q103|練習31|m=2 のとき x=1，m=-6 のとき x=3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "mの値は正しく求められているが、m=2のときの重解の符号を誤って計算しているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q104|練習30|Eq(m,16/3)|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "生徒は不等式で答えるべきところを方程式として答えており、等号の有無に関する不等式の扱いを誤っているため。",
+  "error_node": "inequality_manipulation"
+ },
+ "No.1|Q104|練習31|m=-6 のとき x=3，m=2 のとき x=1|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "生徒はmの値とm=-6のときの重解は正しく求めているが、m=2のときの重解の符号を誤って計算しているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q105|練習30|(1<=m)&(m<=5)|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解の境界値である分数16/3を近似してしまい、整数の範囲として解答しているため。",
+  "error_node": "exact_value"
+ },
+ "No.1|Q106|練習30|(0<=m)&(m<=5)|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解の境界値である分数16/3をそのまま解答に用いず、整数5に近似して答えてしまっているため。",
+  "error_node": "exact_value"
+ },
+ "No.1|Q113|練習31|m=-2，m=6|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "生徒は得られたmの値の符号が逆になっているため、判別式を立式する際の定数項などの係数の読み取りや符号を間違えたと考えられます。",
+  "error_node": "discriminant_setup"
+ },
+ "No.1|Q118|練習31|m=-6 のとき x=3，m=2 のとき x=1|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "mの値は正しく求められているが、m=2のときの重解の計算を誤っているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q121|練習31|m=2 のとき x=-1，m=-6 のとき x=3+2*sqrt(3)|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "mの値は正解と同じで正しく求まっているが、m=-6を代入したあとの重解の計算で誤っているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q122|練習31|m=2 のとき x=1，m=-6 のとき x=3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "mの値は正しく求められているが、m=2のときの重解xの符号を誤って計算しているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q133|練習31|m=-1 のとき x=2，m=3 のとき x=6|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "定数mの値を求める手順とそのときの重解xの値を求める手順を混同し、mとxの値を入れ替えて解答しているため。",
+  "error_node": "double_root"
+ },
+ "No.1|Q136|練習29|2, 2, 1|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "判別式の符号が負のときの共有点の個数を0個ではなく2個と誤答しているため。",
+  "error_node": "discriminant_sign"
+ },
+ "No.1|Q136|練習30|Eq(m,16/3)|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解が不等式であるのに対し生徒は等式で答えており不等号の有無に関する誤りであるため。",
+  "error_node": "inequality_manipulation"
+ },
+ "No.1|Q137|練習29|2, 1, 1|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "判別式が負の場合の実数解または共有点の個数を0個ではなく1個と誤って解答しているため。",
+  "error_node": "discriminant_sign"
+ },
+ "No.8|T01|P5|171, 460.85|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "計算後の有効数字や四捨五入などの指定された桁の処理を行わずに、そのまま小数で解答しているため。",
+  "error_node": "trig_table_reading"
+ },
+ "No.8|T01|P6|19.284|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "場面の図示や立式を誤り、本来用いるべき正接（tan）ではなく正弦（sin）を用いて計算してしまったため。",
+  "error_node": "application_modeling"
+ },
+ "No.8|T03|P5|141, 470|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "一方の値は正解しているものの、もう一方の値が異なっており、問題の場面を正確に図示して正しい関係式を立てる過程で誤りが生じたと考えられるため。",
+  "error_node": "application_modeling"
+ },
+ "No.8|T15|P6|23.6|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "場面の図示や立式の際に、cosを用いて計算すべきところを誤ってsinを用いて立式してしまったと考えられるため。",
+  "error_node": "application_modeling"
+ },
+ "No.8|T32|P6|26.6|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解と非常に近い値が算出されているため、立式ではなく三角比の表から値を読み取る際に誤った値を参照してしまったと考えられるから。",
+  "error_node": "trig_table_reading"
+ },
+ "No.8|T38|P6|26.6|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "生徒の解答は正解とわずかに異なる数値であり、三角比の表から値を読み取る際に見間違えたと考えられるため。",
+  "error_node": "trig_table_reading"
+ },
+ "No.8|T42|P6|26.2|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "仰角の測量問題などにおいて、図示から立式する際に目の高さの加算を誤るなど、状況のモデル化に失敗していると考えられるため。",
+  "error_node": "application_modeling"
+ },
+ "No.8|T46|P5|170, 460|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "生徒の解答は正解に非常に近い値であることから立式自体は正しく行えており、三角比の表から読み取った値の計算における丸め方や桁の扱いを誤ったと考えられるため。",
+  "error_node": "trig_table_reading"
+ },
+ "No.8|T50|P5|171, 500|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "水平距離を求める場面で斜辺の長さをそのまま答えており、図形的な関係の把握と立式に誤りがあるため。",
+  "error_node": "application_modeling"
+ },
+ "No.8|T52|P6|37.3|wrong|gemini-3.1-pro-preview": {
+  "diagnosis_method": "llm",
+  "diagnosis_note": "正解の26.8が $100\\tan 15^\\circ \\approx 26.8$ から導かれるのに対し、誤答の37.3は図示や立式を誤って $100/\\tan 15^\\circ \\approx 373.2$ を計算した上で桁を間違えたか、用いる角を取り違えたことに起因すると考えられるため。",
+  "error_node": "application_modeling"
+ }
+}

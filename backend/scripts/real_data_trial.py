@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from collections import Counter
@@ -131,16 +132,52 @@ def no8_records(transcription, verify_chain) -> List[Dict[str, Any]]:
     return records
 
 
-def diagnose_all(records: List[Dict[str, Any]], llm, mode: str, log) -> None:
+DIAGNOSIS_CACHE = os.path.join(REPO_DIR, 'docs', 'trial', 'diagnosis_cache.json')
+
+
+def _diagnosis_key(record: Dict[str, Any], model: str) -> str:
+    return '|'.join([record['answer_sheet_id'], record['student_id'], record['question'],
+                     str(record.get('answer')), record['judgment'], model])
+
+
+def load_diagnosis_cache() -> Dict[str, Dict[str, Any]]:
+    try:
+        with open(DIAGNOSIS_CACHE, encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_diagnosis_cache(cache: Dict[str, Dict[str, Any]]) -> None:
+    os.makedirs(os.path.dirname(DIAGNOSIS_CACHE), exist_ok=True)
+    with open(DIAGNOSIS_CACHE, 'w', encoding='utf-8') as f:
+        json.dump(cache, f, ensure_ascii=False, indent=1, sort_keys=True)
+
+
+def diagnose_all(records: List[Dict[str, Any]], llm, mode: str, log,
+                 cache: Optional[Dict[str, Dict[str, Any]]] = None) -> int:
+    """誤答の誤りの種類を診断する。同じ答えの診断は保存済みの結果を使い，LLM を呼び直さない。
+
+    戻り値: LLM を呼んだ回数。
+    """
     targets = [r for r in records if r['judgment'] in J.ERROR_JUDGMENTS]
+    model = getattr(llm, 'model_name', '') if mode == 'llm' else 'first'
+    calls = 0
     for index, record in enumerate(targets, start=1):
-        if mode == 'llm':
-            node, method, note = diagnose_error(record, llm)
-        else:
-            node, method, note = diagnose_error(record, None)
+        key = _diagnosis_key(record, model)
+        if cache is not None and key in cache:
+            record.update(cache[key])
+            continue
+        node, method, note = diagnose_error(record, llm if mode == 'llm' else None)
         record.update(error_node=node, diagnosis_method=method, diagnosis_note=note)
-        if method == 'llm' and index % 10 == 0:
-            log(f'  診断 {index}/{len(targets)}')
+        if method == 'llm':
+            calls += 1
+            if cache is not None:  # 診断できたものだけ保存する（失敗時のフォールバックは保存しない）
+                cache[key] = {'error_node': node, 'diagnosis_method': method, 'diagnosis_note': note}
+                save_diagnosis_cache(cache)
+            if calls % 10 == 0:
+                log(f'  診断 {index}/{len(targets)}（Gemini 呼び出し {calls} 回）')
+    return calls
 
 
 def build_profiles(records: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -350,6 +387,7 @@ def main(argv=None) -> int:
     parser.add_argument('--diagnosis', choices=('llm', 'first'), default='llm')
     parser.add_argument('--no-embedding', action='store_true')
     parser.add_argument('--fake-llm', action='store_true')
+    parser.add_argument('--refresh-diagnosis', action='store_true', help='保存済みの診断を使わず診断し直す')
     parser.add_argument('--out', default=os.path.join(REPO_DIR, 'docs', 'trial'))
     args = parser.parse_args(argv)
 
@@ -372,6 +410,7 @@ def main(argv=None) -> int:
         llm = GeminiChatClient(key)
         embedder = None if args.no_embedding else GeminiEmbeddingClient(key)
 
+    diagnosis_cache = {} if args.refresh_diagnosis else load_diagnosis_cache()
     transcription, verify_chain = _load_prototype()
     record_sets = {'No.1': no1_records(transcription, verify_chain), 'No.8': no8_records(transcription, verify_chain)}
 
@@ -381,7 +420,8 @@ def main(argv=None) -> int:
         problem = dict(PROBLEMS[name])
         records = record_sets[problem['exercise']]
         log(f'{problem["exercise"]}: 誤りの種類を診断（{args.diagnosis}）')
-        diagnose_all(records, llm, args.diagnosis, log)
+        calls = diagnose_all(records, llm, args.diagnosis, log, None if args.fake_llm else diagnosis_cache)
+        log(f'  診断完了（Gemini 呼び出し {calls} 回，残りは保存済みの診断を使用）')
         profiles = build_profiles(records)
         all_records[problem['exercise']] = records
 
@@ -448,5 +488,23 @@ def main(argv=None) -> int:
     return 0
 
 
+def _run() -> int:
+    try:
+        return main()
+    except Exception as exc:  # 利用上限（429）は原因と再開の目安を表示して終了する
+        text = str(exc)
+        if 'RESOURCE_EXHAUSTED' in text or '429' in text:
+            wait = re.search(r'retry in ([0-9hms.]+)', text)
+            per_day = 'per_day' in text or 'PerDay' in text
+            print('\nGemini API の利用上限に達したため中断しました。', file=sys.stderr)
+            print(f'  上限の種類: {"1日あたりのリクエスト数" if per_day else "短時間あたりのリクエスト数"}', file=sys.stderr)
+            if wait:
+                print(f'  再開の目安: {wait.group(1).rstrip(".")} 後', file=sys.stderr)
+            print('  診断結果は docs/trial/diagnosis_cache.json に保存済みなので，再実行すると続きから診断します。',
+                  file=sys.stderr)
+            return 2
+        raise
+
+
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(_run())

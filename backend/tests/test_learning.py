@@ -688,3 +688,14 @@ def test_e_is_a_plain_letter_not_napier_constant():
     result = chain.verify_step(3, {'claims': [_claim('H', 'h+e'), _claim('H', '14.004+1.5')], 'final_answer': ''},
                                {'h': '14.004'})
     assert result['ok']   # e をネイピア数と読んで 14.004 + 2.718 と比べない
+
+
+def test_sympy_eq_notation_from_llm_is_understood(recwarn):
+    from app.utils.math_verification import check_relation_step
+    result = check_relation_step('Eq(2*x, 4)', 'Eq(x, 2)')
+    assert result['status'] == 'ok'
+    assert verify_no_sympy_warning(recwarn)
+
+
+def verify_no_sympy_warning(recwarn):
+    return not any('non-Expr' in str(w.message) for w in recwarn.list)

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import sympy as sp
@@ -88,8 +89,23 @@ _LATEX_COMMANDS = [
 ]
 
 
+def _unwrap_sympy_eq(text: str) -> str:
+    """LLM が sympy の書き方で返す「Eq(左辺, 右辺)」を「左辺 = 右辺」に直す。"""
+    stripped = text.strip()
+    if not (stripped.startswith('Eq(') and stripped.endswith(')')):
+        return text
+    inner, depth = stripped[3:-1], 0
+    for index, ch in enumerate(inner):
+        depth += ch == '('
+        depth -= ch == ')'
+        if ch == ',' and depth == 0:
+            return f'{inner[:index].strip()} = {inner[index + 1:].strip()}'
+    return text
+
+
 def _delatex(text: str) -> str:
-    """LLM が返しがちな LaTeX 表記（\\frac{49}{8} など）を通常の式の表記に直す。"""
+    """LLM が返しがちな LaTeX 表記（\\frac{49}{8} など）や Eq(...) を通常の式の表記に直す。"""
+    text = _unwrap_sympy_eq(text)
     if '\\' not in text and '$' not in text:
         return text
     text = text.replace('$', '')
@@ -182,6 +198,17 @@ def _to_expr(part: str) -> sp.Basic:
     part = part.strip()
     if not part:
         raise _Unparseable('空の式')
+    try:
+        with warnings.catch_warnings():  # 解釈できない式で出る sympy の非推奨警告は表示しない（解釈失敗として扱う）
+            warnings.simplefilter('ignore')
+            return _to_expr_inner(part)
+    except _Unparseable:
+        raise
+    except (Exception, RecursionError) as exc:
+        raise _Unparseable(f'解釈失敗: {exc.__class__.__name__}')
+
+
+def _to_expr_inner(part: str) -> sp.Basic:
     try:
         unevaluated = parse_expr(
             part, local_dict={}, global_dict=dict(_ALLOWED_NAMES),

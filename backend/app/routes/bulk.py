@@ -422,7 +422,8 @@ def answer_keys():
     """組み込みの解答キー（プリント番号ごとの小問・正解・前提知識ノード）。"""
     return make_success_response({'prints': {
         no: {'title': entry['title'], 'unit': entry['unit'],
-             'questions': [{k: q.get(k) for k in ('question', 'problem', 'answer', 'kind', 'nodes')} for q in entry['questions']]}
+             'questions': [{k: q.get(k) for k in ('question', 'problem', 'answer', 'kind', 'nodes', 'shape_options')}
+                           for q in entry['questions']]}
         for no, entry in T.load_answer_keys().items()}})
 
 
@@ -497,7 +498,7 @@ def update_transcription(answer_sheet_id):
         if question not in key:
             return make_error_response('BULK_UNKNOWN_QUESTION', f'小問 {question} は解答キーにありません', 400)
         entry = dict(current.get(question) or {})
-        for field in ('initial_text', 'initial_math', 'corrected_text', 'note'):
+        for field in ('initial_text', 'initial_math', 'corrected_text', 'note', 'graph_shape', 'graph_points'):
             if field in change:
                 entry[field] = str(change[field] or '').strip()[:500]
         for field in ('blank', 'unreadable', 'form_issue'):
@@ -513,7 +514,8 @@ def update_transcription(answer_sheet_id):
              for q in key]
     for item in items:
         item['needs_review'] = False  # 教員が確かめたので，確認が必要な印は外す
-        for field, default in (('initial_text', ''), ('initial_math', ''), ('corrected_text', ''), ('self_mark', 'none')):
+        for field, default in (('initial_text', ''), ('initial_math', ''), ('corrected_text', ''), ('self_mark', 'none'),
+                               ('graph_shape', ''), ('graph_points', '')):
             item.setdefault(field, default)
     bulk.save_transcription(row, db.session.get(AnswerSheet, answer_sheet_id), items, 'confirmed')
     db.session.commit()

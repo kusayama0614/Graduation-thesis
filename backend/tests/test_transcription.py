@@ -35,7 +35,7 @@ ITEMS = {(p, q['question']): q for p, v in T.load_answer_keys().items() for q in
     ('8', '練習7', '約6°', 'correct'),
     ('9', '練習10(1)', 'sin74°', 'wrong'),                  # 値は等しいが求める形ではない
     ('9', '練習10(3)', '1/tan25°', 'correct'),
-    ('7', '練習1(1)', 'y=x+2', 'unmarked'),                 # グラフは自動判定しない
+    ('7', '練習1(1)', 'y=x+2', 'wrong'),                    # グラフの式が区間で一致しない
     ('1', '練習30', '', 'blank'),
 ])
 def test_grade_item(print_no, question, answer, expected):
@@ -64,3 +64,29 @@ def test_form_issue_and_review_flags():
     assert item['judgment'] == 'form_issue' and item['needs_review'] is True
     assert T.grade_transcribed(q, {'initial_math': '', 'blank': True})['judgment'] == 'blank'
     assert T.grade_transcribed(q, {'initial_math': '15', 'unreadable': True})['judgment'] == 'unreadable'
+
+
+def _graph(question, **entry):
+    return T.grade_transcribed(ITEMS[('7', question)], {'confidence': 'high', **entry})
+
+
+def test_graph_grading():
+    s1 = ITEMS[('7', '練習1(1)')]['expected_shape']
+    s2 = ITEMS[('7', '練習1(2)')]['expected_shape']
+    s3 = ITEMS[('7', '練習1(3)')]['expected_shape']
+    assert _graph('練習1(1)', graph_shape=s1, graph_points='(-2,0),(0,2)')['judgment'] == 'correct'
+    missing = _graph('練習1(1)', graph_shape=s1, graph_points='(-2, 0)')
+    assert missing['judgment'] == 'incomplete' and '(0, 2)' in missing['grade_note']
+    off = _graph('練習1(1)', graph_shape=s1, graph_points='(2,0),(0,2)')  # 頂点の符号の誤り
+    assert off['judgment'] == 'wrong' and off['method'] == 'graph_point_off_curve'
+    assert _graph('練習1(1)', graph_shape='直線', graph_points='(-2,0),(0,2)')['judgment'] == 'wrong'
+    assert _graph('練習1(1)', graph_shape=s1, graph_points='(-2,0),(0,2)',
+                  initial_math='x≧-2 のとき y=x+2；x<-2 のとき y=x-2')['method'] == 'graph_expression'
+    assert _graph('練習1(2)', graph_shape=s2, graph_points='(-1,0),(3,0),(0,3),(1,4)',
+                  initial_math='x≦-1, 3≦x のとき y=x^2-2x-3；-1<x<3 のとき y=-x^2+2x+3')['judgment'] == 'correct'
+    assert _graph('練習1(2)', graph_shape=s2, graph_points='(-1,0),(3,0),(0,3),(1,-4)')['judgment'] == 'wrong'
+    assert _graph('練習1(3)', graph_shape=s3, graph_points='(-1,-1),(1,-1),(0,0),(-2,0),(2,0)')['judgment'] == 'correct'
+    assert _graph('練習1(3)', graph_shape='', graph_points='')['judgment'] == 'blank'
+    summary = T.question_results([_graph('練習1(1)', graph_shape=s1, graph_points='(-2,0),(0,2)')])[0]['answer']
+    assert summary.startswith('形: V字') and '点: (-2,0),(0,2)' in summary
+    assert '形の選択肢' in T.transcribe_prompt(T.key_items(7))

@@ -525,16 +525,28 @@
                 <tr data-index="${index}" style="${i.needs_review ? 'background: #fff8ec;' : ''}">
                     <td class="nowrap"><strong>${L.escapeHtml(i.question)}</strong>${i.needs_review ? '<div class="badge badge-ng">要確認</div>' : ''}</td>
                     <td class="muted" style="min-width: 80px; max-width: 150px;">${L.escapeHtml(i.expected || '')}</td>
-                    <td><input type="text" class="tx-math" value="${L.escapeHtml(i.initial_math || '')}" style="min-width: 120px;">
+                    <td>${i.kind === 'graph' ? graphInputs(i) : ''}<input type="text" class="tx-math" value="${L.escapeHtml(i.initial_math || '')}" style="min-width: 120px;"${i.kind === 'graph' ? ' placeholder="式（例: x≧-2 のとき y=x+2；…）"' : ''}>
                         ${i.initial_text && i.initial_text !== i.initial_math ? `<div class="muted">記述: ${L.escapeHtml(i.initial_text)}</div>` : ''}
                         ${i.note ? `<div class="muted">メモ: ${L.escapeHtml(i.note)}</div>` : ''}</td>
                     <td><input type="text" class="tx-corrected" value="${L.escapeHtml(i.corrected_text || '')}" style="min-width: 70px;"></td>
                     <td><input type="checkbox" class="tx-blank" ${i.blank ? 'checked' : ''}></td>
                     <td><input type="checkbox" class="tx-form" title="意図は分かるが書き方に問題がある" ${i.form_issue ? 'checked' : ''}></td>
-                    <td class="nowrap">${L.judgmentBadge(i.judgment)}</td>
+                    <td class="nowrap">${L.judgmentBadge(i.judgment)}${i.grade_note ? `<div class="muted" style="white-space: normal; max-width: 180px;">${L.escapeHtml(i.grade_note)}</div>` : ''}</td>
                 </tr>`).join('');
             document.getElementById('txNotice').innerHTML = '';
             document.getElementById('txModal').classList.remove('hidden');
+        }
+
+        /* グラフの小問: 形（選択肢）と書かれた点を直せるようにする */
+        function graphInputs(item) {
+            const key = (builtinKeys[String(txCurrent.print_no)] || { questions: [] }).questions.find((q) => q.question === item.question) || {};
+            const options = ['', ...(key.shape_options || [])];
+            if (item.graph_shape && !options.includes(item.graph_shape)) {
+                options.push(item.graph_shape);
+            }
+            return `<select class="tx-shape" style="margin: 0 0 4px; font-size: 12px;">${options.map((o) =>
+                `<option value="${L.escapeHtml(o)}" ${o === (item.graph_shape || '') ? 'selected' : ''}>${o ? L.escapeHtml(o) : '（形: 描かれていない）'}</option>`).join('')}</select>
+                <input type="text" class="tx-points" value="${L.escapeHtml(item.graph_points || '')}" placeholder="点（例: (-2,0), (0,2)）" style="margin: 0 0 4px; min-width: 120px;">`;
         }
 
         function closeTx() {
@@ -551,6 +563,10 @@
                     blank: tr.querySelector('.tx-blank').checked,
                     form_issue: tr.querySelector('.tx-form').checked,
                     unreadable: false,
+                    ...(tr.querySelector('.tx-shape') ? {
+                        graph_shape: tr.querySelector('.tx-shape').value,
+                        graph_points: tr.querySelector('.tx-points').value,
+                    } : {}),
                 };
             });
             try {

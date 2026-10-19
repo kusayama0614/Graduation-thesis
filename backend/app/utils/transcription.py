@@ -10,7 +10,8 @@
     cases      「m=2 のとき x=−1」のような条件と値の組（一部だけなら不完全）
     text       「すべての実数」「解はない」など言葉の答え
     trig_form  「cos16°」のように三角比の形そのものを問うもの（値が等しくても別の形は誤り）
-    graph      グラフ（自動判定の対象外。書き起こしだけ残す）
+    graph      グラフ。形（選択肢）・書かれた点・書かれた式を書き起こし，点が正しいグラフ上にあるか，式が各区間で
+               正しいか，頂点と軸との交点がそろっているかを数式処理で判定する（そろっていなければ不完全）
 """
 from __future__ import annotations
 
@@ -21,7 +22,9 @@ from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.learning import judgments as J
-from app.utils.math_verification import judge_answer
+import sympy as sp
+
+from app.utils.math_verification import _parse_item, _preprocess, _solution_set, _split_top_level, _to_expr, judge_answer
 
 KEY_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'learning', 'data', 'answer_keys.json')
 
@@ -207,11 +210,95 @@ def _canonical_trig(text: str) -> str:
     return re.sub(r'[\s°度θ()（）]', '', _clean(text)).lower().replace('÷', '/')
 
 
+# ---------------------------------------------------------------- グラフ（No.7）
+
+_X = sp.Symbol('x')
+_POINT = re.compile(r'\(([^()]*?),([^()]*?)\)')
+
+
+def _value(text: str) -> sp.Basic:
+    return _to_expr(_preprocess(_clean(text)))
+
+
+def parse_points(text: str) -> List[Tuple[sp.Basic, sp.Basic]]:
+    points = []
+    for a, b in _POINT.findall(_clean(text or '').replace('，', ',')):
+        try:
+            points.append((sp.nsimplify(_value(a)), sp.nsimplify(_value(b))))
+        except Exception:
+            continue
+    return points
+
+
+def _region(condition: str):
+    """「x≦-1, 3≦x」のような条件を x の範囲（集合）にする。"""
+    region = sp.S.EmptySet
+    for part in _split_top_level(_preprocess(_clean(condition))):
+        kind, relations = _parse_item(part)
+        if kind != 'rel':
+            raise ValueError(condition)
+        region = region.union(_solution_set(relations, _X))
+    return region
+
+
+def _sample_points(region) -> List[sp.Rational]:
+    candidates = [sp.Rational(n, 4) for n in range(-40, 41)]
+    return [c for c in candidates if region.contains(c) == sp.true][::7][:6]
+
+
+def _check_expressions(function: sp.Basic, text: str) -> Optional[str]:
+    """書かれた「条件 のとき y=式」が正しいかを確かめる。誤りがあれば説明を返す。"""
+    pairs = parse_cases(text) if 'のとき' in text else [('', part.strip()) for part in re.split(r'[；;\n]', text)]
+    for condition, value in pairs:
+        if not value:
+            continue
+        rhs = value.split('=', 1)[1] if '=' in value else value
+        try:
+            expr = _value(rhs)
+            region = _region(condition) if condition else sp.S.Reals
+        except Exception:
+            return f'式「{(condition + " のとき " if condition else "") + value}」を解釈できない'
+        samples = _sample_points(region)
+        if not samples:
+            return f'条件「{condition}」の範囲が空'
+        if any(sp.simplify(function.subs(_X, c) - expr.subs(_X, c)) != 0 for c in samples):
+            written = f'{condition} のとき {value}' if condition else value
+            return f'「{written}」は正しいグラフの式と一致しない'
+    return None
+
+
+def grade_graph(q: Dict[str, Any], entry: Dict[str, Any]) -> Tuple[str, str, str]:
+    """(判定, method, 説明) を返す。形・点・式のどれかが誤りなら誤答，誤りはないが頂点・交点が欠けていれば不完全。"""
+    function = sp.sympify(q['function'], locals={'x': _X})
+    shape = (entry.get('graph_shape') or '').strip()
+    points_text = entry.get('graph_points') or ''
+    expressions = entry.get('initial_math') or ''
+    points = parse_points(points_text)
+    if not shape and not points and not expressions.strip():
+        return J.BLANK, 'empty', ''
+    if shape and shape != q['expected_shape']:
+        return J.WRONG, 'graph_shape', f'形が違う（{shape}）'
+    off = [p for p in points if sp.simplify(function.subs(_X, p[0]) - p[1]) != 0]
+    if off:
+        return J.WRONG, 'graph_point_off_curve', '正しいグラフ上にない点: ' + '，'.join(f'({a}, {b})' for a, b in off)
+    problem = _check_expressions(function, expressions) if expressions.strip() else None
+    if problem:
+        return J.WRONG, 'graph_expression', problem
+    required = parse_points('，'.join(q['required_points']))
+    missing = [r for r in required if not any(sp.simplify(r[0] - p[0]) == 0 and sp.simplify(r[1] - p[1]) == 0 for p in points)]
+    if not shape:
+        return J.INCOMPLETE, 'graph_shape_unknown', '形を読み取れていない'
+    if missing:
+        return J.INCOMPLETE, 'graph_missing_points', '書かれていない頂点・交点: ' + '，'.join(f'({a}, {b})' for a, b in missing)
+    return J.CORRECT, 'graph_correct', ''
+
+
 def grade_item(item: Dict[str, Any], actual: Optional[str]) -> Dict[str, str]:
-    """書き起こした初答（式の形）を照合して {judgment, method} を返す。"""
+    """書き起こした初答（式の形）を照合して {judgment, method} を返す。グラフは grade_graph を使う。"""
     kind = item.get('kind', 'math')
     if kind == 'graph':
-        return {'judgment': J.UNMARKED, 'method': 'not_graded'}
+        judgment, method, _ = grade_graph(item, {'initial_math': actual or ''})
+        return {'judgment': judgment, 'method': method}
     actual = _clean(actual or '')
     if not actual:
         return {'judgment': J.BLANK, 'method': 'empty'}
@@ -252,7 +339,8 @@ TRANSCRIBE_SYSTEM = (
 
 
 def transcribe_prompt(items: List[Dict[str, Any]]) -> str:
-    lines = [f'- {q["question"]}: {q["problem"]}（書き方: {q["format"]}）' for q in items]
+    lines = [f'- {q["question"]}: {q["problem"]}（書き方: {q["format"]}）'
+             + (f'［形の選択肢: {" ／ ".join(q["shape_options"])}］' if q.get('kind') == 'graph' else '') for q in items]
     return (
         '次の小問について，答案画像（表面・裏面）から生徒の答えを書き起こしてください。\n'
         + '\n'.join(lines) + '\n\n'
@@ -266,6 +354,8 @@ def transcribe_prompt(items: List[Dict[str, Any]]) -> str:
         '- form_issue: 意図は分かるが書き方に問題がある（角度を問われて sin15° とだけ書く，m の範囲を D<… と書く等）なら true。\n'
         '- confidence: 文字をはっきり読めたら high，自信がなければ low。読めないときは unreadable を true に。\n'
         '- note: 気になった点があれば短く。\n'
+        '- グラフの小問だけ: graph_shape に描かれたグラフの形を選択肢の文言そのままで（当てはまらなければ「その他」，描かれていなければ空），'
+        'graph_points に書かれた点の座標を，initial_math に書かれた式を入れる。点や式を自分で計算して補わない。グラフ以外の小問では両方とも空。\n'
         '画像にない小問も含め，上の全ての小問を一つずつ出力してください。'
     )
 
@@ -288,9 +378,11 @@ TRANSCRIBE_SCHEMA = {
                     'confidence': {'type': 'string', 'enum': ['high', 'low']},
                     'unreadable': {'type': 'boolean'},
                     'note': {'type': 'string'},
+                    'graph_shape': {'type': 'string'},
+                    'graph_points': {'type': 'string'},
                 },
                 'required': ['question', 'initial_text', 'initial_math', 'corrected_text', 'blank', 'self_mark',
-                             'form_issue', 'confidence', 'unreadable', 'note'],
+                             'form_issue', 'confidence', 'unreadable', 'note', 'graph_shape', 'graph_points'],
             },
         },
     },
@@ -314,6 +406,8 @@ def build_items(key: List[Dict[str, Any]], raw_answers: List[Dict[str, Any]]) ->
             'confidence': raw.get('confidence') if raw.get('confidence') in ('high', 'low') else 'low',
             'unreadable': bool(raw.get('unreadable')),
             'note': str(raw.get('note') or '').strip() or ('書き起こしに含まれていなかった' if not raw else ''),
+            'graph_shape': str(raw.get('graph_shape') or '').strip() if q.get('kind') == 'graph' else '',
+            'graph_points': str(raw.get('graph_points') or '').strip() if q.get('kind') == 'graph' else '',
             'edited': False,
         }))
     return items
@@ -321,8 +415,14 @@ def build_items(key: List[Dict[str, Any]], raw_answers: List[Dict[str, Any]]) ->
 
 def grade_transcribed(q: Dict[str, Any], entry: Dict[str, Any]) -> Dict[str, Any]:
     """1つの小問の書き起こしに判定を付ける（教員が直したときにも使う）。"""
+    grade_note = ''
     if entry.get('unreadable'):
         judgment, method = J.UNREADABLE, 'unreadable'
+    elif q.get('kind') == 'graph':
+        if entry.get('blank'):
+            judgment, method = J.BLANK, 'empty'
+        else:
+            judgment, method, grade_note = grade_graph(q, entry)
     elif entry.get('blank') or not entry.get('initial_math'):
         judgment, method = J.BLANK, 'empty'
     else:
@@ -336,8 +436,18 @@ def grade_transcribed(q: Dict[str, Any], entry: Dict[str, Any]) -> Dict[str, Any
         'kind': q.get('kind', 'math'),
         'judgment': judgment,
         'method': method,
+        'grade_note': grade_note,
         'needs_review': (entry.get('confidence') == 'low' or bool(entry.get('unreadable'))) and not entry.get('edited'),
     }
+
+
+def _answer_summary(item: Dict[str, Any]) -> Optional[str]:
+    if item.get('kind') == 'graph':
+        parts = [f'形: {item.get("graph_shape")}' if item.get('graph_shape') else '',
+                 f'点: {item.get("graph_points")}' if item.get('graph_points') else '',
+                 f'式: {item.get("initial_math")}' if item.get('initial_math') else '']
+        return '／'.join(p for p in parts if p) or None
+    return item.get('initial_math') or item.get('initial_text') or None
 
 
 def question_results(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -346,10 +456,10 @@ def question_results(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         'question': item['question'],
         'result': J.RESULT_OF_JUDGMENT[item['judgment']],
         'judgment': item['judgment'],
-        'answer': item['initial_math'] or item['initial_text'] or None,
-        'corrected': bool(item['corrected_text']),
-        'corrected_answer': item['corrected_text'] or None,
-        'self_mark': item['self_mark'],
+        'answer': _answer_summary(item),
+        'corrected': bool(item.get('corrected_text')),
+        'corrected_answer': item.get('corrected_text') or None,
+        'self_mark': item.get('self_mark', 'none'),
         'source': 'transcription',
     } for item in items]
 

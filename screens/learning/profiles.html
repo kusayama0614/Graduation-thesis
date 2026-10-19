@@ -12,7 +12,10 @@
         <section class="card">
             <h2>生徒一覧</h2>
             <p class="card-lead">定着度が 0.5 を下回る前提知識があると，解説のそのステップが詳しく書かれます。</p>
-            <input type="search" id="studentFilter" placeholder="生徒IDで絞り込み" style="margin-bottom: 12px;">
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <select id="classFilter" style="margin-top: 0; max-width: 150px;"><option value="">すべてのクラス</option></select>
+                <input type="search" id="studentFilter" placeholder="生徒IDで絞り込み" style="margin-top: 0;">
+            </div>
             <div class="table-wrap">
                 <table>
                     <thead><tr><th>生徒ID</th><th>演習</th><th>弱いノード</th><th>誤り</th></tr></thead>
@@ -66,6 +69,14 @@
                 graph = await L.loadGraph();
                 labels = L.nodeLabelMap(graph);
                 document.getElementById('studentFilter').addEventListener('input', renderStudents);
+                document.getElementById('classFilter').addEventListener('change', () => {
+                    try {
+                        localStorage.setItem('profilesClass', document.getElementById('classFilter').value);
+                    } catch (error) {
+                        // 保存できなくても絞り込みは使える
+                    }
+                    renderStudents();
+                });
                 await loadProfiles();
                 const student = L.queryParam('student');
                 if (student) {
@@ -78,8 +89,57 @@
 
         async function loadProfiles() {
             const payload = await L.api('GET', '/learning/profiles');
-            profiles = payload.profiles || [];
+            profiles = (payload.profiles || []).slice().sort(compareStudents);
+            renderClassOptions();
             renderStudents();
+        }
+
+        /* 生徒ID「学年-クラス-出席番号」（例: 1-1-20）を分解する。この形でない ID は「その他」 */
+        function parseStudentId(id) {
+            const m = String(id || '').match(/^(\d+)-(\d+)-(\d+)$/);
+            return m ? { grade: Number(m[1]), classNo: Number(m[2]), number: Number(m[3]), key: `${m[1]}-${m[2]}` } : null;
+        }
+
+        function compareStudents(a, b) {
+            const pa = parseStudentId(a.student_id);
+            const pb = parseStudentId(b.student_id);
+            if (pa && pb) {
+                return pa.grade - pb.grade || pa.classNo - pb.classNo || pa.number - pb.number;
+            }
+            if (pa || pb) {
+                return pa ? -1 : 1;
+            }
+            return a.student_id.localeCompare(b.student_id, 'ja', { numeric: true });
+        }
+
+        function classLabel(key) {
+            const [grade, classNo] = key.split('-');
+            return `${grade}年${classNo}組`;
+        }
+
+        function renderClassOptions() {
+            const select = document.getElementById('classFilter');
+            let keep = select.value;
+            if (!keep) {
+                try {
+                    keep = localStorage.getItem('profilesClass') || '';
+                } catch (error) {
+                    keep = '';
+                }
+            }
+            const keys = [];
+            profiles.forEach((p) => {
+                const parsed = parseStudentId(p.student_id);
+                const key = parsed ? parsed.key : 'other';
+                if (!keys.includes(key)) {
+                    keys.push(key);
+                }
+            });
+            select.innerHTML = '<option value="">すべてのクラス</option>' + keys.map((key) => {
+                const count = profiles.filter((p) => (parseStudentId(p.student_id) || { key: 'other' }).key === key).length;
+                return `<option value="${key}">${key === 'other' ? 'その他' : classLabel(key)}（${count}人）</option>`;
+            }).join('');
+            select.value = keys.includes(keep) ? keep : '';
         }
 
         function weakCount(profile) {
@@ -92,7 +152,9 @@
 
         function renderStudents() {
             const filter = document.getElementById('studentFilter').value.trim().toLowerCase();
-            const rows = profiles.filter((p) => !filter || p.student_id.toLowerCase().includes(filter));
+            const classKey = document.getElementById('classFilter').value;
+            const rows = profiles.filter((p) => (!filter || p.student_id.toLowerCase().includes(filter))
+                && (!classKey || (parseStudentId(p.student_id) || { key: 'other' }).key === classKey));
             const body = document.getElementById('studentRows');
             if (!rows.length) {
                 body.innerHTML = `<tr><td colspan="4" class="empty">${profiles.length ? '該当する生徒がいません' : 'まだプロファイルがありません。「① 演習の反映」から演習を反映してください。'}</td></tr>`;

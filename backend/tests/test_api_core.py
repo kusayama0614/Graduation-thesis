@@ -18,6 +18,9 @@ def client(tmp_path):
     os.environ["FIREBASE_CREDENTIALS_JSON"] = ""
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ""
     os.environ["SECRET_KEY"] = "test-secret"
+    # .env の本物の API キーをテストで使わない（LLM なしの動作を確かめるテストが本物の Gemini を呼ばないように）
+    os.environ["GEMINI_API_KEY"] = ""
+    os.environ["GOOGLE_API_KEY"] = ""
 
     app = create_app()
     app.config.update(TESTING=True)

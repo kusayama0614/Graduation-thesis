@@ -175,11 +175,13 @@ def create_app():
     from app.routes.upload import upload_bp
     from app.routes.analysis import analysis_bp
     from app.routes.learning import learning_bp
+    from app.routes.bulk import bulk_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
     app.register_blueprint(analysis_bp, url_prefix='/api/analysis')
     app.register_blueprint(learning_bp, url_prefix='/api/learning')
+    app.register_blueprint(bulk_bp, url_prefix='/api/bulk')
     
     # ==================== エラーハンドラ ====================
     @app.errorhandler(400)

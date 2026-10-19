@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>演習プリントの取り込み - 個別解説</title>
+    <link rel="stylesheet" href="learning.css">
+    <link rel="icon" href="data:,">
+    <style>
+        .thumb { width: 220px; height: 120px; object-fit: cover; object-position: top; border: 1px solid #e3e5ef; border-radius: 6px; cursor: zoom-in; background: #fafafa; }
+        .review-row { display: flex; gap: 16px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid #eee; flex-wrap: wrap; }
+        .review-row:last-child { border-bottom: none; }
+        .review-info { flex: 1; min-width: 220px; }
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center; z-index: 9000; padding: 16px; }
+        .modal { background: white; border-radius: 10px; max-width: 1100px; width: 100%; max-height: calc(100vh - 32px); overflow: auto; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; padding: 20px; }
+        .modal img { width: 100%; border: 1px solid #e3e5ef; border-radius: 6px; }
+        .modal-nav { display: flex; gap: 8px; margin-bottom: 10px; }
+        .field-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .field-row input { margin-top: 2px; }
+        .file-table input { margin-top: 0; padding: 5px 7px; }
+        @media (max-width: 760px) { .modal { grid-template-columns: 1fr; } .thumb { width: 100%; height: 140px; } }
+    </style>
+</head>
+<body>
+    <main>
+        <section class="card" id="listCard">
+            <div class="card-header">
+                <div>
+                    <h2>取り込み</h2>
+                    <p class="card-lead">クラスごとのスキャン（PDF・画像）をまとめて取り込み，各ページの見出し（プリント番号・クラス・出席番号）を読み取って，生徒ごとの答案に振り分けます。氏名は読み取りません。</p>
+                </div>
+                <button class="button" onclick="showNewForm()">新しい取り込み</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>名前</th><th>ファイル</th><th>ページ</th><th>読み取り</th><th>状態</th><th></th></tr></thead>
+                    <tbody id="batchRows"><tr><td colspan="6" class="empty">読み込み中…</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card hidden" id="newCard">
+            <div class="card-header">
+                <div>
+                    <h2>新しい取り込み</h2>
+                    <p class="card-lead">ファイル名が「1(1)-No1-0916.pdf」のように「学年(クラス)-…-月日」になっていれば，学年・クラス・提出日を自動で入れます（違っていれば直してください）。クラスは読み取り結果との照合に使います。</p>
+                </div>
+                <button class="button button-light button-small" onclick="hideNewForm()">閉じる</button>
+            </div>
+            <label class="field" style="max-width: 420px;">取り込みの名前
+                <input type="text" id="batchName" placeholder="例: 2学期 9月の演習プリント">
+            </label>
+            <label class="field">ファイル（PDF・画像，複数可）
+                <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp" onchange="onFilesSelected()">
+            </label>
+            <div class="table-wrap hidden" id="fileTableWrap">
+                <table class="file-table">
+                    <thead><tr><th>ファイル</th><th style="width: 80px;">学年</th><th style="width: 80px;">クラス</th><th style="width: 160px;">提出日</th></tr></thead>
+                    <tbody id="fileRows"></tbody>
+                </table>
+            </div>
+            <div class="hidden" id="uploadProgress">
+                <div class="progress"><div class="progress-fill" id="uploadFill" style="width: 0%"></div></div>
+                <div class="muted" id="uploadText"></div>
+            </div>
+            <div class="button-row">
+                <button class="button" id="startButton" onclick="startImport()">取り込んで読み取りを始める</button>
+            </div>
+        </section>
+
+        <div id="detail" class="hidden">
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <h2 id="detailTitle"></h2>
+                        <p class="card-lead" id="detailLead"></p>
+                    </div>
+                    <div class="button-row" style="margin-top: 0;">
+                        <button class="button button-light button-small hidden" id="resumeButton" onclick="startRead()">読み取りを再開</button>
+                        <button class="button button-light button-small" onclick="addFilesToBatch()">ファイルを追加</button>
+                        <button class="button button-danger button-small" onclick="deleteBatch()">削除</button>
+                    </div>
+                </div>
+                <div class="progress"><div class="progress-fill" id="readFill" style="width: 0%"></div></div>
+                <div class="muted" id="readText"></div>
+                <input type="file" id="addFileInput" class="hidden" multiple accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp" onchange="uploadAdditional()">
+
+                <h3>プリント × クラスごとの答案</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>プリント</th><th>単元</th><th>学年・クラス</th><th>答案</th><th>要確認</th><th>登録済み</th></tr></thead>
+                        <tbody id="summaryRows"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>確認が必要な答案 <span class="badge" id="reviewCount">0</span></h2>
+                <p class="card-lead">画像を見て，読み取りが正しければ「正しい」，違っていれば「直す」で修正してください。同じ生徒の答案が複数あるとき（出し直し）は，使わない方を「対象外」にします。確認の済んでいない答案は登録されません。</p>
+                <div class="button-row" style="margin-top: 0; margin-bottom: 8px;">
+                    <button class="button button-light button-small" onclick="confirmAllLowConfidence()">「自信が低い」だけの答案をまとめて正しいとする</button>
+                </div>
+                <div id="reviewList"></div>
+            </section>
+
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>すべての答案</h2>
+                        <p class="card-lead">クリックするとページの画像を表示して直せます。</p>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="filterPrint" onchange="renderSheets()" style="margin-top: 0;"></select>
+                        <select id="filterClass" onchange="renderSheets()" style="margin-top: 0;"></select>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>生徒ID</th><th>プリント</th><th>ページ</th><th>ファイル</th><th>状態</th></tr></thead>
+                        <tbody id="sheetRows"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>答案として登録</h2>
+                <p class="card-lead">プリントごとにテスト名・単元・解答キーを決めて登録します。登録した答案は「解答データ確認」と「① 演習の反映」に表示されます（生徒 ID は「学年-クラス-出席番号」，例: 1-1-20）。</p>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th></th><th>プリント</th><th>テスト名</th><th>単元</th><th>解答キー（任意）</th><th>実施日（空欄ならファイルの提出日）</th></tr></thead>
+                        <tbody id="registerRows"></tbody>
+                    </table>
+                </div>
+                <label class="checkbox" style="margin-top: 10px;"><input type="checkbox" id="runOcr"> 登録後に既存の読み取り（OCR）と自動採点を実行する</label>
+                <div class="button-row">
+                    <button class="button" id="registerButton" onclick="registerSheets()">確認済みの答案を登録</button>
+                </div>
+                <div id="registerResult"></div>
+            </section>
+        </div>
+    </main>
+
+    <div class="modal-backdrop hidden" id="modal" onclick="if (event.target === this) closeModal()">
+        <div class="modal">
+            <div>
+                <div class="modal-nav">
+                    <button class="button button-light button-small" onclick="stepModal(-1)">← 前のページ</button>
+                    <button class="button button-light button-small" onclick="stepModal(1)">次のページ →</button>
+                    <span class="muted" id="modalPosition"></span>
+                </div>
+                <img id="modalImage" alt="ページの画像">
+            </div>
+            <div>
+                <h3 style="margin-top: 0;">読み取り結果</h3>
+                <div id="modalReading" class="muted"></div>
+                <label class="field">種類
+                    <select id="editKind">
+                        <option value="front">表面（見出しあり）</option>
+                        <option value="back">裏面（直前の表面と同じ答案）</option>
+                        <option value="excluded">対象外</option>
+                    </select>
+                </label>
+                <div class="field-row">
+                    <label class="field">No.<input type="text" id="editPrint" inputmode="numeric"></label>
+                    <label class="field">年<input type="text" id="editGrade" inputmode="numeric"></label>
+                    <label class="field">組<input type="text" id="editClass" inputmode="numeric"></label>
+                    <label class="field">番<input type="text" id="editNumber" inputmode="numeric"></label>
+                </div>
+                <div class="button-row">
+                    <button class="button" onclick="savePage()">保存（確認済みにする）</button>
+                    <button class="button button-light" onclick="closeModal()">閉じる</button>
+                </div>
+                <div id="modalNotice"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../common/api-debug-badge.js"></script>
+    <script src="learning-common.js"></script>
+    <script>
+        const L = window.Learning;
+        const STATUS_LABELS = { uploading: '取り込み中', reading: '読み取り中', ready: '確認待ち', registered: '登録あり' };
+        let units = {};
+        let detail = null;
+        let currentBatchId = null;
+        let pollTimer = null;
+        let modalPages = [];
+        let modalIndex = 0;
+        const answerKeys = {};
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await L.initPage('bulk', '演習プリントの取り込み', 'スキャンをまとめて取り込み，クラス・出席番号ごとの答案に振り分けます');
+                const graph = await L.loadGraph();
+                units = graph.graph.units;
+                await loadBatches();
+                const id = L.queryParam('batch');
+                if (id) {
+                    openBatch(id);
+                }
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        });
+
+        // ---------------------------------------------------------------- 一覧と新規
+
+        async function loadBatches() {
+            const payload = await L.api('GET', '/bulk/batches');
+            const rows = payload.batches || [];
+            document.getElementById('batchRows').innerHTML = rows.length ? rows.map((b) => `
+                <tr class="selectable${b.id === currentBatchId ? ' selected' : ''}" onclick="openBatch('${b.id}')">
+                    <td><strong>${L.escapeHtml(b.name)}</strong><div class="muted">${L.formatDateTime(b.created_at)}</div></td>
+                    <td>${b.files.length}</td><td>${b.page_count}</td>
+                    <td class="nowrap">${b.pages_read} / ${b.page_count}${b.pages_error ? ` <span class="badge badge-ng">失敗 ${b.pages_error}</span>` : ''}</td>
+                    <td><span class="badge">${b.reading ? '読み取り中' : (STATUS_LABELS[b.status] || b.status)}</span></td>
+                    <td><button class="button button-light button-small">開く</button></td>
+                </tr>`).join('') : '<tr><td colspan="6" class="empty">まだ取り込みがありません</td></tr>';
+        }
+
+        function showNewForm() {
+            document.getElementById('newCard').classList.remove('hidden');
+            document.getElementById('batchName').focus();
+        }
+
+        function hideNewForm() {
+            document.getElementById('newCard').classList.add('hidden');
+        }
+
+        /* backend の parse_file_name と同じ規則（学年(クラス)-…-月日） */
+        function guessFromName(name) {
+            const stem = name.replace(/\.[^.]+$/, '');
+            const result = { grade: '', class_no: '', date: '' };
+            const m = stem.match(/^\s*(\d)\s*[(（_\-年]\s*(\d{1,2})/);
+            if (m) {
+                result.grade = m[1];
+                result.class_no = String(Number(m[2]));
+            }
+            const dates = [...stem.matchAll(/(?<!\d)(\d{2})(\d{2})(?!\d)/g)];
+            if (dates.length) {
+                const [, mm, dd] = dates[dates.length - 1];
+                const d = new Date(new Date().getFullYear(), Number(mm) - 1, Number(dd));
+                if (d.getMonth() === Number(mm) - 1) {
+                    result.date = `${d.getFullYear()}-${mm}-${dd}`;
+                }
+            }
+            return result;
+        }
+
+        function onFilesSelected() {
+            const files = [...document.getElementById('fileInput').files];
+            document.getElementById('fileTableWrap').classList.toggle('hidden', !files.length);
+            document.getElementById('fileRows').innerHTML = files.map((f, i) => {
+                const g = guessFromName(f.name);
+                return `<tr><td>${L.escapeHtml(f.name)} <span class="muted">${(f.size / 1024 / 1024).toFixed(1)} MB</span></td>
+                    <td><input type="text" id="fg${i}" value="${g.grade}" inputmode="numeric"></td>
+                    <td><input type="text" id="fc${i}" value="${g.class_no}" inputmode="numeric"></td>
+                    <td><input type="date" id="fd${i}" value="${g.date}"></td></tr>`;
+            }).join('');
+        }
+
+        async function uploadOne(batchId, file, form) {
+            const body = new FormData();
+            body.append('file', file);
+            Object.entries(form).forEach(([k, v]) => { if (v) { body.append(k, v); } });
+            let response;
+            try {
+                response = await fetch(`${L.API_BASE_URL}/bulk/batches/${batchId}/files`, { method: 'POST', credentials: 'include', body });
+            } catch (error) {
+                throw new Error('サーバーに接続できませんでした');
+            }
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload.success === false) {
+                throw new Error(`${file.name}: ${payload.message || response.status}`);
+            }
+            return payload;
+        }
+
+        async function uploadFiles(batchId, files, formFor) {
+            const progress = document.getElementById('uploadProgress');
+            progress.classList.remove('hidden');
+            const failures = [];
+            for (let i = 0; i < files.length; i += 1) {
+                document.getElementById('uploadText').textContent = `${i + 1} / ${files.length} ファイル目を取り込み中: ${files[i].name}（ページに分けています）`;
+                try {
+                    await uploadOne(batchId, files[i], formFor(i, files[i]));
+                } catch (error) {
+                    failures.push(error.message);
+                }
+                document.getElementById('uploadFill').style.width = `${Math.round(((i + 1) / files.length) * 100)}%`;
+            }
+            document.getElementById('uploadText').textContent = failures.length
+                ? `取り込めなかったファイル: ${failures.join(' ／ ')}` : `${files.length} ファイルを取り込みました`;
+            return failures;
+        }
+
+        async function startImport() {
+            const name = document.getElementById('batchName').value.trim();
+            const files = [...document.getElementById('fileInput').files];
+            if (!name || !files.length) {
+                L.toast('名前とファイルを指定してください', 'error');
+                return;
+            }
+            const button = document.getElementById('startButton');
+            button.disabled = true;
+            try {
+                const { batch } = await L.api('POST', '/bulk/batches', { name });
+                await uploadFiles(batch.id, files, (i) => ({
+                    grade: document.getElementById(`fg${i}`).value.trim(),
+                    class_no: document.getElementById(`fc${i}`).value.trim(),
+                    date: document.getElementById(`fd${i}`).value,
+                }));
+                await L.api('POST', `/bulk/batches/${batch.id}/read`);
+                hideNewForm();
+                await loadBatches();
+                openBatch(batch.id);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function addFilesToBatch() {
+            document.getElementById('addFileInput').click();
+        }
+
+        async function uploadAdditional() {
+            const files = [...document.getElementById('addFileInput').files];
+            if (!files.length || !currentBatchId) {
+                return;
+            }
+            try {
+                document.getElementById('newCard').classList.remove('hidden');
+                const failures = await uploadFiles(currentBatchId, files, (i, file) => guessFromName(file.name));
+                await L.api('POST', `/bulk/batches/${currentBatchId}/read`);
+                hideNewForm();
+                if (failures.length) {
+                    L.toast(`取り込めなかったファイルがあります: ${failures.join(' ／ ')}`, 'error');
+                }
+                openBatch(currentBatchId);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+            document.getElementById('addFileInput').value = '';
+        }
+
+        // ---------------------------------------------------------------- 取り込みの詳細
+
+        async function openBatch(id) {
+            currentBatchId = id;
+            clearTimeout(pollTimer);
+            try {
+                detail = await L.api('GET', `/bulk/batches/${id}`);
+            } catch (error) {
+                L.toast(error.message, 'error');
+                return;
+            }
+            history.replaceState(null, '', `?batch=${encodeURIComponent(id)}`);
+            document.getElementById('detail').classList.remove('hidden');
+            renderDetail();
+            loadBatches();
+            if (detail.batch.reading) {
+                pollTimer = setTimeout(() => openBatch(id), 3000);
+            }
+        }
+
+        function groupLabel(g) {
+            return g.student_id || `${g.grade || '?'}-${g.class_no || '?'}-${g.student_no || '?'}`;
+        }
+
+        function renderDetail() {
+            const b = detail.batch;
+            document.getElementById('detailTitle').textContent = b.name;
+            document.getElementById('detailLead').textContent =
+                `ファイル ${b.files.length}（${b.files.map((f) => `${f.name}: ${f.pages}ページ${f.class_no ? `・${f.grade || '?'}年${f.class_no}組` : ''}`).join('，')}）`;
+            const percent = b.page_count ? Math.round((b.pages_read / b.page_count) * 100) : 0;
+            document.getElementById('readFill').style.width = `${percent}%`;
+            document.getElementById('readText').textContent = b.reading
+                ? `見出しを読み取り中… ${b.pages_read} / ${b.page_count} ページ`
+                : `読み取り ${b.pages_read} / ${b.page_count} ページ${b.pages_error ? `（失敗 ${b.pages_error} ページ。「読み取りを再開」で続きから読み取ります）` : ''}`;
+            document.getElementById('resumeButton').classList.toggle('hidden', b.reading || b.pages_read === b.page_count);
+
+            document.getElementById('summaryRows').innerHTML = detail.summary.length ? detail.summary.map((r) => `
+                <tr><td class="nowrap"><strong>No.${r.print_no}</strong></td><td>${L.escapeHtml(r.title || '')}</td>
+                <td class="nowrap">${r.grade || '?'}年${r.class_no || '?'}組</td><td>${r.sheets}</td>
+                <td>${r.needs_review ? `<span class="badge badge-ng">${r.needs_review}</span>` : '<span class="muted">0</span>'}</td>
+                <td>${r.registered ? `<span class="badge badge-ok">${r.registered}</span>` : '<span class="muted">0</span>'}</td></tr>`).join('')
+                : `<tr><td colspan="6" class="empty">${b.reading ? '読み取りが終わると表示されます' : '答案がありません'}</td></tr>`;
+
+            renderReview();
+            renderFilters();
+            renderSheets();
+            renderRegister();
+        }
+
+        function renderReview() {
+            const groups = detail.groups.filter((g) => !g.ok && !g.registered);
+            const unresolved = detail.unresolved || [];
+            document.getElementById('reviewCount').textContent = groups.length + unresolved.length;
+            const rows = unresolved.map((u) => {
+                const page = detail.pages[u.page_id];
+                return reviewRow(u.page_id, [u.issue === 'error' ? `読み取りに失敗した（${L.escapeHtml(u.error || '')}）` : 'まだ読み取っていない'],
+                    `${L.escapeHtml(page.file_id ? fileName(page.file_id) : '')} ${page.page_index + 1}ページ目`, false);
+            }).concat(groups.map((g) => reviewRow(g.front_page_id, g.issue_labels,
+                `<strong>${L.escapeHtml(groupLabel(g))}</strong>　No.${g.print_no || '?'}　${L.escapeHtml(g.file_name || '')} ${detail.pages[g.front_page_id].page_index + 1}ページ目${g.page_ids.length > 1 ? `（＋裏面 ${g.page_ids.length - 1}）` : ''}`,
+                g.issues.every((i) => ['low_confidence', 'class_mismatch'].includes(i)))));
+            document.getElementById('reviewList').innerHTML = rows.length ? rows.join('')
+                : `<p class="empty">${detail.batch.reading ? '読み取りの途中です' : '確認が必要な答案はありません'}</p>`;
+        }
+
+        function reviewRow(pageId, issues, label, canConfirm) {
+            const page = detail.pages[pageId];
+            return `<div class="review-row">
+                <img class="thumb" loading="lazy" src="${imageUrl(pageId)}" onclick="openModal('${pageId}')" alt="ページの見出し">
+                <div class="review-info">
+                    <div>${label}</div>
+                    <div>${issues.map((i) => `<span class="badge badge-ng">${i}</span>`).join(' ')}</div>
+                    ${page.note ? `<div class="muted">読み取りのメモ: ${L.escapeHtml(page.note)}</div>` : ''}
+                    <div class="button-row" style="margin-top: 8px;">
+                        <button class="button button-light button-small" onclick="openModal('${pageId}')">直す</button>
+                        ${canConfirm ? `<button class="button button-small" onclick="confirmPages(['${pageId}'])">正しい</button>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function fileName(fileId) {
+            const f = detail.batch.files.find((x) => x.id === fileId);
+            return f ? f.name : '';
+        }
+
+        function imageUrl(pageId) {
+            return `${L.API_BASE_URL}/bulk/pages/${pageId}/image`;
+        }
+
+        function renderFilters() {
+            const prints = [...new Set(detail.groups.map((g) => g.print_no).filter(Boolean))].sort((a, b) => a - b);
+            const classes = [...new Set(detail.groups.map((g) => g.class_no).filter(Boolean))].sort((a, b) => a - b);
+            const fp = document.getElementById('filterPrint');
+            const fc = document.getElementById('filterClass');
+            const keepP = fp.value;
+            const keepC = fc.value;
+            fp.innerHTML = '<option value="">すべてのプリント</option>' + prints.map((p) => `<option value="${p}">No.${p}</option>`).join('');
+            fc.innerHTML = '<option value="">すべてのクラス</option>' + classes.map((c) => `<option value="${c}">${c}組</option>`).join('');
+            fp.value = prints.map(String).includes(keepP) ? keepP : '';
+            fc.value = classes.map(String).includes(keepC) ? keepC : '';
+        }
+
+        function renderSheets() {
+            const p = document.getElementById('filterPrint').value;
+            const c = document.getElementById('filterClass').value;
+            const rows = detail.groups.filter((g) => (!p || String(g.print_no) === p) && (!c || String(g.class_no) === c))
+                .sort((a, b) => (a.print_no || 0) - (b.print_no || 0) || (a.class_no || 0) - (b.class_no || 0) || (a.student_no || 0) - (b.student_no || 0));
+            document.getElementById('sheetRows').innerHTML = rows.length ? rows.map((g) => `
+                <tr class="selectable" onclick="openModal('${g.front_page_id}')">
+                    <td class="nowrap"><strong>${L.escapeHtml(groupLabel(g))}</strong></td>
+                    <td class="nowrap">${g.print_no ? `No.${g.print_no}` : '—'}</td><td>${g.page_ids.length}</td>
+                    <td class="muted">${L.escapeHtml(g.file_name || '')}</td>
+                    <td>${g.registered ? '<span class="badge badge-ok">登録済み</span>' : g.ok ? '<span class="badge badge-applied">確認済み</span>' : g.issue_labels.map((i) => `<span class="badge badge-ng">${i}</span>`).join(' ')}</td>
+                </tr>`).join('') : '<tr><td colspan="5" class="empty">答案がありません</td></tr>';
+        }
+
+        // ---------------------------------------------------------------- ページの確認・修正
+
+        function openModal(pageId) {
+            const pages = Object.values(detail.pages).sort((a, b) =>
+                detail.batch.files.findIndex((f) => f.id === a.file_id) - detail.batch.files.findIndex((f) => f.id === b.file_id)
+                || a.page_index - b.page_index);
+            modalPages = pages.map((p) => p.id);
+            modalIndex = Math.max(0, modalPages.indexOf(pageId));
+            document.getElementById('modal').classList.remove('hidden');
+            renderModal();
+        }
+
+        function stepModal(delta) {
+            modalIndex = Math.min(modalPages.length - 1, Math.max(0, modalIndex + delta));
+            renderModal();
+        }
+
+        function renderModal() {
+            const page = detail.pages[modalPages[modalIndex]];
+            document.getElementById('modalImage').src = imageUrl(page.id);
+            document.getElementById('modalPosition').textContent = `${fileName(page.file_id)} ${page.page_index + 1}ページ目（全体 ${modalIndex + 1} / ${modalPages.length}）`;
+            const status = { pending: '未読', read: '読み取り済み', error: '失敗', confirmed: '確認済み' }[page.status] || page.status;
+            document.getElementById('modalReading').innerHTML =
+                `${status}${page.confidence ? `・自信 ${page.confidence}` : ''}${page.note ? `<br>メモ: ${L.escapeHtml(page.note)}` : ''}${page.error ? `<br>${L.escapeHtml(page.error)}` : ''}${page.answer_sheet_id ? '<br><strong>登録済み（変更できません）</strong>' : ''}`;
+            document.getElementById('editKind').value = page.kind || 'front';
+            document.getElementById('editPrint').value = page.print_no || '';
+            document.getElementById('editGrade').value = page.grade || '';
+            document.getElementById('editClass').value = page.class_no || '';
+            document.getElementById('editNumber').value = page.student_no || '';
+            document.getElementById('modalNotice').innerHTML = '';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        async function savePage() {
+            const page = detail.pages[modalPages[modalIndex]];
+            const body = {
+                kind: document.getElementById('editKind').value,
+                print_no: document.getElementById('editPrint').value.trim(),
+                grade: document.getElementById('editGrade').value.trim(),
+                class_no: document.getElementById('editClass').value.trim(),
+                student_no: document.getElementById('editNumber').value.trim(),
+            };
+            try {
+                const res = await L.api('PATCH', `/bulk/pages/${page.id}`, body);
+                detail.pages[page.id] = res.page;
+                document.getElementById('modalNotice').innerHTML = '<div class="notice notice-ok">保存しました</div>';
+                await refreshKeepModal();
+            } catch (error) {
+                document.getElementById('modalNotice').innerHTML = `<div class="notice notice-error">${L.escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        async function refreshKeepModal() {
+            detail = await L.api('GET', `/bulk/batches/${currentBatchId}`);
+            renderDetail();
+            renderModal();
+            document.getElementById('modalNotice').innerHTML = '<div class="notice notice-ok">保存しました</div>';
+        }
+
+        async function confirmPages(ids) {
+            try {
+                await L.api('POST', `/bulk/batches/${currentBatchId}/confirm`, { page_ids: ids });
+                await openBatch(currentBatchId);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        function confirmAllLowConfidence() {
+            const ids = detail.groups.filter((g) => !g.ok && !g.registered
+                && g.issues.every((i) => i === 'low_confidence')).map((g) => g.front_page_id);
+            if (!ids.length) {
+                L.toast('対象の答案はありません');
+                return;
+            }
+            if (confirm(`${ids.length} 件の答案を，読み取りのとおり正しいとしますか？（画像を確認してから行ってください）`)) {
+                confirmPages(ids);
+            }
+        }
+
+        async function startRead() {
+            try {
+                await L.api('POST', `/bulk/batches/${currentBatchId}/read`);
+                openBatch(currentBatchId);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        async function deleteBatch() {
+            if (!confirm('この取り込みを削除しますか？（ページの画像と読み取り結果を削除します。登録済みの答案は残ります）')) {
+                return;
+            }
+            try {
+                await L.api('DELETE', `/bulk/batches/${currentBatchId}`);
+                currentBatchId = null;
+                document.getElementById('detail').classList.add('hidden');
+                history.replaceState(null, '', window.location.pathname);
+                loadBatches();
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        // ---------------------------------------------------------------- 登録
+
+        function renderRegister() {
+            const prints = new Map();
+            detail.groups.forEach((g) => {
+                if (!g.print_no) {
+                    return;
+                }
+                const entry = prints.get(g.print_no) || { title: g.print_title, ready: 0, total: 0 };
+                entry.total += 1;
+                entry.ready += g.ok && !g.registered ? 1 : 0;
+                entry.title = entry.title || g.print_title;
+                prints.set(g.print_no, entry);
+            });
+            const unitOptions = '<option value="">（指定なし）</option>' + Object.entries(units).map(([id, u]) => `<option value="${id}">${L.escapeHtml(u.label)}</option>`).join('');
+            const existing = {};
+            document.querySelectorAll('#registerRows tr[data-print]').forEach((tr) => {
+                const p = tr.dataset.print;
+                existing[p] = { checked: tr.querySelector('.reg-check').checked, name: tr.querySelector('.reg-name').value,
+                    unit: tr.querySelector('.reg-unit').value, date: tr.querySelector('.reg-date').value };
+            });
+            const rows = [...prints.entries()].sort((a, b) => a[0] - b[0]);
+            document.getElementById('registerRows').innerHTML = rows.length ? rows.map(([p, e]) => {
+                const keep = existing[p] || {};
+                const key = answerKeys[p];
+                return `<tr data-print="${p}">
+                    <td><input type="checkbox" class="reg-check" ${keep.checked === false || !e.ready ? '' : 'checked'} ${e.ready ? '' : 'disabled'}></td>
+                    <td class="nowrap"><strong>No.${p}</strong><div class="muted">登録できる ${e.ready} / ${e.total}</div></td>
+                    <td><input type="text" class="reg-name" value="${L.escapeHtml(keep.name || `No.${p} ${e.title || ''}`.trim())}"></td>
+                    <td><select class="reg-unit">${unitOptions}</select></td>
+                    <td><input type="file" class="reg-key" accept=".csv,.xlsx,.xls,.json,.txt,.docx" onchange="parseKey(${p}, this)">
+                        <div class="muted" id="keyInfo${p}">${key ? `${Object.keys(key.answers).length} 問の解答キー` : ''}</div></td>
+                    <td><input type="date" class="reg-date" value="${keep.date || ''}"></td>
+                </tr>`;
+            }).join('') : '<tr><td colspan="6" class="empty">読み取りが終わると表示されます</td></tr>';
+            rows.forEach(([p]) => {
+                const select = document.querySelector(`#registerRows tr[data-print="${p}"] .reg-unit`);
+                select.value = (existing[p] && existing[p].unit) || (p <= 7 ? 'quadratic_functions' : '');
+            });
+        }
+
+        async function parseKey(printNo, input) {
+            const file = input.files[0];
+            if (!file) {
+                delete answerKeys[printNo];
+                return;
+            }
+            const body = new FormData();
+            body.append('file', file);
+            try {
+                const response = await fetch(`${L.API_BASE_URL}/bulk/answer-key/parse`, { method: 'POST', credentials: 'include', body });
+                const payload = await response.json();
+                if (!response.ok || payload.success === false) {
+                    throw new Error(payload.message || '解答キーを読み取れませんでした');
+                }
+                answerKeys[printNo] = payload.answer_key;
+                document.getElementById(`keyInfo${printNo}`).textContent = `${Object.keys(payload.answer_key.answers).length} 問の解答キー（${Object.keys(payload.answer_key.answers).slice(0, 3).join('，')}…）`;
+            } catch (error) {
+                input.value = '';
+                delete answerKeys[printNo];
+                L.toast(error.message, 'error');
+            }
+        }
+
+        async function registerSheets() {
+            const prints = {};
+            document.querySelectorAll('#registerRows tr[data-print]').forEach((tr) => {
+                if (!tr.querySelector('.reg-check').checked) {
+                    return;
+                }
+                const p = tr.dataset.print;
+                prints[p] = {
+                    test_name: tr.querySelector('.reg-name').value.trim(),
+                    unit: tr.querySelector('.reg-unit').value,
+                    exam_date: tr.querySelector('.reg-date').value,
+                    answer_key: answerKeys[p] || null,
+                };
+            });
+            if (!Object.keys(prints).length) {
+                L.toast('登録するプリントを選んでください', 'error');
+                return;
+            }
+            const button = document.getElementById('registerButton');
+            button.disabled = true;
+            try {
+                const res = await L.api('POST', `/bulk/batches/${currentBatchId}/register`, {
+                    prints, run_ocr: document.getElementById('runOcr').checked });
+                const skipped = res.skipped.filter((s) => s.reason !== '登録済み');
+                document.getElementById('registerResult').innerHTML = `
+                    <div class="notice notice-ok">${res.created.length} 件の答案を登録しました。
+                        <a href="${L.resolveScreenUrl('screens/learning/exercises.html')}">① 演習の反映へ</a></div>
+                    ${skipped.length ? `<div class="notice notice-warn">確認が残っているため登録しなかった答案: ${skipped.length} 件</div>` : ''}`;
+                await openBatch(currentBatchId);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (document.getElementById('modal').classList.contains('hidden')) {
+                return;
+            }
+            if (event.key === 'Escape') {
+                closeModal();
+            } else if (event.key === 'ArrowRight' && event.target.tagName !== 'INPUT') {
+                stepModal(1);
+            } else if (event.key === 'ArrowLeft' && event.target.tagName !== 'INPUT') {
+                stepModal(-1);
+            }
+        });
+    </script>
+</body>
+</html>

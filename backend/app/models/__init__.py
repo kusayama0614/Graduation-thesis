@@ -255,3 +255,55 @@ class ExplanationEmbedding(db.Model):
     model_name = db.Column(db.String(100), nullable=False)
     vector = db.Column(db.Text, nullable=False)  # JSON list[float]
     created_at = db.Column(db.DateTime, default=utc_now)
+
+
+# ==================== 演習プリントの一括取り込み ====================
+
+class BulkImportBatch(db.Model):
+    """演習プリントのスキャン（PDF・画像）をまとめて取り込む単位。ページはクラス・出席番号ごとに振り分ける。"""
+
+    __tablename__ = 'bulk_import_batches'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
+    name = db.Column(db.String(200), nullable=False)
+    subject = db.Column(db.String(50), default='数学')
+    status = db.Column(db.String(20), default='uploading')  # uploading / reading / ready / registered
+    files = db.Column(db.Text)  # JSON list: [{id, name, pages, grade, class, date}]
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    pages = db.relationship('ScannedPage', backref='batch', lazy=True, cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<BulkImportBatch {self.name}>'
+
+
+class ScannedPage(db.Model):
+    """取り込んだ1ページ。見出し（プリント番号・クラス・出席番号）を読み取り，表面と裏面を1枚にまとめる。"""
+
+    __tablename__ = 'scanned_pages'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    batch_id = db.Column(db.String(36), db.ForeignKey('bulk_import_batches.id', ondelete='CASCADE'),
+                         nullable=False, index=True)
+    file_id = db.Column(db.String(36), nullable=False)
+    file_name = db.Column(db.String(255))
+    page_index = db.Column(db.Integer, nullable=False)  # ファイル内の 0 始まりのページ番号
+    image_path = db.Column(db.String(500), nullable=False)
+    status = db.Column(db.String(20), default='pending')  # pending / read / error / confirmed
+    kind = db.Column(db.String(20))  # front（見出しあり）/ back（裏面）/ excluded（対象外）
+    print_no = db.Column(db.Integer)
+    print_title = db.Column(db.String(300))
+    grade = db.Column(db.Integer)
+    class_no = db.Column(db.Integer)
+    student_no = db.Column(db.Integer)
+    confidence = db.Column(db.String(10))  # high / medium / low
+    reading = db.Column(db.Text)  # JSON: 読み取りの生の結果
+    error = db.Column(db.Text)
+    answer_sheet_id = db.Column(db.String(64))  # 答案として登録した後の AnswerSheet の id
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    def __repr__(self):
+        return f'<ScannedPage {self.file_name} p{self.page_index + 1}>'

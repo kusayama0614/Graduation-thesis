@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import os
+import queue
 import threading
 import time
-import json
 from typing import Any, Dict, Optional
 
 from app import db
@@ -16,13 +18,31 @@ from app.utils.scoring import score_with_key
 from app.utils.time_utils import utc_now
 
 
+# 処理は決まった数のワーカーが順番に行う（一括取り込みで数百枚を登録しても，スレッドが一度に増えないように）
+_queue: "queue.Queue" = queue.Queue()
+_workers_lock = threading.Lock()
+_workers: list = []
+
+
+def _worker_loop() -> None:
+    while True:
+        args = _queue.get()
+        try:
+            _process_answer_sheet(*args)
+        except Exception:  # 1件の失敗でワーカーを止めない（失敗は各処理の中で記録される）
+            pass
+        finally:
+            _queue.task_done()
+
+
 def start_answer_sheet_processing(app, answer_sheet_id: str, teacher_id: str, payload: Dict[str, Any]) -> None:
-    thread = threading.Thread(
-        target=_process_answer_sheet,
-        args=(app, answer_sheet_id, teacher_id, payload),
-        daemon=True,
-    )
-    thread.start()
+    with _workers_lock:
+        limit = max(1, int(os.getenv('ANSWER_SHEET_CONCURRENCY', 2)))
+        while len(_workers) < limit:
+            worker = threading.Thread(target=_worker_loop, daemon=True)
+            worker.start()
+            _workers.append(worker)
+    _queue.put((app, answer_sheet_id, teacher_id, payload))
 
 
 def _process_answer_sheet(app, answer_sheet_id: str, teacher_id: str, payload: Dict[str, Any]) -> None:

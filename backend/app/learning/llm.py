@@ -57,6 +57,17 @@ class GeminiChatClient:
     def generate_text(self, *, system, user, temperature=0.3):
         return message_text(self._chat(temperature).invoke([('system', system), ('human', user)]))
 
+    def read_image_json(self, *, system, user, image_bytes, mime_type, schema, schema_name, thinking_level=None):
+        """画像（スキャンしたページなど）を読み取り，JSON Schema に従った出力を dict で返す。"""
+        import base64
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        data_url = f'data:{mime_type};base64,{base64.b64encode(image_bytes).decode("ascii")}'
+        message = HumanMessage(content=[{'type': 'text', 'text': user},
+                                        {'type': 'image_url', 'image_url': {'url': data_url}}])
+        structured = self._chat(0.0, thinking_level).with_structured_output(schema, method='json_schema')
+        return structured.invoke([SystemMessage(content=system), message])
+
 
 def get_llm_client(required: bool = False) -> Optional[LLMClient]:
     client = current_app.config.get('LEARNING_LLM_CLIENT')
@@ -67,6 +78,19 @@ def get_llm_client(required: bool = False) -> Optional[LLMClient]:
         return GeminiChatClient(api_key)
     if required:
         raise LLMUnavailable('GEMINI_API_KEY が設定されていないため，LLM を使う処理を実行できません')
+    return None
+
+
+def get_vision_client(required: bool = False):
+    """画像を読み取るクライアント（read_image_json を持つもの）。テストでは `BULK_VISION_CLIENT` で差し替える。"""
+    client = current_app.config.get('BULK_VISION_CLIENT')
+    if client is not None:
+        return client
+    api_key = gemini_api_key()
+    if api_key:
+        return GeminiChatClient(api_key)
+    if required:
+        raise LLMUnavailable('GEMINI_API_KEY が設定されていないため，プリントの見出しを読み取れません')
     return None
 
 

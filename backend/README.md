@@ -416,6 +416,15 @@ API はすべてログインが必要で，`/api/learning` 配下にあります
 
 LLM は Gemini で，環境変数 `GEMINI_API_KEY`（必須）と `GEMINI_MODEL`（既定 `gemini-3.8-flash`）で設定します。未設定のときは LLM を使う API が 503 を返し，プロファイルの更新は LLM なしで動きます。
 
+### 演習プリントの一括取り込み（`/api/bulk`）
+
+クラスごとにスキャンした演習プリント（約1,100枚など）をまとめて取り込み，クラス・出席番号ごとの答案に振り分けます（画面: `screens/learning/bulk-import.html`）。
+
+1. **取り込み** `POST /api/bulk/batches` → `POST /api/bulk/batches/<id>/files`（1ファイルずつ。PDF・画像）。PyMuPDF でページごとの JPEG（150dpi）に分けます（poppler は不要）。ファイル名が「1(1)-No1-0916.pdf」の形なら学年・クラス・提出日を推定します。
+2. **見出しの読み取り** `POST /api/bulk/batches/<id>/read`。各ページを Gemini（`GEMINI_MODEL`）の画像読み取りに渡し，「2学期 No.1【単元】」「1年 _組 _番」からプリント番号・学年・クラス・出席番号を抜き出します（**氏名は読み取りません**）。見出しのないページは裏面として直前の表面にまとめます。並列数は `BULK_READ_CONCURRENCY`（既定 4）。失敗したページは同じ API で続きから読み取り直せます。1ページにつき1回呼び出します。
+3. **確認** `GET /api/bulk/batches/<id>` で答案のまとまりと確認が必要な点（読めない番号・自信が低い・ファイルのクラスと違う・同じ生徒の重複・表面のない裏面）を返します。`PATCH /api/bulk/pages/<id>` で修正，`POST /api/bulk/batches/<id>/confirm` で確認済みにします。画像は `GET /api/bulk/pages/<id>/image`。
+4. **登録** `POST /api/bulk/batches/<id>/register`  `{"prints": {"1": {"test_name", "unit", "answer_key", "exam_date"}}, "run_ocr": false}`。確認の済んだ答案だけを，表面と裏面を1つの PDF にまとめて AnswerSheet として登録します。生徒 ID は「学年-クラス-出席番号」（例 `1-1-20`）。解答キーのファイルは `POST /api/bulk/answer-key/parse` で変換できます。`run_ocr` を指定すると既存の OCR・自動採点を実行します（同時に処理する数は `ANSWER_SHEET_CONCURRENCY`，既定 2）。
+
 ### 評価の集計（5.4節・5.5節）
 
 記録から決定的に集計します（LLM は呼びません）。出力先は `docs/evaluation/`（手順は同フォルダの README）。

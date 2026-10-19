@@ -1436,3 +1436,62 @@ def download_pdf_zip(job_id):
     label = '・'.join(f'{c.split("-")[0]}年{c.split("-")[1]}組' for c in classes if re.match(r'^\d+-\d+$', c)) or '解答解説'
     return _attachment(target, f'{label}_解答解説{kind or ""}.zip', 'application/zip',
                        f'{"_".join(classes) or "students"}_kaisetsu{kind or ""}.zip')
+
+
+# ==================== 要確認の解説だけを直す ====================
+
+@learning_bp.route('/exams/<exam_id>/repair-plan', methods=['GET'])
+@login_required
+def exam_repair_plan(exam_id):
+    """要確認の解説を直す前の見積もり（LLM は呼ばない）: 再検算だけで直る件数と，書き直しが必要なステップ数。"""
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    try:
+        student_ids, known = _select_students(request.args)
+    except ValueError as exc:
+        return make_error_response('LEARNING_INVALID_STUDENTS', str(exc), 400)
+    student_ids = [sid for sid in student_ids if sid in known]
+    return make_success_response({'plan': exam_generation.repair_plan(_exam_problems(exam.id), student_ids)})
+
+
+@learning_bp.route('/exams/<exam_id>/repair-jobs', methods=['POST'])
+@login_required
+def start_exam_repair(exam_id):
+    """要確認の解説だけを直す。body: {classes?: [...], student_ids?: [...]}
+
+    まず記録に残っている計算を現在の検算でもう一度確かめ（LLM を呼ばない），それでも通らないステップだけを書き直す。
+    同じ解説を使い回した生徒はまとめて1回だけ直す。教員が確認済みにした解説は対象外。
+    """
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    payload = request.get_json(silent=True) or {}
+    try:
+        student_ids, known = _select_students(payload)
+    except ValueError as exc:
+        return make_error_response('LEARNING_INVALID_STUDENTS', str(exc), 400)
+    student_ids = [sid for sid in student_ids if sid in known]
+    problems = _exam_problems(exam.id)
+    groups = exam_generation.review_groups(problems, student_ids)
+    if not groups:
+        return make_error_response('LEARNING_NOTHING_TO_REPAIR', '要確認で未確認の解説はありません', 400)
+    running = [j for j in ExamGenerationJob.query.filter_by(exam_id=exam.id, teacher_id=_teacher_db_id()).all()
+               if exam_generation.is_running(j.id)]
+    if running:
+        return make_error_response('LEARNING_JOB_RUNNING', 'この試験の解説を生成中です。終わってから実行してください', 409)
+    try:
+        get_llm_client(required=True)
+    except LLMUnavailable as exc:
+        return _llm_unavailable(exc)
+    job = ExamGenerationJob(
+        teacher_id=_teacher_db_id(), exam_id=exam.id, status='queued',
+        request=json.dumps({'mode': 'repair', 'student_ids': student_ids, 'problem_ids': [p.id for p in problems]},
+                           ensure_ascii=False),
+        total=len(groups), done=0, errors='[]',
+    )
+    db.session.add(job)
+    db.session.commit()
+    exam_generation.start(current_app._get_current_object(), job.id)
+    db.session.expire_all()
+    return make_success_response({'job': exam_generation.job_to_dict(db.session.get(ExamGenerationJob, job.id))}, 202)

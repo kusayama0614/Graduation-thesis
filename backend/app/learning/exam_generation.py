@@ -219,6 +219,9 @@ def _run(app, job_id: str) -> None:
     model_name = getattr(llm, 'model_name', None)
     workers = max(1, int(app.config.get('EXPLANATION_CONCURRENCY') or os.getenv('EXPLANATION_CONCURRENCY', 3)))
     reuse = request.get('reuse', True)
+    if request.get('mode') == 'repair':
+        _run_repair(job, request, llm, errors)
+        return
 
     profiles = {}
     for student_id in request.get('student_ids', []):
@@ -360,6 +363,129 @@ def _run(app, job_id: str) -> None:
                     job.done += 1
                 job.errors = json.dumps(errors, ensure_ascii=False)
                 db.session.commit()
+
+    _finish(job, errors, paused)
+
+
+# ---------------------------------------------------------------- 要確認の解説だけを直す
+
+def review_groups(problems, student_ids: List[str]) -> List[Dict[str, Any]]:
+    """要確認でまだ教員が確かめていない解説を，使い回しの元ごとにまとめる（同じ解説は1回だけ直す）。"""
+    from app.models import GeneratedExplanation
+
+    wanted = set(student_ids)
+    groups: List[Dict[str, Any]] = []
+    for problem in problems:
+        rows = (GeneratedExplanation.query.filter(GeneratedExplanation.problem_id == problem.id,
+                                                  GeneratedExplanation.kind.in_(('individual', 'common')))
+                .order_by(GeneratedExplanation.created_at.asc()).all())
+        latest: Dict[Any, Any] = {}
+        for row in rows:
+            latest[(row.kind, row.student_id)] = row
+        common = latest.get(('common', None))
+        if common is not None and common.status == 'needs_review' and not common.reviewed:
+            groups.append({'problem': problem, 'source': common, 'members': [common]})
+        by_root: Dict[str, List[Any]] = {}
+        for (kind, sid), row in latest.items():
+            if kind == 'individual' and sid in wanted and row.status == 'needs_review' and not row.reviewed:
+                by_root.setdefault(row.reused_from or row.id, []).append(row)
+        for root, members in by_root.items():
+            members.sort(key=lambda r: number_key(r.student_id))
+            source = next((m for m in members if m.id == root), members[0])
+            groups.append({'problem': problem, 'source': source, 'members': members})
+    return groups
+
+
+def repair_plan(problems, student_ids: List[str]) -> Dict[str, Any]:
+    """LLM を呼ばずに，再検算だけで直る解説と，書き直しが必要なステップを数える（ボタンを押す前の見積もり）。"""
+    from app.learning.jobs import problem_to_chain_input
+
+    counts = {'groups': 0, 'explanations': 0, 'fixed_by_recheck': 0, 'rewrite_groups': 0, 'rewrite_steps': 0,
+              'cannot_repair': 0}
+    for group in review_groups(problems, student_ids):
+        counts['groups'] += 1
+        counts['explanations'] += len(group['members'])
+        problem_input = problem_to_chain_input(group['problem'])
+        previous = _row_result(group['source'])
+        try:
+            if group['source'].kind == 'common':
+                plan = chain.repair_common(None, problem_input, previous, dry_run=True)
+            else:
+                plan = chain.repair_explanation(None, problem_input, previous, dry_run=True)
+        except chain.ExplanationError:
+            counts['cannot_repair'] += 1
+            continue
+        if plan['rewrite_steps']:
+            counts['rewrite_groups'] += 1
+            counts['rewrite_steps'] += len(plan['rewrite_steps'])
+        else:
+            counts['fixed_by_recheck'] += 1
+    # 書き直し1回 = 書く1回 + 計算の抜き出し1回（差し戻しが続けば最大 MAX_ATTEMPTS 倍）
+    counts['llm_calls'] = 2 * counts['rewrite_steps']
+    counts['llm_calls_max'] = 2 * chain.MAX_ATTEMPTS * counts['rewrite_steps']
+    return counts
+
+
+def _run_repair(job, request: Dict[str, Any], llm, errors: List[Dict[str, Any]]) -> None:
+    """要確認の解説だけを直す。再検算で通るものは LLM を呼ばず，通らないステップだけを書き直す。
+
+    使い回した解説（同じ判断の生徒）はまとめて1回だけ直し，生徒ごとの記録（判断の理由）はそれぞれのものにする。
+    counters: generated = 書き直した解説，skipped = 再検算だけで直った解説，reused = 同じ直しを反映した生徒。
+    """
+    from app import db
+    from app.learning.jobs import problem_to_chain_input
+    from app.models import TestProblem
+
+    problems = [p for p in (db.session.get(TestProblem, pid) for pid in request.get('problem_ids', [])) if p]
+    groups = review_groups(problems, request.get('student_ids', []))
+    job.total = len(groups)
+    db.session.commit()
+    paused = None
+    for group in groups:
+        problem, source = group['problem'], group['source']
+        label = problem.number or problem.title
+        job.current = f'{label}（{problem.title}）'
+        db.session.commit()
+        problem_input = problem_to_chain_input(problem)
+        try:
+            if source.kind == 'common':
+                repaired = chain.repair_common(llm, problem_input, _row_result(source))
+            else:
+                repaired = chain.repair_explanation(llm, problem_input, _row_result(source))
+        except Exception as exc:
+            db.session.rollback()
+            if QUOTA_PATTERN.search(str(exc)):
+                paused = str(exc)
+                break
+            errors.append({'problem': label, 'student_id': source.student_id, 'error': f'{exc.__class__.__name__}: {exc}'})
+            job.done += 1
+            job.errors = json.dumps(errors, ensure_ascii=False)
+            db.session.commit()
+            continue
+        result = repaired['result']
+        first = None
+        for member in group['members']:
+            own = result
+            if member.kind == 'individual':
+                own_decisions = [s['decision'] for s in json.loads(member.trace or '{}').get('steps', [])]
+                own = with_own_decisions(result, own_decisions)
+            snapshot = json.loads(member.profile_snapshot) if member.profile_snapshot else None
+            row = _save(job, problem.id, member.student_id, own, snapshot, member.signature,
+                        reused_from=first.id if first is not None else None)
+            first = first or row
+        if repaired['rewrite_steps']:
+            job.generated += 1
+        else:
+            job.skipped += 1
+        job.reused += len(group['members']) - 1
+        job.done += 1
+        job.errors = json.dumps(errors, ensure_ascii=False)
+        db.session.commit()
+    _finish(job, errors, paused)
+
+
+def _finish(job, errors: List[Dict[str, Any]], paused: Optional[str]) -> None:
+    from app import db
 
     job.errors = json.dumps(errors, ensure_ascii=False)
     job.current = None

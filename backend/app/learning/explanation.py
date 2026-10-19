@@ -565,67 +565,169 @@ def generate_explanation(llm: LLMClient, problem: Dict[str, Any], node_states: O
     last_relation: Optional[str] = None
     texts: List[str] = []
     step_traces = []
-    warnings: List[str] = []
     for index, (step, decision) in enumerate(zip(steps, decisions)):
-        is_last = index == len(steps) - 1
-        feedback = None
-        attempts = []
-        text = ''
-        verification: Dict[str, Any] = {}
-        for attempt in range(1, MAX_ATTEMPTS + 1):
-            if template:
-                text = write_template_step(llm, problem, steps, step, decision, bodies[index], texts, feedback)
-            else:
-                text = write_step(llm, problem, steps, step, decision, texts, feedback)
-            step_definitions = dict(definitions)
-            # テンプレートの問題は答をテンプレートの「答」で示すので，最後の手順の結論は照合しない
-            final_answer = problem.get('correct_answer') if is_last and not template else None
-            try:
-                extracted = extract_claims(llm, tex_template.restore_figures(text, {}) if template else text)
-                verification = verify_step(step['id'], extracted, step_definitions, final_answer, last_relation)
-            except Exception as exc:  # 抜き出しの失敗は検算できなかったものとして扱う
-                extracted = {'claims': [], 'relations': [], 'final_answer': ''}
-                verification = {'ok': True, 'claims': [], 'counts': {}, 'relations': [], 'relation_counts': {},
-                                'last_relation': last_relation, 'final_check': None, 'feedback': None,
-                                'error': f'計算の抜き出しに失敗しました（{exc.__class__.__name__}）'}
-            if template:
-                latex_problems = tex_template.check_latex(text)
-                if latex_problems:  # 壊れた TeX は PDF にできないので，計算の誤りと同じく差し戻す
-                    verification = {**verification, 'ok': False, 'latex_errors': latex_problems,
-                                    'feedback': 'TeX の書き方に誤りがあります: ' + '，'.join(latex_problems)
-                                                + (f'。{verification["feedback"]}' if verification.get('feedback') else '')}
-            attempts.append({'attempt': attempt, 'text': text, **verification})
-            if verification['ok']:
-                definitions = step_definitions
-                last_relation = verification.get('last_relation')
-                break
-            feedback = verification['feedback']
-        step_status = 'ok' if verification.get('ok') else 'needs_review'
-        step_warnings = []
-        checked_relations = [r for r in verification.get('relations', []) if r['status'] in ('ok', 'ng')]
-        if not verification.get('claims') and not checked_relations:
-            step_warnings.append(f'ステップ{step["id"]}: 計算・式の変形が一つも抜き出されなかったため，このステップは検算されていません')
-        if verification.get('error'):
-            step_warnings.append(f'ステップ{step["id"]}: {verification["error"]}')
-        if step_status == 'needs_review':
-            step_warnings.append(f'ステップ{step["id"]}: 再生成の上限（{MAX_ATTEMPTS}回）に達したため，教員の確認が必要です')
-        warnings.extend(step_warnings)
+        text, attempts, verification, definitions, last_relation = _write_until_verified(
+            llm, problem, steps, index, decision, bodies, texts, definitions, last_relation)
         texts.append(text)
-        step_traces.append({
-            'step_id': step['id'], 'title': step['title'], 'nodes': step.get('nodes', []),
-            'decision': decision, 'text': text, 'status': step_status,
-            'attempt_count': len(attempts), 'attempts': attempts, 'warnings': step_warnings,
-        })
+        step_traces.append(_step_trace(step, decision, text, attempts, verification))
+    return _result(kind, problem, steps, texts, step_traces, getattr(llm, 'model_name', None))
 
+
+def _write(llm: LLMClient, problem: Dict[str, Any], steps: List[Dict[str, Any]], index: int, decision: Dict[str, Any],
+           bodies: List[str], texts: List[str], feedback: Optional[str]) -> str:
+    if problem.get('template'):
+        return write_template_step(llm, problem, steps, steps[index], decision, bodies[index], texts, feedback)
+    return write_step(llm, problem, steps, steps[index], decision, texts, feedback)
+
+
+def _verify_text(problem: Dict[str, Any], steps: List[Dict[str, Any]], index: int, text: str,
+                 extracted: Optional[Dict[str, Any]], definitions: Dict[str, str],
+                 last_relation: Optional[str], extract_error: Optional[Exception] = None) -> Dict[str, Any]:
+    """抜き出した計算（extracted）を検算する（Chain 4。sympy だけで LLM は呼ばない）。definitions は更新される。"""
+    template = problem.get('template')
+    # テンプレートの問題は答をテンプレートの「答」で示すので，最後の手順の結論は照合しない
+    final_answer = problem.get('correct_answer') if index == len(steps) - 1 and not template else None
+    if extracted is None:  # 抜き出しの失敗は検算できなかったものとして扱う
+        verification = {'ok': True, 'claims': [], 'counts': {}, 'relations': [], 'relation_counts': {},
+                        'last_relation': last_relation, 'final_check': None, 'feedback': None,
+                        'error': f'計算の抜き出しに失敗しました（{extract_error.__class__.__name__}）'}
+    else:
+        verification = verify_step(steps[index]['id'], extracted, definitions, final_answer, last_relation)
+    if template:
+        latex_problems = tex_template.check_latex(text)
+        if latex_problems:  # 壊れた TeX は PDF にできないので，計算の誤りと同じく差し戻す
+            verification = {**verification, 'ok': False, 'latex_errors': latex_problems,
+                            'feedback': 'TeX の書き方に誤りがあります: ' + '，'.join(latex_problems)
+                                        + (f'。{verification["feedback"]}' if verification.get('feedback') else '')}
+    return verification
+
+
+def _write_until_verified(llm: LLMClient, problem: Dict[str, Any], steps: List[Dict[str, Any]], index: int,
+                          decision: Dict[str, Any], bodies: List[str], texts: List[str], definitions: Dict[str, str],
+                          last_relation: Optional[str], feedback: Optional[str] = None,
+                          attempts: Optional[List[Dict[str, Any]]] = None):
+    """1ステップを書き，検算が通るまで差し戻して書き直す（上限 MAX_ATTEMPTS 回）。"""
+    attempts = list(attempts or [])
+    text, verification = '', {}
+    start = len(attempts) + 1
+    for attempt in range(start, start + MAX_ATTEMPTS):
+        text = _write(llm, problem, steps, index, decision, bodies, texts, feedback)
+        step_definitions = dict(definitions)
+        try:
+            extracted = extract_claims(llm, tex_template.restore_figures(text, {}) if problem.get('template') else text)
+            verification = _verify_text(problem, steps, index, text, extracted, step_definitions, last_relation)
+        except Exception as exc:
+            verification = _verify_text(problem, steps, index, text, None, step_definitions, last_relation, exc)
+        attempts.append({'attempt': attempt, 'text': text, **verification})
+        if verification['ok']:
+            return text, attempts, verification, step_definitions, verification.get('last_relation')
+        feedback = verification['feedback']
+    return text, attempts, verification, definitions, last_relation
+
+
+def _step_trace(step: Dict[str, Any], decision: Dict[str, Any], text: str, attempts: List[Dict[str, Any]],
+                verification: Dict[str, Any]) -> Dict[str, Any]:
+    step_status = 'ok' if verification.get('ok') else 'needs_review'
+    step_warnings = []
+    checked_relations = [r for r in verification.get('relations', []) if r['status'] in ('ok', 'ng')]
+    if not verification.get('claims') and not checked_relations:
+        step_warnings.append(f'ステップ{step["id"]}: 計算・式の変形が一つも抜き出されなかったため，このステップは検算されていません')
+    if verification.get('error'):
+        step_warnings.append(f'ステップ{step["id"]}: {verification["error"]}')
+    if step_status == 'needs_review':
+        step_warnings.append(f'ステップ{step["id"]}: 再生成の上限（{MAX_ATTEMPTS}回）に達したため，教員の確認が必要です')
+    return {
+        'step_id': step['id'], 'title': step['title'], 'nodes': step.get('nodes', []),
+        'decision': decision, 'text': text, 'status': step_status,
+        'attempt_count': len(attempts), 'attempts': attempts, 'warnings': step_warnings,
+    }
+
+
+def _result(kind: str, problem: Dict[str, Any], steps: List[Dict[str, Any]], texts: List[str],
+            step_traces: List[Dict[str, Any]], model_name: Optional[str]) -> Dict[str, Any]:
+    template = problem.get('template')
     return {
         'kind': kind,
         'status': 'ok' if all(s['status'] == 'ok' for s in step_traces) else 'needs_review',
         'content': tex_template.assemble(template, texts) if template else _assemble(problem, steps, texts),
         'format': 'latex' if template else 'markdown',
         'steps': step_traces,
-        'warnings': warnings,
-        'model_name': getattr(llm, 'model_name', None),
+        'warnings': [w for s in step_traces for w in s['warnings']],
+        'model_name': model_name,
     }
+
+
+# ---------------------------------------------------------------- 要確認の解説の手直し（API の呼び出しを最小にする）
+
+def _extracted_from_attempt(attempt: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """記録に残っている「抜き出した計算」を，もう一度検算できる形に戻す（LLM を呼ばずに再検算するため）。"""
+    if attempt.get('error') and not attempt.get('claims') and not attempt.get('relations'):
+        return None
+    return {
+        'claims': [{k: c.get(k, '') for k in ('lhs', 'rhs', 'lhs_text', 'rhs_text')} for c in attempt.get('claims', [])],
+        'relations': [{'expr': r['expr'], 'text': r.get('text') or r['expr'],
+                       'transformed_from_previous': bool(r.get('transformed_from_previous'))}
+                      for r in attempt.get('relations', [])],
+        'final_answer': (attempt.get('final_check') or {}).get('final_answer', ''),
+    }
+
+
+def repair_explanation(llm: Optional[LLMClient], problem: Dict[str, Any], previous: Dict[str, Any],
+                       dry_run: bool = False) -> Dict[str, Any]:
+    """要確認の解説を，なるべく LLM を呼ばずに直す。
+
+    1. 各ステップの最後の文章と，記録に残っている「抜き出した計算」を，現在の検算（sympy）でもう一度確かめる。
+       検算の不具合が直っていればここで通り，LLM は呼ばない。
+    2. それでも通らないステップだけを，その指摘を添えて書き直す（他のステップの文章と判断はそのまま）。
+    dry_run=True のときは書き直さず，書き直しが必要なステップを数えるだけ。
+    戻り値: {'result': 新しい解説 or None, 'rechecked_ok': [...], 'rewrite_steps': [...]}
+    """
+    steps = problem['steps']
+    old_steps = previous.get('steps', [])
+    template = problem.get('template')
+    bodies = tex_template.step_bodies(template) if template else []
+    if len(old_steps) != len(steps) or [s.get('step_id') for s in old_steps] != [s['id'] for s in steps]:
+        raise ExplanationError('解答ステップが生成時から変わっているため，手直しではなく生成し直してください')
+    definitions: Dict[str, str] = {}
+    last_relation: Optional[str] = None
+    texts: List[str] = []
+    traces = []
+    rewrite_steps, rechecked_ok = [], []
+    for index, (step, old) in enumerate(zip(steps, old_steps)):
+        decision, text = old['decision'], old.get('text', '')
+        attempts = list(old.get('attempts', []))
+        last_attempt = attempts[-1] if attempts else None
+        step_definitions = dict(definitions)
+        if last_attempt is None:  # 検算の記録がない（テンプレートのまま等）
+            verification = {'ok': True, 'claims': [], 'relations': [], 'last_relation': last_relation}
+        else:
+            extracted = _extracted_from_attempt(last_attempt)
+            verification = _verify_text(problem, steps, index, text, extracted, step_definitions, last_relation,
+                                        RuntimeError('記録なし') if extracted is None else None)
+        if verification['ok']:
+            if old.get('status') != 'ok':
+                rechecked_ok.append(step['id'])
+                attempts.append({'attempt': len(attempts) + 1, 'text': text, 'rechecked': True, **verification})
+            definitions, last_relation = step_definitions, verification.get('last_relation', last_relation)
+            texts.append(text)
+            traces.append(_step_trace(step, decision, text, attempts, verification) if last_attempt
+                          else {**old, 'status': 'ok'})
+            continue
+        rewrite_steps.append(step['id'])
+        if dry_run:
+            texts.append(text)
+            traces.append(old)
+            continue
+        text, attempts, verification, definitions, last_relation = _write_until_verified(
+            llm, problem, steps, index, decision, bodies, texts, definitions, last_relation,
+            feedback=verification['feedback'], attempts=attempts)
+        texts.append(text)
+        traces.append(_step_trace(step, decision, text, attempts, verification))
+    if dry_run:
+        return {'result': None, 'rechecked_ok': rechecked_ok, 'rewrite_steps': rewrite_steps}
+    model_name = (getattr(llm, 'model_name', None) if rewrite_steps else None) or previous.get('model_name')
+    return {'result': _result(previous.get('kind', 'individual'), problem, steps, texts, traces, model_name),
+            'rechecked_ok': rechecked_ok, 'rewrite_steps': rewrite_steps}
 
 
 def template_master(problem: Dict[str, Any]) -> Dict[str, Any]:
@@ -712,6 +814,25 @@ def write_common(llm: LLMClient, problem: Dict[str, Any], feedback: Optional[str
     if feedback:
         user += f'\n\n前回書いた解説には次の誤りがありました。誤りを直して，解説を書き直してください。\n{feedback}'
     return llm.generate_text(system=COMMON_SYSTEM, user=user, temperature=0.3).strip()
+
+
+def repair_common(llm: Optional[LLMClient], problem: Dict[str, Any], previous: Dict[str, Any],
+                  dry_run: bool = False) -> Dict[str, Any]:
+    """要確認の全員共通の解説（解答ステップがない問題）を直す。記録の計算を再検算して通れば LLM を呼ばない。"""
+    old = (previous.get('steps') or [{}])[0]
+    attempts = list(old.get('attempts', []))
+    extracted = _extracted_from_attempt(attempts[-1]) if attempts else None
+    if extracted is not None:
+        verification = verify_step(1, extracted, {}, problem.get('correct_answer') or None, None)
+        if verification['ok']:
+            attempts.append({'attempt': len(attempts) + 1, 'text': old.get('text', ''), 'rechecked': True, **verification})
+            warnings = [w for w in old.get('warnings', []) if '上限' not in w]
+            trace = {**old, 'status': 'ok', 'attempts': attempts, 'attempt_count': len(attempts), 'warnings': warnings}
+            return {'result': {**previous, 'status': 'ok', 'steps': [trace], 'warnings': warnings},
+                    'rechecked_ok': [1], 'rewrite_steps': []}
+    if dry_run:
+        return {'result': None, 'rechecked_ok': [], 'rewrite_steps': [1]}
+    return {'result': generate_common_explanation(llm, problem), 'rechecked_ok': [], 'rewrite_steps': [1]}
 
 
 def generate_common_explanation(llm: LLMClient, problem: Dict[str, Any]) -> Dict[str, Any]:

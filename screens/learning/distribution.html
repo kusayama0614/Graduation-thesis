@@ -63,6 +63,12 @@
         <section class="card hidden" id="reviewCard">
             <h2>4. 要確認の解説を確かめる</h2>
             <p class="card-lead">検算で直らなかったステップがある解説です（3.5節）。開いて内容を確かめ，必要なら直してから「確認済みにする」を押してください。同じ解説を使い回した生徒にも反映されます。</p>
+            <div id="repairBox" class="hidden" style="margin-bottom: 12px;">
+                <div class="button-row" style="margin-top: 0;">
+                    <button class="button" id="repairButton" onclick="startRepair()">要確認の解説だけ再生成する</button>
+                </div>
+                <p class="muted" id="repairPlan" style="margin-top: 6px;"></p>
+            </div>
             <div id="reviewArea"></div>
         </section>
 
@@ -339,7 +345,9 @@
                     ${studentCount} 人 × ${(job.request.problem_ids || []).length} 問　開始 ${L.formatDateTime(job.created_at)}
                     ${job.current ? `　／　${L.escapeHtml(job.current)} を生成中` : ''}</div>
                 <div class="progress" style="margin: 10px 0;"><div class="progress-fill" style="width:${percent}%"></div></div>
-                <div>${job.done} / ${job.total} 件（Gemini で生成 ${job.generated}，使い回し ${job.reused}，作成済みで省略 ${job.skipped}）</div>
+                <div>${job.request.mode === 'repair'
+                    ? `要確認の解説の手直し：${job.done} / ${job.total} 件（再検算だけで解決 ${job.skipped}，ステップを書き直し ${job.generated}，同じ直しを反映した生徒 ${job.reused}）`
+                    : `${job.done} / ${job.total} 件（Gemini で生成 ${job.generated}，使い回し ${job.reused}，作成済みで省略 ${job.skipped}）`}</div>
                 ${job.message ? `<div class="notice notice-warn">${L.escapeHtml(job.message)}</div>` : ''}
                 ${['paused', 'failed'].includes(job.status) && !job.running ? '<div class="button-row"><button class="button" onclick="resumeJob()">続きから生成</button></div>' : ''}
                 ${errors.length ? `<details style="margin-top: 8px;"><summary>うまくいかなかったもの ${errors.length} 件</summary><ul class="reasons">${errors.map((e) =>
@@ -391,6 +399,7 @@
                     <td>${p.needs_review}${p.pending_review ? `（<strong>${p.pending_review}</strong>）` : ''}</td><td>${p.reviewed}</td></tr>`;
             }).join('') || '<tr><td colspan="8" class="empty">問題がありません</td></tr>';
             const review = payload.review || [];
+            loadRepairPlan(review.length);
             document.getElementById('reviewArea').innerHTML = review.length
                 ? `<div class="table-wrap"><table><thead><tr><th>番号</th><th>問題</th><th>この解説を使う生徒</th><th>注意</th><th></th></tr></thead><tbody>
                     ${review.map((r) => `<tr><td class="nowrap">${L.escapeHtml(r.number || '')}</td><td>${L.escapeHtml(r.title)}</td>
@@ -399,6 +408,42 @@
                         <td class="nowrap"><a class="button button-small" href="explanation.html?id=${encodeURIComponent(r.explanation_id)}&edit=1" target="_blank">確かめる</a></td></tr>`).join('')}
                     </tbody></table></div>`
                 : '<p class="empty">要確認で未確認の解説はありません。</p>';
+        }
+
+        async function loadRepairPlan(count) {
+            const box = document.getElementById('repairBox');
+            box.classList.toggle('hidden', !count);
+            if (!count) {
+                return;
+            }
+            const target = document.getElementById('repairPlan');
+            target.textContent = '見積もり中…';
+            try {
+                const p = (await L.api('GET', `/learning/exams/${examId()}/repair-plan?${classQuery()}`)).plan;
+                target.textContent = `要確認 ${p.explanations} 件（同じ解説の使い回しをまとめて ${p.groups} 件）のうち，`
+                    + `今の検算で確かめ直すだけで直るもの ${p.fixed_by_recheck} 件（Gemini を呼びません），`
+                    + `書き直しが必要なもの ${p.rewrite_groups} 件（${p.rewrite_steps} ステップだけを書き直し，Gemini およそ ${p.llm_calls}〜${p.llm_calls_max} 回）。`
+                    + (p.cannot_repair ? ` 解答ステップが変わったため直せないもの ${p.cannot_repair} 件（解説を生成し直してください）。` : '')
+                    + (p.rewrite_groups ? ' 書き直しても直らないものは，「3. 問題ごとの状況」の模範解答の照合を確かめるか，開いて直接直してください（何度押しても Gemini を呼ぶだけになります）。' : '');
+            } catch (error) {
+                target.textContent = error.message;
+            }
+        }
+
+        async function startRepair() {
+            const button = document.getElementById('repairButton');
+            button.disabled = true;
+            try {
+                const cls = document.getElementById('classSelect').value;
+                const payload = await L.api('POST', `/learning/exams/${examId()}/repair-jobs`, { classes: cls ? [cls] : undefined });
+                showJob(payload.job);
+                document.getElementById('jobCard').scrollIntoView({ behavior: 'smooth' });
+                L.toast('要確認の解説の手直しを始めました', 'ok');
+            } catch (error) {
+                L.toast(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
         }
 
         async function loadStudents() {

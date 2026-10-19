@@ -264,3 +264,106 @@ def test_common_signature_changes_with_style_version(monkeypatch):
     before = exam_generation.common_signature(problem, 'm')
     monkeypatch.setattr(exam_generation.chain, 'COMMON_STYLE_VERSION', 99)
     assert exam_generation.common_signature(problem, 'm') != before  # 書き方を変えたら作り直す
+
+
+# ---------------------------------------------------------------- 要確認の解説だけを直す
+
+def _mark_needs_review(client, student_id, step_index, wrong_rhs=None):
+    """生成済みの解説を「要確認」にする（wrong_rhs を与えると，そのステップの記録の計算を誤りにする）。"""
+    with client.application.app_context():
+        row = (GeneratedExplanation.query.filter_by(kind='individual', student_id=student_id)
+               .order_by(GeneratedExplanation.created_at.desc()).first())
+        root = row.reused_from or row.id
+        for target in GeneratedExplanation.query.filter(db.or_(GeneratedExplanation.id == root,
+                                                               GeneratedExplanation.reused_from == root)).all():
+            trace = json.loads(target.trace)
+            step = trace['steps'][step_index]
+            step['status'] = 'needs_review'
+            if wrong_rhs is not None:
+                step['attempts'][-1]['claims'][0]['rhs'] = wrong_rhs
+            target.trace = json.dumps(trace, ensure_ascii=False)
+            target.status = 'needs_review'
+        db.session.commit()
+        return root
+
+
+def _latest_individual(client, student_id):
+    with client.application.app_context():
+        row = (GeneratedExplanation.query.filter_by(kind='individual', student_id=student_id)
+               .order_by(GeneratedExplanation.created_at.desc()).first())
+        return row.id, row.status, row.reused_from, json.loads(row.trace)
+
+
+def test_repair_fixes_by_recheck_without_calling_llm(client):  # noqa: F811
+    llm = FakeLLM(writer=correct_writer)
+    exam_id = _setup(client, llm)
+    only = [_pid(client, exam_id, '2(1)')]
+    _job(client, exam_id, classes=['1-1'], problem_ids=only)
+    # 検算の不具合で要確認になっていた（記録の計算は正しい）解説: 1-1-1 と 1-1-2 は同じ解説を使い回している
+    _mark_needs_review(client, '1-1-1', 1)
+
+    plan = client.get(f'/api/learning/exams/{exam_id}/repair-plan?classes=1-1').get_json()['plan']
+    assert (plan['groups'], plan['explanations'], plan['fixed_by_recheck'], plan['rewrite_steps'], plan['llm_calls']) \
+        == (1, 2, 1, 0, 0)
+
+    calls = len(llm.calls)
+    res = client.post(f'/api/learning/exams/{exam_id}/repair-jobs', json={'classes': ['1-1']})
+    assert res.status_code == 202
+    job = res.get_json()['job']
+    assert job['status'] == 'completed' and (job['generated'], job['skipped'], job['reused'], job['done']) == (0, 1, 1, 1)
+    assert len(llm.calls) == calls  # Gemini は呼ばない
+    first_id, status, reused_from, trace = _latest_individual(client, '1-1-1')
+    assert status == 'ok' and reused_from is None and trace['steps'][1]['attempts'][-1]['rechecked']
+    _, status, reused_from, _ = _latest_individual(client, '1-1-2')
+    assert status == 'ok' and reused_from == first_id
+
+    # もう直すものはない
+    assert client.post(f'/api/learning/exams/{exam_id}/repair-jobs', json={'classes': ['1-1']}).status_code == 400
+
+
+def test_repair_rewrites_only_the_failing_step(client):  # noqa: F811
+    llm = FakeLLM(writer=correct_writer)
+    exam_id = _setup(client, llm)
+    _job(client, exam_id, student_ids=['1-1-10'], problem_ids=[_pid(client, exam_id, '2(1)')])
+    _, _, _, before = _latest_individual(client, '1-1-10')
+    _mark_needs_review(client, '1-1-10', 1, wrong_rhs='5')  # ステップ2の記録の計算が誤り
+
+    plan = client.get(f'/api/learning/exams/{exam_id}/repair-plan?student_ids=1-1-10').get_json()['plan']
+    assert (plan['rewrite_groups'], plan['rewrite_steps'], plan['llm_calls']) == (1, 1, 2)
+
+    calls = len(llm.calls)
+    job = client.post(f'/api/learning/exams/{exam_id}/repair-jobs', json={'student_ids': ['1-1-10']}).get_json()['job']
+    assert job['status'] == 'completed' and job['generated'] == 1
+    new_calls = llm.calls[calls:]
+    texts = [u for kind, u in new_calls if kind == 'text']
+    assert len(texts) == 1 and '今回書くステップ: 2.' in texts[0] and '誤り' in texts[0]  # 指摘を添えてステップ2だけ
+    _, status, _, after = _latest_individual(client, '1-1-10')
+    assert status == 'ok'
+    assert after['steps'][0]['text'] == before['steps'][0]['text'] and after['steps'][2]['text'] == before['steps'][2]['text']
+    assert after['steps'][1]['attempt_count'] == before['steps'][1]['attempt_count'] + 1
+
+
+def test_repair_skips_reviewed_explanations(client):  # noqa: F811
+    exam_id = _setup(client, FakeLLM(writer=correct_writer))
+    _job(client, exam_id, student_ids=['1-1-10'], problem_ids=[_pid(client, exam_id, '2(1)')])
+    root = _mark_needs_review(client, '1-1-10', 1, wrong_rhs='5')
+    client.put(f'/api/learning/explanations/{root}', json={})  # 教員が確認済みにした
+    assert client.get(f'/api/learning/exams/{exam_id}/repair-plan').get_json()['plan']['groups'] == 0
+    assert client.post(f'/api/learning/exams/{exam_id}/repair-jobs', json={}).status_code == 400
+
+
+def test_repair_common_explanation_by_recheck(client):  # noqa: F811
+    llm = FakeLLM(writer=correct_writer)
+    exam_id = _setup(client, llm)
+    _job(client, exam_id, classes=['1-1'], problem_ids=[_pid(client, exam_id, '10')])
+    with client.application.app_context():
+        row = GeneratedExplanation.query.filter_by(kind='common').first()
+        row.status = 'needs_review'
+        original = row.content
+        db.session.commit()
+    calls = len(llm.calls)
+    job = client.post(f'/api/learning/exams/{exam_id}/repair-jobs', json={'classes': ['1-1']}).get_json()['job']
+    assert job['status'] == 'completed' and job['skipped'] == 1 and len(llm.calls) == calls
+    with client.application.app_context():
+        latest = GeneratedExplanation.query.filter_by(kind='common').order_by(GeneratedExplanation.created_at.desc()).first()
+        assert latest.status == 'ok' and latest.content == original

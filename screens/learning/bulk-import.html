@@ -127,18 +127,66 @@
                 <p class="card-lead">プリントごとにテスト名・単元・解答キーを決めて登録します。登録した答案は「解答データ確認」と「① 演習の反映」に表示されます（生徒 ID は「学年-クラス-出席番号」，例: 1-1-20）。</p>
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th></th><th>プリント</th><th>テスト名</th><th>単元</th><th>解答キー（任意）</th><th>実施日（空欄ならファイルの提出日）</th></tr></thead>
+                        <thead><tr><th></th><th>プリント</th><th>テスト名</th><th>単元</th><th>解答キー（ファイルを選ばなければ組み込みのもの）</th><th>実施日（空欄ならファイルの提出日）</th></tr></thead>
                         <tbody id="registerRows"></tbody>
                     </table>
                 </div>
-                <label class="checkbox" style="margin-top: 10px;"><input type="checkbox" id="runOcr"> 登録後に既存の読み取り（OCR）と自動採点を実行する</label>
+                <label class="checkbox" style="margin-top: 10px;"><input type="checkbox" id="runOcr"> 登録後に既存の読み取り（OCR）と自動採点を実行する <span class="muted">（手書きの数式が苦手なため，通常は下の「答えの書き起こしと採点」を使ってください）</span></label>
                 <div class="button-row">
                     <button class="button" id="registerButton" onclick="registerSheets()">確認済みの答案を登録</button>
                 </div>
                 <div id="registerResult"></div>
             </section>
+
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>答えの書き起こしと採点</h2>
+                        <p class="card-lead">登録した答案から，小問ごとに鉛筆の初答と色ペンの訂正を分けて Gemini で書き起こし（正解は渡さず，書かれたとおりに），初答を解答キーと数式処理で照合して採点します。読み取りの自信が低い小問は確認してください。採点が済むと「① 演習の反映」でまとめて反映できます。</p>
+                    </div>
+                </div>
+                <div class="muted" id="txStatus">登録した答案がまだありません</div>
+                <div class="progress hidden" id="txProgress"><div class="progress-fill" id="txFill" style="width: 0%"></div></div>
+                <div class="button-row">
+                    <select id="txPrint" style="margin-top: 0; max-width: 220px;" onchange="renderTranscriptions()"></select>
+                    <button class="button" id="txStart" onclick="startTranscribe(false)">書き起こしを始める（未実施・失敗の答案）</button>
+                    <button class="button button-light button-small" onclick="startTranscribe(true)">選んだプリントを書き起こし直す</button>
+                    <label class="checkbox"><input type="checkbox" id="txOnlyReview" onchange="renderTranscriptions()"> 確認が必要な答案だけ</label>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>生徒ID</th><th>プリント</th><th>状態</th><th>判定</th><th>要確認</th><th></th></tr></thead>
+                        <tbody id="txRows"></tbody>
+                    </table>
+                </div>
+                <div class="button-row">
+                    <a class="button button-light" href="exercises.html">① 演習の反映へ（まとめて反映）</a>
+                </div>
+            </section>
         </div>
     </main>
+
+    <div class="modal-backdrop hidden" id="txModal" onclick="if (event.target === this) closeTx()">
+        <div class="modal" style="grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.45fr); max-width: 1360px;">
+            <div id="txImages" style="max-height: calc(100vh - 80px); overflow: auto;"></div>
+            <div>
+                <h3 style="margin-top: 0;" id="txTitle"></h3>
+                <p class="muted">初答（式）を直すと保存時に照合し直します。式の書き方: √ は sqrt()，組は「m=2 のとき x=-1；…」，順序のある組はカンマ区切り。</p>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>小問</th><th>正解</th><th>初答（式）</th><th>訂正</th><th>空欄</th><th title="意図は分かるが書き方に問題がある">書き方の問題</th><th>判定</th></tr></thead>
+                        <tbody id="txItems"></tbody>
+                    </table>
+                </div>
+                <div class="button-row">
+                    <button class="button" onclick="saveTx(false)">保存（確認済みにする）</button>
+                    <button class="button button-light" onclick="saveTx(true)">保存して次の答案へ</button>
+                    <button class="button button-light" onclick="closeTx()">閉じる</button>
+                </div>
+                <div id="txNotice"></div>
+            </div>
+        </div>
+    </div>
 
     <div class="modal-backdrop hidden" id="modal" onclick="if (event.target === this) closeModal()">
         <div class="modal">
@@ -187,12 +235,17 @@
         let modalPages = [];
         let modalIndex = 0;
         const answerKeys = {};
+        let builtinKeys = {};
+        let tx = null;  // 書き起こしの一覧
+        let txTimer = null;
+        let txCurrent = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 await L.initPage('bulk', '演習プリントの取り込み', 'スキャンをまとめて取り込み，クラス・出席番号ごとの答案に振り分けます');
                 const graph = await L.loadGraph();
                 units = graph.graph.units;
+                builtinKeys = (await L.api('GET', '/bulk/answer-keys')).prints || {};
                 await loadBatches();
                 const id = L.queryParam('batch');
                 if (id) {
@@ -392,6 +445,134 @@
             renderFilters();
             renderSheets();
             renderRegister();
+            loadTranscriptions();
+        }
+
+        // ---------------------------------------------------------------- 答えの書き起こしと採点
+
+        async function loadTranscriptions() {
+            clearTimeout(txTimer);
+            try {
+                tx = await L.api('GET', `/bulk/batches/${currentBatchId}/transcriptions`);
+            } catch (error) {
+                L.toast(error.message, 'error');
+                return;
+            }
+            const c = tx.counts;
+            const total = tx.rows.length;
+            const finished = c.done + c.confirmed + c.error;
+            document.getElementById('txStatus').textContent = total
+                ? `登録した答案 ${total} 枚：書き起こし済み ${c.done + c.confirmed}（確認済み ${c.confirmed}）・未実施 ${c.none}・待ち ${c.pending}${c.error ? `・失敗 ${c.error}（もう一度「書き起こしを始める」で続きから）` : ''}${tx.running ? '　— 書き起こし中…' : ''}`
+                : '登録した答案がまだありません（上の「答案として登録」で登録してください）';
+            const progress = document.getElementById('txProgress');
+            progress.classList.toggle('hidden', !tx.running);
+            document.getElementById('txFill').style.width = `${total ? Math.round((finished / total) * 100) : 0}%`;
+            document.getElementById('txStart').disabled = tx.running || !total;
+            const select = document.getElementById('txPrint');
+            const keep = select.value;
+            const prints = [...new Set(tx.rows.map((r) => r.print_no).filter(Boolean))].sort((a, b) => a - b);
+            select.innerHTML = '<option value="">すべてのプリント</option>' + prints.map((p) =>
+                `<option value="${p}">No.${p}${tx.has_key[String(p)] ? '' : '（解答キーなし）'}</option>`).join('');
+            select.value = prints.map(String).includes(keep) ? keep : '';
+            renderTranscriptions();
+            if (tx.running) {
+                txTimer = setTimeout(loadTranscriptions, 4000);
+            }
+        }
+
+        function renderTranscriptions() {
+            if (!tx) {
+                return;
+            }
+            const p = document.getElementById('txPrint').value;
+            const onlyReview = document.getElementById('txOnlyReview').checked;
+            const STATUS = { none: '未実施', pending: '待ち', done: '書き起こし済み', error: '失敗', confirmed: '確認済み' };
+            const rows = tx.rows.filter((r) => (!p || String(r.print_no) === p) && (!onlyReview || r.needs_review || r.status === 'error'));
+            document.getElementById('txRows').innerHTML = rows.length ? rows.map((r) => `
+                <tr>
+                    <td class="nowrap"><strong>${L.escapeHtml(r.student_id || '')}</strong></td>
+                    <td class="nowrap">No.${r.print_no || '?'}</td>
+                    <td class="nowrap"><span class="badge ${r.status === 'confirmed' ? 'badge-ok' : r.status === 'error' ? 'badge-ng' : ''}">${STATUS[r.status] || r.status}</span>${r.error ? `<div class="muted">${L.escapeHtml(r.error)}</div>` : ''}</td>
+                    <td>${Object.entries(r.counts).map(([j, n]) => `${L.judgmentBadge(j)} ${n}`).join(' ')}</td>
+                    <td>${r.needs_review ? `<span class="badge badge-ng">${r.needs_review}</span>` : '<span class="muted">0</span>'}</td>
+                    <td>${r.items.length ? `<button class="button button-light button-small" onclick="openTx('${r.answer_sheet_id}')">確認・修正</button>` : ''}</td>
+                </tr>`).join('') : '<tr><td colspan="6" class="empty">該当する答案がありません</td></tr>';
+        }
+
+        async function startTranscribe(redo) {
+            const p = document.getElementById('txPrint').value;
+            if (redo && !confirm(`${p ? `No.${p} の` : 'すべての'}答案を書き起こし直しますか？（確認・修正した内容も書き起こし直されます）`)) {
+                return;
+            }
+            try {
+                const res = await L.api('POST', `/bulk/batches/${currentBatchId}/transcribe`, { print_nos: p ? [Number(p)] : [], redo });
+                L.toast(res.started ? `${res.started} 枚の書き起こしを始めました` : '書き起こす答案はありません', 'ok');
+                loadTranscriptions();
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        function openTx(sheetId) {
+            txCurrent = tx.rows.find((r) => r.answer_sheet_id === sheetId);
+            if (!txCurrent) {
+                return;
+            }
+            document.getElementById('txTitle').textContent = `${txCurrent.student_id}　No.${txCurrent.print_no}`;
+            document.getElementById('txImages').innerHTML = txCurrent.page_ids.map((id) =>
+                `<img src="${imageUrl(id)}" alt="答案の画像" style="margin-bottom: 8px;">`).join('');
+            document.getElementById('txItems').innerHTML = txCurrent.items.map((i, index) => `
+                <tr data-index="${index}" style="${i.needs_review ? 'background: #fff8ec;' : ''}">
+                    <td class="nowrap"><strong>${L.escapeHtml(i.question)}</strong>${i.needs_review ? '<div class="badge badge-ng">要確認</div>' : ''}</td>
+                    <td class="muted" style="min-width: 80px; max-width: 150px;">${L.escapeHtml(i.expected || '')}</td>
+                    <td><input type="text" class="tx-math" value="${L.escapeHtml(i.initial_math || '')}" style="min-width: 120px;">
+                        ${i.initial_text && i.initial_text !== i.initial_math ? `<div class="muted">記述: ${L.escapeHtml(i.initial_text)}</div>` : ''}
+                        ${i.note ? `<div class="muted">メモ: ${L.escapeHtml(i.note)}</div>` : ''}</td>
+                    <td><input type="text" class="tx-corrected" value="${L.escapeHtml(i.corrected_text || '')}" style="min-width: 70px;"></td>
+                    <td><input type="checkbox" class="tx-blank" ${i.blank ? 'checked' : ''}></td>
+                    <td><input type="checkbox" class="tx-form" title="意図は分かるが書き方に問題がある" ${i.form_issue ? 'checked' : ''}></td>
+                    <td class="nowrap">${L.judgmentBadge(i.judgment)}</td>
+                </tr>`).join('');
+            document.getElementById('txNotice').innerHTML = '';
+            document.getElementById('txModal').classList.remove('hidden');
+        }
+
+        function closeTx() {
+            document.getElementById('txModal').classList.add('hidden');
+        }
+
+        async function saveTx(next) {
+            const items = [...document.querySelectorAll('#txItems tr[data-index]')].map((tr) => {
+                const original = txCurrent.items[Number(tr.dataset.index)];
+                return {
+                    question: original.question,
+                    initial_math: tr.querySelector('.tx-math').value,
+                    corrected_text: tr.querySelector('.tx-corrected').value,
+                    blank: tr.querySelector('.tx-blank').checked,
+                    form_issue: tr.querySelector('.tx-form').checked,
+                    unreadable: false,
+                };
+            });
+            try {
+                const res = await L.api('PUT', `/bulk/transcriptions/${txCurrent.answer_sheet_id}`, { items });
+                const index = tx.rows.findIndex((r) => r.answer_sheet_id === txCurrent.answer_sheet_id);
+                tx.rows[index] = res.transcription;
+                renderTranscriptions();
+                if (next) {
+                    const following = tx.rows.slice(index + 1).find((r) => r.items.length && (r.needs_review || !document.getElementById('txOnlyReview').checked));
+                    if (following) {
+                        openTx(following.answer_sheet_id);
+                        return;
+                    }
+                    closeTx();
+                    L.toast('最後の答案です', 'ok');
+                    return;
+                }
+                openTx(txCurrent.answer_sheet_id);
+                document.getElementById('txNotice').innerHTML = '<div class="notice notice-ok">保存して照合し直しました</div>';
+            } catch (error) {
+                document.getElementById('txNotice').innerHTML = `<div class="notice notice-error">${L.escapeHtml(error.message)}</div>`;
+            }
         }
 
         function renderReview() {
@@ -625,13 +806,13 @@
                     <td><input type="text" class="reg-name" value="${L.escapeHtml(keep.name || `No.${p} ${e.title || ''}`.trim())}"></td>
                     <td><select class="reg-unit">${unitOptions}</select></td>
                     <td><input type="file" class="reg-key" accept=".csv,.xlsx,.xls,.json,.txt,.docx" onchange="parseKey(${p}, this)">
-                        <div class="muted" id="keyInfo${p}">${key ? `${Object.keys(key.answers).length} 問の解答キー` : ''}</div></td>
+                        <div class="muted" id="keyInfo${p}">${key ? `${Object.keys(key.answers).length} 問の解答キー` : builtinKeys[p] ? `組み込みの解答キー（${builtinKeys[p].questions.length}問）` : '解答キーなし'}</div></td>
                     <td><input type="date" class="reg-date" value="${keep.date || ''}"></td>
                 </tr>`;
             }).join('') : '<tr><td colspan="6" class="empty">読み取りが終わると表示されます</td></tr>';
             rows.forEach(([p]) => {
                 const select = document.querySelector(`#registerRows tr[data-print="${p}"] .reg-unit`);
-                select.value = (existing[p] && existing[p].unit) || (p <= 7 ? 'quadratic_functions' : '');
+                select.value = (existing[p] && existing[p].unit) || (builtinKeys[p] && builtinKeys[p].unit) || (p <= 7 ? 'quadratic_functions' : '');
             });
         }
 
@@ -695,6 +876,10 @@
         }
 
         document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !document.getElementById('txModal').classList.contains('hidden')) {
+                closeTx();
+                return;
+            }
             if (document.getElementById('modal').classList.contains('hidden')) {
                 return;
             }

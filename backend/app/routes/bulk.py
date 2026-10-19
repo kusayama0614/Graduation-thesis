@@ -16,9 +16,10 @@ from werkzeug.utils import secure_filename
 
 from app import db
 from app.learning.llm import LLMUnavailable, get_vision_client
-from app.models import AnswerSheet, BulkImportBatch, ScannedPage, Teacher
+from app.models import AnswerSheet, BulkImportBatch, ScannedPage, SheetTranscription, Teacher
 from app.routes.auth import login_required
 from app.utils import bulk_import as bulk
+from app.utils import transcription as T
 from app.utils.answer_key_parser import parse_answer_key_file
 from app.utils.answer_sheet_processor import start_answer_sheet_processing
 from app.utils.api_response import make_error_response, make_success_response
@@ -345,6 +346,8 @@ def register(batch_id):
         test_name = (str(setting.get('test_name') or '').strip()
                      or f'No.{group["print_no"]} {group["print_title"] or ""}'.strip())[:200]
         answer_key = setting.get('answer_key') if isinstance(setting.get('answer_key'), dict) else None
+        if answer_key is None and setting.get('use_builtin_key', True):
+            answer_key = T.answer_key_for(group['print_no'])  # 組み込みの解答キー（No.1〜No.9）
         unit = str(setting.get('unit') or '').strip()
         if answer_key is not None:
             answer_key = dict(answer_key)
@@ -409,3 +412,110 @@ def register(batch_id):
         batch.status = 'registered'
         db.session.commit()
     return make_success_response({'created': created, 'skipped': skipped})
+
+
+# ---------------------------------------------------------------- 答えの書き起こしと採点
+
+@bulk_bp.route('/answer-keys', methods=['GET'])
+@login_required
+def answer_keys():
+    """組み込みの解答キー（プリント番号ごとの小問・正解・前提知識ノード）。"""
+    return make_success_response({'prints': {
+        no: {'title': entry['title'], 'unit': entry['unit'],
+             'questions': [{k: q.get(k) for k in ('question', 'problem', 'answer', 'kind', 'nodes')} for q in entry['questions']]}
+        for no, entry in T.load_answer_keys().items()}})
+
+
+def _transcription_row(row, sheet, pages):
+    items = json.loads(row.items) if row and row.items else []
+    return {
+        'answer_sheet_id': sheet.id if sheet else (row.answer_sheet_id if row else None),
+        'student_id': sheet.student_id if sheet else None,
+        'test_name': sheet.test_name if sheet else None,
+        'print_no': row.print_no if row else pages.get('print_no'),
+        'status': row.status if row else 'none',
+        'error': row.error if row else None,
+        'page_ids': pages.get('page_ids', []),
+        'items': items,
+        'needs_review': sum(1 for i in items if i.get('needs_review')),
+        'counts': {j: sum(1 for i in items if i['judgment'] == j) for j in {i['judgment'] for i in items}},
+    }
+
+
+@bulk_bp.route('/batches/<batch_id>/transcribe', methods=['POST'])
+@login_required
+def start_transcribe(batch_id):
+    """登録済みの答案の答えを Gemini で書き起こし，解答キーと照合して採点する。"""
+    batch = _get_batch(batch_id)
+    if batch is None:
+        return make_error_response('BULK_BATCH_NOT_FOUND', 'Batch not found', 404)
+    if get_firebase_service().enabled:
+        return make_error_response('BULK_TRANSCRIBE_UNSUPPORTED', 'Firebase 利用時の書き起こしにはまだ対応していません', 501)
+    try:
+        get_vision_client(required=True)
+    except LLMUnavailable as exc:
+        return make_error_response('LLM_UNAVAILABLE', str(exc), 503)
+    data = request.get_json(silent=True) or {}
+    print_nos = [int(p) for p in (data.get('print_nos') or []) if str(p).isdigit()] or None
+    count = bulk.start_transcribing(current_app._get_current_object(), batch.id, print_nos, bool(data.get('redo')))
+    if count < 0:
+        return make_error_response('BULK_BUSY', '書き起こしの途中です', 409)
+    return make_success_response({'started': count}, 202)
+
+
+@bulk_bp.route('/batches/<batch_id>/transcriptions', methods=['GET'])
+@login_required
+def list_transcriptions(batch_id):
+    batch = _get_batch(batch_id)
+    if batch is None:
+        return make_error_response('BULK_BATCH_NOT_FOUND', 'Batch not found', 404)
+    sheets = bulk.sheet_pages(batch.id)
+    rows_by_sheet = {r.answer_sheet_id: r for r in SheetTranscription.query.filter_by(batch_id=batch.id).all()}
+    answer_sheets = {s.id: s for s in AnswerSheet.query.filter(AnswerSheet.id.in_(list(sheets))).all()} if sheets else {}
+    rows = [_transcription_row(rows_by_sheet.get(sid), answer_sheets.get(sid), entry) for sid, entry in sheets.items()]
+    rows.sort(key=lambda r: (r['print_no'] or 0, r['student_id'] or ''))
+    statuses = [r['status'] for r in rows]
+    return make_success_response({
+        'running': bulk.is_transcribing(batch.id),
+        'counts': {s: statuses.count(s) for s in ('none', 'pending', 'done', 'error', 'confirmed')},
+        'has_key': {str(no): bool(T.key_items(no)) for no in {r['print_no'] for r in rows if r['print_no']}},
+        'rows': rows,
+    })
+
+
+@bulk_bp.route('/transcriptions/<answer_sheet_id>', methods=['PUT'])
+@login_required
+def update_transcription(answer_sheet_id):
+    """書き起こしを直す（直した小問は照合し直す）。body: {items: [{question, initial_math, ...}]}。直すと確認済みになる。"""
+    row = SheetTranscription.query.filter_by(answer_sheet_id=answer_sheet_id).first()
+    if row is None or _get_batch(row.batch_id) is None:
+        return make_error_response('BULK_TRANSCRIPTION_NOT_FOUND', 'Transcription not found', 404)
+    key = {q['question']: q for q in T.key_items(row.print_no)}
+    current = {i['question']: i for i in (json.loads(row.items) if row.items else [])}
+    for change in (request.get_json(silent=True) or {}).get('items') or []:
+        question = str(change.get('question') or '')
+        if question not in key:
+            return make_error_response('BULK_UNKNOWN_QUESTION', f'小問 {question} は解答キーにありません', 400)
+        entry = dict(current.get(question) or {})
+        for field in ('initial_text', 'initial_math', 'corrected_text', 'note'):
+            if field in change:
+                entry[field] = str(change[field] or '').strip()[:500]
+        for field in ('blank', 'unreadable', 'form_issue'):
+            if field in change:
+                entry[field] = bool(change[field])
+        if change.get('self_mark') in ('o', 'x', 'none'):
+            entry['self_mark'] = change['self_mark']
+        entry.setdefault('confidence', 'high')
+        entry.setdefault('self_mark', 'none')
+        entry['edited'] = True
+        current[question] = T.grade_transcribed(key[question], entry)
+    items = [current[q] if q in current else T.grade_transcribed(key[q], {'blank': True, 'edited': True})
+             for q in key]
+    for item in items:
+        item['needs_review'] = False  # 教員が確かめたので，確認が必要な印は外す
+        for field, default in (('initial_text', ''), ('initial_math', ''), ('corrected_text', ''), ('self_mark', 'none')):
+            item.setdefault(field, default)
+    bulk.save_transcription(row, db.session.get(AnswerSheet, answer_sheet_id), items, 'confirmed')
+    db.session.commit()
+    return make_success_response({'transcription': _transcription_row(row, db.session.get(AnswerSheet, answer_sheet_id),
+                                                                      bulk.sheet_pages(row.batch_id).get(answer_sheet_id, {}))})

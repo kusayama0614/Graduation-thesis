@@ -307,3 +307,25 @@ class ScannedPage(db.Model):
 
     def __repr__(self):
         return f'<ScannedPage {self.file_name} p{self.page_index + 1}>'
+
+
+class SheetTranscription(db.Model):
+    """答案の答えの書き起こし（初答・訂正）と照合の結果。確定した結果は AnswerSheet.question_results に書き込む。"""
+
+    __tablename__ = 'sheet_transcriptions'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
+    batch_id = db.Column(db.String(36), index=True)
+    answer_sheet_id = db.Column(db.String(64), nullable=False, unique=True)
+    print_no = db.Column(db.Integer)
+    status = db.Column(db.String(20), default='pending')  # pending / done / error / confirmed
+    model_name = db.Column(db.String(100))
+    items = db.Column(db.Text)  # JSON list: 小問ごとの書き起こしと判定
+    raw = db.Column(db.Text)  # JSON: LLM の出力そのもの
+    error = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    def __repr__(self):
+        return f'<SheetTranscription {self.answer_sheet_id} {self.status}>'

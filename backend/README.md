@@ -425,6 +425,15 @@ LLM は Gemini で，環境変数 `GEMINI_API_KEY`（必須）と `GEMINI_MODEL`
 3. **確認** `GET /api/bulk/batches/<id>` で答案のまとまりと確認が必要な点（読めない番号・自信が低い・ファイルのクラスと違う・同じ生徒の重複・表面のない裏面）を返します。`PATCH /api/bulk/pages/<id>` で修正，`POST /api/bulk/batches/<id>/confirm` で確認済みにします。画像は `GET /api/bulk/pages/<id>/image`。
 4. **登録** `POST /api/bulk/batches/<id>/register`  `{"prints": {"1": {"test_name", "unit", "answer_key", "exam_date"}}, "run_ocr": false}`。確認の済んだ答案だけを，表面と裏面を1つの PDF にまとめて AnswerSheet として登録します。生徒 ID は「学年-クラス-出席番号」（例 `1-1-20`）。解答キーのファイルは `POST /api/bulk/answer-key/parse` で変換できます。`run_ocr` を指定すると既存の OCR・自動採点を実行します（同時に処理する数は `ANSWER_SHEET_CONCURRENCY`，既定 2）。
 
+### 答えの書き起こしと採点（一括取り込みの続き）
+
+一括取り込みで登録した答案の答えを Gemini で書き起こし，解答キーと照合して採点します（画面: 一括取り込みの「答えの書き起こしと採点」）。
+
+- **解答キー**: `app/learning/data/answer_keys.json`（No.1〜No.9。元は `docs/answer_keys/演習プリント解答キー_No1-No9.md`）。登録時に解答キーのファイルを選ばなければ，プリント番号から自動で付きます（前提知識ノードの初期値も付くので，「① 演習の反映」のまとめて反映でそのまま使えます）。
+- **書き起こし（層2）** `POST /api/bulk/batches/<id>/transcribe`  `{"print_nos": [1], "redo": false}`。答案の全ページを1回で Gemini に渡し，小問ごとに鉛筆の初答と色ペンの訂正，自己採点の丸，書き方の問題，読み取りの自信を返させます。**正解は渡しません**（誤答を正しい値に直す過剰修正を防ぐため）。
+- **照合（層3）** `app/utils/transcription.py`。初答だけを解答キーと数式処理で照合します。sinθ・cosθ・tanθ のような組は順序どおりに比べる（取り違えは誤り），三角比の表の値は桁を粗くすると誤り（0.4067 を 0.41），「m=2 のとき x=−1」型は組ごとに比べて一部だけなら不完全，「すべての実数」「解はない」は言い換えを許す，「cos16°」は形そのものを比べる，No.7 のグラフは自動判定しない。
+- **確認** `GET /api/bulk/batches/<id>/transcriptions` で一覧，`PUT /api/bulk/transcriptions/<答案ID>` で直す（照合し直して確認済みにする）。結果は答案の採点結果（`question_results`）に書き込まれます。
+
 ### 評価の集計（5.4節・5.5節）
 
 記録から決定的に集計します（LLM は呼びません）。出力先は `docs/evaluation/`（手順は同フォルダの README）。

@@ -371,3 +371,145 @@ def parse_iso_date(value: Any) -> Optional[date]:
         except ValueError:
             return None
     return None
+
+
+# ---------------------------------------------------------------- 答えの書き起こしと採点
+
+def sheet_pages(batch_id: str) -> Dict[str, Dict[str, Any]]:
+    """登録済みの答案ごとに，ページ画像とプリント番号をまとめる。{answer_sheet_id: {print_no, page_paths, page_ids}}"""
+    from app.models import ScannedPage
+
+    sheets: Dict[str, Dict[str, Any]] = {}
+    rows = (ScannedPage.query.filter(ScannedPage.batch_id == batch_id, ScannedPage.answer_sheet_id.isnot(None))
+            .order_by(ScannedPage.file_id, ScannedPage.page_index).all())
+    for page in rows:
+        entry = sheets.setdefault(page.answer_sheet_id, {'print_no': None, 'page_paths': [], 'page_ids': []})
+        if page.kind == 'front' and page.print_no:
+            entry['print_no'] = page.print_no
+        entry['page_paths'].append(page.image_path)
+        entry['page_ids'].append(page.id)
+    return sheets
+
+
+def save_transcription(row, sheet, items: List[Dict[str, Any]], status: str) -> None:
+    """書き起こしの結果を保存し，答案の採点結果（question_results）に書き込む。"""
+    from app.learning import judgments as J
+    from app.utils import transcription as T
+
+    row.items = json.dumps(items, ensure_ascii=False)
+    row.status = status
+    row.error = None
+    if sheet is None:
+        return
+    graded = [i for i in items if i['judgment'] not in J.EXCLUDED_JUDGMENTS]
+    correct = sum(1 for i in graded if i['judgment'] in J.CORRECT_JUDGMENTS)
+    sheet.question_results = json.dumps(T.question_results(items), ensure_ascii=False)
+    sheet.ocr_text = T.ocr_text_of(items)
+    sheet.correct_count = correct
+    sheet.total_questions = len(graded)
+    sheet.score = round(100 * correct / len(graded), 1) if graded else None
+    sheet.processing_message = '答えを書き起こして採点しました' + ('（確認済み）' if status == 'confirmed' else '')
+    answer_key = json.loads(sheet.answer_key) if sheet.answer_key else {}
+    if not (answer_key.get('answers') if isinstance(answer_key, dict) else None):
+        builtin = T.answer_key_for(row.print_no)
+        if builtin:
+            if isinstance(answer_key, dict) and answer_key.get('unit'):
+                builtin['unit'] = answer_key['unit']
+            sheet.answer_key = json.dumps(builtin, ensure_ascii=False)
+
+
+def start_transcribing(app, batch_id: str, print_nos: Optional[List[int]] = None, redo: bool = False) -> int:
+    """登録済みの答案の書き起こしを始める。対象の枚数を返す（読み取り中なら -1）。"""
+    from app import db
+    from app.models import AnswerSheet, SheetTranscription
+    from app.utils import transcription as T
+
+    key = f'tx:{batch_id}'
+    with _running_lock:
+        if key in _running:
+            return -1
+        _running.add(key)
+    try:
+        sheets = sheet_pages(batch_id)
+        targets = []
+        for sheet_id, entry in sheets.items():
+            if print_nos and entry['print_no'] not in print_nos:
+                continue
+            if not T.key_items(entry['print_no']):
+                continue  # 解答キーのないプリントは書き起こさない
+            row = SheetTranscription.query.filter_by(answer_sheet_id=sheet_id).first()
+            if row is None:
+                answer_sheet = db.session.get(AnswerSheet, sheet_id)
+                row = SheetTranscription(teacher_id=answer_sheet.teacher_id if answer_sheet else '',
+                                         batch_id=batch_id, answer_sheet_id=sheet_id, print_no=entry['print_no'])
+                db.session.add(row)
+            elif row.status in ('done', 'confirmed') and not redo:
+                continue
+            row.status = 'pending'
+            targets.append(sheet_id)
+        db.session.commit()
+    except Exception:
+        with _running_lock:
+            _running.discard(key)
+        raise
+    if app.config.get('BULK_JOBS_INLINE'):
+        _transcribe(app, batch_id, targets, key)
+    else:
+        threading.Thread(target=_transcribe, args=(app, batch_id, targets, key), daemon=True).start()
+    return len(targets)
+
+
+def is_transcribing(batch_id: str) -> bool:
+    with _running_lock:
+        return f'tx:{batch_id}' in _running
+
+
+def _transcribe(app, batch_id: str, targets: List[str], running_key: str) -> None:
+    from app import db
+    from app.learning.llm import get_vision_client
+    from app.models import AnswerSheet, SheetTranscription
+    from app.utils import transcription as T
+
+    try:
+        with app.app_context():
+            client = get_vision_client(required=True)
+            sheets = sheet_pages(batch_id)
+            workers = max(1, int(app.config.get('BULK_READ_CONCURRENCY') or os.getenv('BULK_READ_CONCURRENCY', 4)))
+
+            def work(sheet_id):
+                entry = sheets.get(sheet_id) or {}
+                key = T.key_items(entry.get('print_no'))
+                try:
+                    images = []
+                    for path in entry.get('page_paths', []):
+                        with open(path, 'rb') as f:
+                            images.append((f.read(), 'image/jpeg'))
+                    out = client.read_images_json(system=T.TRANSCRIBE_SYSTEM, user=T.transcribe_prompt(key),
+                                                  images=images, schema=T.TRANSCRIBE_SCHEMA,
+                                                  schema_name='answer_transcription')
+                    return sheet_id, out, T.build_items(key, out.get('answers') or []), None
+                except Exception as exc:  # 1枚の失敗で全体を止めない（後で再開できる）
+                    return sheet_id, None, None, f'{exc.__class__.__name__}: {str(exc)[:300]}'
+
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = [pool.submit(work, sheet_id) for sheet_id in targets]
+                for count, future in enumerate(as_completed(futures), start=1):
+                    sheet_id, out, items, error = future.result()
+                    row = SheetTranscription.query.filter_by(answer_sheet_id=sheet_id).first()
+                    if row is None:
+                        continue
+                    row.model_name = getattr(client, 'model_name', None)
+                    if error:
+                        row.status = 'error'
+                        row.error = error
+                    else:
+                        row.raw = json.dumps(out, ensure_ascii=False)
+                        save_transcription(row, db.session.get(AnswerSheet, sheet_id), items, 'done')
+                    if count % 5 == 0 or count == len(futures):
+                        db.session.commit()
+            db.session.commit()
+    except Exception as exc:
+        app.logger.warning('transcription failed for %s: %s', batch_id, exc)
+    finally:
+        with _running_lock:
+            _running.discard(running_key)

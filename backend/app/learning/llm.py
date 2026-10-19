@@ -59,14 +59,20 @@ class GeminiChatClient:
 
     def read_image_json(self, *, system, user, image_bytes, mime_type, schema, schema_name, thinking_level=None):
         """画像（スキャンしたページなど）を読み取り，JSON Schema に従った出力を dict で返す。"""
+        return self.read_images_json(system=system, user=user, images=[(image_bytes, mime_type)], schema=schema,
+                                     schema_name=schema_name, thinking_level=thinking_level)
+
+    def read_images_json(self, *, system, user, images, schema, schema_name, thinking_level=None):
+        """複数の画像（答案の表面と裏面など）をまとめて読み取る。images は [(bytes, mime_type)]。"""
         import base64
         from langchain_core.messages import HumanMessage, SystemMessage
 
-        data_url = f'data:{mime_type};base64,{base64.b64encode(image_bytes).decode("ascii")}'
-        message = HumanMessage(content=[{'type': 'text', 'text': user},
-                                        {'type': 'image_url', 'image_url': {'url': data_url}}])
+        content = [{'type': 'text', 'text': user}]
+        for image_bytes, mime_type in images:
+            data_url = f'data:{mime_type};base64,{base64.b64encode(image_bytes).decode("ascii")}'
+            content.append({'type': 'image_url', 'image_url': {'url': data_url}})
         structured = self._chat(0.0, thinking_level).with_structured_output(schema, method='json_schema')
-        return structured.invoke([SystemMessage(content=system), message])
+        return structured.invoke([SystemMessage(content=system), HumanMessage(content=content)])
 
 
 def get_llm_client(required: bool = False) -> Optional[LLMClient]:

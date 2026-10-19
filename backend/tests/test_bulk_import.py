@@ -5,6 +5,7 @@ import json
 import pymupdf
 import pytest
 
+from app import db
 from app.models import AnswerSheet, ScannedPage
 from app.utils import bulk_import as bulk
 from tests.test_api_core import _register_and_login, client  # noqa: F401  (fixture の再利用)
@@ -126,7 +127,8 @@ def test_bulk_import_reads_groups_and_registers(setup):
         assert sheets['1-1-20'].test_name == 'No.1 判別式' and sheets['1-1-20'].student_class == '1'
         assert json.loads(sheets['1-1-20'].answer_key)['unit'] == 'quadratic_functions'
         assert sheets['1-1-20'].exam_date.isoformat().endswith('-09-16')
-        assert sheets['1-1-6'].test_name == 'No.2 グラフと2次関数' and sheets['1-1-6'].answer_key is None
+        assert sheets['1-1-6'].test_name == 'No.2 グラフと2次関数'
+        assert json.loads(sheets['1-1-6'].answer_key)['source'] == 'builtin'  # 解答キーを指定しなければ組み込みのもの
         with pymupdf.open(sheets['1-1-6'].file_path) as doc:
             assert doc.page_count == 2  # 表面と裏面
     # 登録済みは二重に登録しない・変更できない
@@ -185,3 +187,88 @@ def test_bulk_requires_login_and_vision(client, tmp_path):  # noqa: F811
     assert client.post(f'/api/bulk/batches/{batch["id"]}/read').status_code == 503
     assert client.delete(f'/api/bulk/batches/{batch["id"]}').status_code == 200
     assert client.get(f'/api/bulk/batches/{batch["id"]}').status_code == 404
+
+
+# ---------------------------------------------------------------- 答えの書き起こしと採点
+
+class FakeTranscriber(FakeVision):
+    """見出しの読み取りに加えて，答えの書き起こしも返す。"""
+
+    def __init__(self, answers_by_page_text):
+        super().__init__()
+        self.answers = answers_by_page_text
+        self.transcribe_calls = []
+
+    def read_images_json(self, *, system, user, images, schema, schema_name, thinking_level=None):
+        self.transcribe_calls.append((user, len(images)))
+        digest = hashlib.sha1(images[0][0]).hexdigest()
+        if digest in self.fail:
+            raise RuntimeError('quota')
+        return {'answers': self.answers[digest]}
+
+
+def ans(question, math, text=None, corrected='', blank=False, confidence='high', form_issue=False, self_mark='none'):
+    return {'question': question, 'initial_text': text if text is not None else math, 'initial_math': math,
+            'corrected_text': corrected, 'blank': blank, 'self_mark': self_mark, 'form_issue': form_issue,
+            'confidence': confidence, 'unreadable': False, 'note': ''}
+
+
+def test_transcribe_grades_with_builtin_key_and_feeds_profile(setup):
+    client, _ = setup
+    batch = client.post('/api/bulk/batches', json={'name': 'No.1'}).get_json()['batch']
+    _upload(client, batch['id'], '1(1)-No1-0916.pdf', ['S20', 'S26'])
+    pages = _pages(client, batch['id'])
+    digest = {}
+    for (_, _, index, path) in pages:
+        with open(path, 'rb') as f:
+            digest[index] = hashlib.sha1(f.read()).hexdigest()
+    vision = FakeTranscriber({
+        digest[0]: [ans('練習29(1)', '2', '2個'), ans('練習29(2)', '0'), ans('練習29(3)', '1'),
+                    ans('練習30', 'm>16/3', corrected='m<16/3', self_mark='o'),
+                    ans('練習31', 'm=2 のとき x=-1')],
+        digest[1]: [ans('練習29(1)', '2'), ans('練習29(2)', '0'), ans('練習29(3)', '1', confidence='low'),
+                    ans('練習30', '16/3>m'), ans('練習31', 'm=2 のとき x=-1；m=-6 のとき x=3')],
+    })
+    vision.set(pages[0][3], front(1, 1, 1, 20))
+    vision.set(pages[1][3], front(1, 1, 1, 26))
+    client.application.config['BULK_VISION_CLIENT'] = vision
+    client.post(f'/api/bulk/batches/{batch["id"]}/read')
+    client.post(f'/api/bulk/batches/{batch["id"]}/confirm', json={'page_ids': [p[0] for p in pages]})
+    assert len(client.post(f'/api/bulk/batches/{batch["id"]}/register', json={'prints': {'1': {}}}).get_json()['created']) == 2
+
+    res = client.post(f'/api/bulk/batches/{batch["id"]}/transcribe', json={})
+    assert res.status_code == 202 and res.get_json()['started'] == 2
+    prompt = vision.transcribe_calls[0][0]
+    assert '練習31' in prompt and '16/3' not in prompt  # 正解は書き起こしに渡さない
+    listing = client.get(f'/api/bulk/batches/{batch["id"]}/transcriptions').get_json()
+    assert listing['counts']['done'] == 2
+    rows = {r['student_id']: r for r in listing['rows']}
+    s20 = {i['question']: i for i in rows['1-1-20']['items']}
+    assert s20['練習29(1)']['judgment'] == 'correct'
+    assert s20['練習30']['judgment'] == 'wrong' and s20['練習30']['corrected_text'] == 'm<16/3'  # 初答で判定する
+    assert s20['練習31']['judgment'] == 'incomplete'
+    assert rows['1-1-26']['needs_review'] == 1 and rows['1-1-26']['counts'] == {'correct': 5}
+
+    # 演習の反映（まとめて反映）がそのまま使える
+    ids = [r['answer_sheet_id'] for r in listing['rows']]
+    body = client.post('/api/learning/answer-data/apply-bulk', json={'data_ids': ids}).get_json()
+    assert body['counts'] == {'applied': 2, 'skipped': 0, 'error': 0}
+    profile = client.get('/api/learning/profiles/1-1-20').get_json()['profile']
+    assert set(profile['error_tendencies']) <= {'discriminant_setup', 'inequality_manipulation', 'exact_value', 'double_root'}
+    assert sum(profile['error_tendencies'].values()) == 2
+    record = next(r for r in profile['records'] if r['question'] == '練習30')
+    assert record['initial_answer'] == 'm>16/3' and record['corrected'] is True
+
+    # 教員が直すと照合し直して確認済みになる
+    sid = rows['1-1-20']['answer_sheet_id']
+    res = client.put(f'/api/bulk/transcriptions/{sid}', json={'items': [
+        {'question': '練習31', 'initial_math': 'm=2 のとき x=-1；m=-6 のとき x=3'}]})
+    fixed = {i['question']: i for i in res.get_json()['transcription']['items']}
+    assert res.get_json()['transcription']['status'] == 'confirmed' and fixed['練習31']['judgment'] == 'correct'
+    assert fixed['練習30']['judgment'] == 'wrong'
+    with client.application.app_context():
+        sheet = db.session.get(AnswerSheet, sid)
+        assert sheet.correct_count == 4 and sheet.total_questions == 5
+    assert client.put(f'/api/bulk/transcriptions/{sid}', json={'items': [{'question': '問99'}]}).status_code == 400
+    # 済んだものは書き起こし直さない（redo で書き起こし直す）
+    assert client.post(f'/api/bulk/batches/{batch["id"]}/transcribe', json={}).get_json()['started'] == 0

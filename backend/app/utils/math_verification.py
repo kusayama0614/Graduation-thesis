@@ -52,7 +52,6 @@ _ALLOWED_NAMES: Dict[str, Any] = {
     'exp': sp.exp,
     'abs': sp.Abs,
     'pi': sp.pi,
-    'e': sp.E,
 }
 
 _FORBIDDEN_CHARS = set('[]{}"\';:\\@#$&`|~?!')
@@ -272,7 +271,8 @@ def _numeric_value(expr: sp.Basic) -> Optional[complex]:
         return None
 
 
-def _compare_exprs(exp: sp.Basic, act: sp.Basic, places: Optional[int]) -> Tuple[bool, str, str]:
+def _compare_exprs(exp: sp.Basic, act: sp.Basic, places: Optional[int],
+                   rel_tol: float = 0.0) -> Tuple[bool, str, str]:
     if isinstance(exp, sp.Tuple) or isinstance(act, sp.Tuple):
         if not (isinstance(exp, sp.Tuple) and isinstance(act, sp.Tuple)) or len(exp) != len(act):
             return False, 'symbolic_mismatch', '組の要素数が異なります'
@@ -299,6 +299,7 @@ def _compare_exprs(exp: sp.Basic, act: sp.Basic, places: Optional[int]) -> Tuple
     if exp_val is None or act_val is None:
         return False, 'numeric_mismatch', '数値として評価できません'
     tolerance = 0.5 * 10 ** (-places) + 1e-12 if places is not None else 1e-9 * max(1.0, abs(exp_val))
+    tolerance = max(tolerance, rel_tol * abs(exp_val))
     if abs(exp_val - act_val) <= tolerance:
         return True, 'numeric_equal', f'数値が許容誤差{tolerance:g}以内で一致します'
     return False, 'numeric_mismatch', '数値が一致しません'
@@ -504,6 +505,35 @@ def _format_value(expr: sp.Basic) -> str:
     return str(sp.simplify(expr))
 
 
+_DECIMAL_IN_TEXT = re.compile(r'\d*\.\d+')
+
+
+def _approximation_tolerance(*texts: str) -> float:
+    """式に近似値（三角比の表の 0.7002 など）が含まれるとき，その有効数字に応じた相対誤差を返す。
+
+    表の値は丸めてあるため，20 × 0.7002 = 14.004 を厳密な 20·tan35° = 14.0042… と比べても
+    誤りとしないようにする。近似値を含まない式では 0（厳密に比較）。
+    """
+    digits = []
+    for text in texts:
+        for literal in _DECIMAL_IN_TEXT.findall(text):
+            significant = literal.replace('.', '').lstrip('0')
+            if significant:
+                digits.append(len(significant))
+    return 0.5 * 10 ** (1 - min(digits)) if digits else 0.0
+
+
+def is_math_expression(text: Any) -> bool:
+    """sympy で値の式として安全に解釈できるか。"""
+    raw = _delatex(str(text).strip())
+    if not _is_safe(raw):
+        return False
+    try:
+        return isinstance(_to_expr(_preprocess(raw)), sp.Expr)
+    except _Unparseable:
+        return False
+
+
 def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """解説中の計算の主張「lhs = rhs」を検算する（卒業論文 3.5節，Chain 4）。
 
@@ -546,7 +576,7 @@ def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None
         result['detail'] = '両辺の文字が異なるため，恒等式として検算できません'
         return result
 
-    ok, method, detail = _compare_exprs(right, left, _decimal_places(rhs_pre))
+    ok, method, detail = _compare_exprs(right, left, _decimal_places(rhs_pre), _approximation_tolerance(lhs_pre, rhs_pre))
     if ok:
         return {'status': 'ok', 'true_value': None, 'detail': detail}
     try:

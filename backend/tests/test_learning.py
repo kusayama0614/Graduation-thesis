@@ -640,3 +640,51 @@ def test_missing_root_in_equation_solution_is_detected():
     ]}, {})
     assert result['ok'] is False
     assert 'm = -6, 2' in result['feedback']
+
+
+# ---------------------------------------------------------------- 2回目の試行（塔の問題）で見つかった誤った差し戻し
+
+def _claim(lhs, rhs):
+    return {'lhs': lhs, 'rhs': rhs, 'lhs_text': lhs, 'rhs_text': rhs}
+
+
+def test_table_value_approximation_is_accepted():
+    defs = {}
+    first = chain.verify_step(1, {'claims': [_claim('h', '20*tan(35°)')], 'final_answer': ''}, defs)
+    assert first['ok']
+    second = chain.verify_step(2, {'claims': [_claim('h', '20*0.7002'), _claim('h', '14.004')], 'final_answer': ''}, defs)
+    assert second['ok'] and second['counts']['ok'] == 2   # 表の値 0.7002 の丸めを誤りとしない
+    wrong = chain.verify_step(2, {'claims': [_claim('20*0.7002', '14.5')], 'final_answer': ''}, {})
+    assert wrong['ok'] is False
+
+
+def test_final_answer_with_unit_is_accepted():
+    result = chain.verify_step(4, {'claims': [], 'final_answer': '15.5 m'}, {}, correct_answer='15.5')
+    assert result['ok'] and result['final_check']['is_correct'] is True
+
+
+def test_letter_reused_in_later_step_is_not_sent_back():
+    defs = {}
+    chain.verify_step(2, {'claims': [_claim('h', '14.004')], 'final_answer': ''}, defs)
+    later = chain.verify_step(4, {'claims': [_claim('h', '15.5')], 'final_answer': ''}, defs)
+    assert later['ok'] and later['claims'][0]['status'] == 'unverifiable'
+    same_step = chain.verify_step(1, {'claims': [_claim('D', '49-8*m'), _claim('D', '49+8*m')], 'final_answer': ''}, {})
+    assert same_step['ok'] is False   # 同じステップ内の食い違いは誤りとして差し戻す
+
+
+def test_chain_through_formula_with_undefined_coefficients():
+    claims = [_claim('D', 'b^2-4*a*c'), _claim('D', '5^2-4*2*(m-3)'), _claim('D', '25-8*(m-3)'), _claim('D', '49-8*m')]
+    defs = {}
+    result = chain.verify_step(1, {'claims': claims, 'final_answer': '', 'relations': []}, defs)
+    assert result['counts'] == {'ok': 2, 'ng': 0, 'definition': 1, 'unverifiable': 1}
+    nxt = chain.verify_step(2, {'claims': [], 'final_answer': '', 'relations': [
+        {'expr': 'D>0', 'text': 'D>0', 'transformed_from_previous': False},
+        {'expr': '49-8*m>0', 'text': '49-8m>0', 'transformed_from_previous': True},
+    ]}, defs)
+    assert nxt['relation_counts']['ok'] == 1   # D に 49-8m を代入して変形を比較できる
+
+
+def test_e_is_a_plain_letter_not_napier_constant():
+    result = chain.verify_step(3, {'claims': [_claim('H', 'h+e'), _claim('H', '14.004+1.5')], 'final_answer': ''},
+                               {'h': '14.004'})
+    assert result['ok']   # e をネイピア数と読んで 14.004 + 2.718 と比べない

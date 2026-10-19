@@ -15,12 +15,13 @@ from __future__ import annotations
 
 import difflib
 import math
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.learning import graph
 from app.learning.llm import LLMClient
 from app.learning.profile import confidence_of
-from app.utils.math_verification import check_claim, check_relation_step, judge_answer
+from app.utils.math_verification import _IDENTIFIER, check_claim, check_relation_step, is_math_expression, judge_answer
 
 # ---------------------------------------------------------------- 詳しさの決定規則（Chain 2）
 
@@ -251,13 +252,16 @@ EXTRACTION_RULES = (
     '- lhs・rhs は sympy で解釈できる表記にする（掛け算 *，累乗 ^，平方根 sqrt()，角度は sin(30°) のように°を付ける，'
     '変数は半角英字。θ は t に置き換える）。lhs_text・rhs_text には解説中の元の表記を入れる。\n'
     '- 文字を定義する式（D = b^2 - 4ac など）もそのまま含める。不等式は claims に含めない。\n'
+    '- 文字は，解説中で文字として書かれている記号（D，m，x など）だけを使う。「塔全体の高さ」のように言葉で書かれた量に'
+    '自分で文字を割り当ててはいけない。その場合は数値の計算だけを抜き出す'
+    '（例:「塔全体の高さ = 14.004 + 1.5 = 15.504」→ lhs「14.004 + 1.5」，rhs「15.504」）。\n'
     '- relations には，不等式と，文字について解く方程式（「(m+6)(m-2)=0」「m=2, -6」など）を書かれた順に全て入れる。'
     'expr は sympy で解釈できる表記，text は元の表記とする。その式が直前の relations の式を変形して得られたもの'
     '（移項・両辺を割る・因数分解して解くなど）なら transformed_from_previous を true，新しい条件や別の条件を'
     '書き始めたもの（D > 0 という条件を立てる，別の条件を並べる など）なら false にする。'
     'このステップの最初の式が，前のステップの最後の式を変形したものなら true にする。\n'
     '- LaTeX 記法（\\frac，\\sqrt，$ など）は使わず，49/8 や sqrt(3) のように書く。\n'
-    '- final_answer には，解説が問題の最終的な答えとして述べている内容を書く（無ければ空文字）。'
+    '- final_answer には，解説が問題の最終的な答えとして述べている内容を，単位を付けずに書く（無ければ空文字）。'
 )
 
 _EXTRACTION_SCHEMA = {
@@ -304,6 +308,15 @@ def extract_claims(llm: LLMClient, step_text: str) -> Dict[str, Any]:
     return {'claims': claims, 'relations': relations, 'final_answer': str(out.get('final_answer', '')).strip()}
 
 
+_UNIT = re.compile(r'^\s*([+-]?\d+(?:\.\d+)?(?:/\d+)?)\s*(m|cm|mm|km|g|kg|度|°|個|人|円|秒|分|時間|倍)\s*$')
+
+
+def _strip_unit(answer: str) -> str:
+    """「15.5 m」のような単位つきの数値から単位を外す（m を文字と読まないように）。"""
+    match = _UNIT.match(answer or '')
+    return match.group(1) if match else (answer or '').strip()
+
+
 def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, str],
                 correct_answer: Optional[str] = None, previous_relation: Optional[str] = None) -> Dict[str, Any]:
     """抜き出した計算を検算する。definitions はこのステップで定義された文字で更新される。
@@ -313,19 +326,34 @@ def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, 
     """
     # 1巡目: 文字の定義（D = b^2 - 4ac，a = 2 など）を，書かれた順序によらず先に集める
     definition_index = set()
+    local_names = set()  # このステップで定義・更新した文字
     for index, claim in enumerate(extracted['claims']):
         name = str(claim['lhs']).strip()
         if name not in definitions and check_claim(claim['lhs'], claim['rhs'], definitions)['status'] == 'definition':
             definitions[name] = str(claim['rhs']).strip()
             definition_index.add(index)
-    # 2巡目: 定義を代入して残りの計算を検算する（同じ文字の2回目以降の式は検算の対象）
+            local_names.add(name)
+    # 2巡目: 定義を代入して残りの計算を検算する。同じ文字の2回目以降の式（D = 5^2-4·2(m-3) = … = 49-8m）は，
+    # その文字の直前の値と比べ，成り立てば値を更新していく（D = b^2-4ac のように係数が未定義の公式でも連鎖をたどれる）
     results = []
     for index, claim in enumerate(extracted['claims']):
+        name = str(claim['lhs']).strip()
         if index in definition_index:
             results.append({**claim, 'status': 'definition', 'true_value': None,
-                            'detail': f'{str(claim["lhs"]).strip()} の定義として記録しました'})
+                            'detail': f'{name} の定義として記録しました'})
             continue
-        results.append({**claim, **check_claim(claim['lhs'], claim['rhs'], definitions)})
+        if _IDENTIFIER.match(name) and name in definitions:
+            checked = check_claim(definitions[name], claim['rhs'], definitions)
+            if checked['status'] == 'ng' and name not in local_names:
+                # 前のステップの文字が別の量として使われている可能性があるため，誤りと断定しない
+                checked = {'status': 'unverifiable', 'true_value': None,
+                           'detail': f'前のステップの {name} と値が異なるため，別の量として使われている可能性があり検算しませんでした'}
+            if checked['status'] != 'ng' and is_math_expression(claim['rhs']):
+                definitions[name] = str(claim['rhs']).strip()
+                local_names.add(name)
+        else:
+            checked = check_claim(claim['lhs'], claim['rhs'], definitions)
+        results.append({**claim, **checked})
 
     feedback_lines = [
         f'ステップ{step_id}の「{r.get("lhs_text") or r["lhs"]} = {r.get("rhs_text") or r["rhs"]}」は誤りです'
@@ -351,7 +379,7 @@ def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, 
             )
     final_check = None
     if correct_answer:
-        final_answer = extracted.get('final_answer', '')
+        final_answer = _strip_unit(extracted.get('final_answer', ''))
         if final_answer:
             verdict = judge_answer(correct_answer, final_answer)
             final_check = {'final_answer': final_answer, 'correct_answer': correct_answer, **verdict}

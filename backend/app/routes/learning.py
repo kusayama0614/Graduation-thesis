@@ -147,35 +147,30 @@ def applied_sheets():
     return make_success_response({'sheets': {sheet_id: count for sheet_id, count in rows}})
 
 
-@learning_bp.route('/answer-data/<data_id>/node-tags', methods=['PUT'])
-@login_required
-def set_node_tags(data_id):
-    """解答キーの各小問に前提知識ノードを付ける。body: {unit, nodes: {問番号: [node_id, ...]}}"""
-    payload = request.get_json(silent=True) or {}
-    unit = payload.get('unit')
-    nodes = payload.get('nodes')
+def _normalize_node_tags(unit, nodes):
+    """(正規化した {問番号: [ノード]}, エラー応答) を返す。"""
     if unit not in graph.unit_ids():
-        return make_error_response('LEARNING_INVALID_UNIT', f'unit は {", ".join(graph.unit_ids())} のいずれかです', 400)
+        return None, make_error_response('LEARNING_INVALID_UNIT', f'unit は {", ".join(graph.unit_ids())} のいずれかです', 400)
     if not isinstance(nodes, dict):
-        return make_error_response('LEARNING_INVALID_NODES', 'nodes は {問番号: [ノード名]} の形式です', 400)
+        return None, make_error_response('LEARNING_INVALID_NODES', 'nodes は {問番号: [ノード名]} の形式です', 400)
     normalized = {}
     for question, ids in nodes.items():
         if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
-            return make_error_response('LEARNING_INVALID_NODES', f'小問 {question} のノードは文字列の配列です', 400)
+            return None, make_error_response('LEARNING_INVALID_NODES', f'小問 {question} のノードは文字列の配列です', 400)
         unknown = graph.validate_node_ids(ids, unit)
         if unknown:
-            return make_error_response('LEARNING_UNKNOWN_NODE', f'小問 {question}: 未知のノード {", ".join(unknown)}', 400)
+            return None, make_error_response('LEARNING_UNKNOWN_NODE', f'小問 {question}: 未知のノード {", ".join(unknown)}', 400)
         normalized[str(question).strip()] = list(dict.fromkeys(ids))
+    return normalized, None
 
-    sheet, error = _load_sheet(data_id)
-    if error:
-        return error
+
+def _save_node_tags(data_id, sheet, unit, normalized):
+    """解答キーに単元と前提知識ノードを書き込み，更新後の解答キーを返す。"""
     answer_key = sheet['answer_key'] if isinstance(sheet['answer_key'], dict) else {}
     if 'answers' not in answer_key:
         answer_key = {'answers': answer_key} if answer_key else {'answers': {}}
     answer_key['unit'] = unit
     answer_key['nodes'] = normalized
-
     firebase_service = get_firebase_service()
     if firebase_service.enabled:
         firebase_service.update_answer_sheet(data_id, {'answer_key': answer_key})
@@ -183,6 +178,22 @@ def set_node_tags(data_id):
         row = AnswerSheet.query.filter_by(id=data_id, teacher_id=_teacher_db_id()).first()
         row.answer_key = json.dumps(answer_key, ensure_ascii=False)
         db.session.commit()
+    sheet['answer_key'] = answer_key
+    return answer_key
+
+
+@learning_bp.route('/answer-data/<data_id>/node-tags', methods=['PUT'])
+@login_required
+def set_node_tags(data_id):
+    """解答キーの各小問に前提知識ノードを付ける。body: {unit, nodes: {問番号: [node_id, ...]}}"""
+    payload = request.get_json(silent=True) or {}
+    normalized, error = _normalize_node_tags(payload.get('unit'), payload.get('nodes'))
+    if error:
+        return error
+    sheet, error = _load_sheet(data_id)
+    if error:
+        return error
+    answer_key = _save_node_tags(data_id, sheet, payload.get('unit'), normalized)
     return make_success_response({'data_id': data_id, 'answer_key': answer_key})
 
 
@@ -199,6 +210,56 @@ def apply_to_profile(data_id):
         db.session.rollback()
         return make_error_response('LEARNING_EXERCISE_INVALID', str(exc), 400)
     return make_success_response({'data_id': data_id, **result})
+
+
+MAX_SHEETS_PER_BULK_APPLY = 100
+
+
+@learning_bp.route('/answer-data/apply-bulk', methods=['POST'])
+@login_required
+def apply_bulk():
+    """複数の解答用紙をまとめてプロファイルに反映する。
+
+    body: {data_ids: [...], unit?, nodes?: {問番号: [ノード]}}。unit と nodes を指定すると，反映の前に
+    全ての解答用紙へ同じ前提知識ノードを付ける（同じプリントをまとめて反映するとき）。
+    1枚ずつ結果を返し，反映できなかったもの（採点結果がない等）があっても残りは続ける。
+    """
+    payload = request.get_json(silent=True) or {}
+    data_ids = payload.get('data_ids')
+    if not isinstance(data_ids, list) or not data_ids or not all(isinstance(i, str) for i in data_ids):
+        return make_error_response('LEARNING_INVALID_IDS', 'data_ids は解答用紙IDの配列です', 400)
+    if len(data_ids) > MAX_SHEETS_PER_BULK_APPLY:
+        return make_error_response('LEARNING_TOO_MANY', f'一度に反映できるのは {MAX_SHEETS_PER_BULK_APPLY} 枚までです', 400)
+    normalized = None
+    if payload.get('nodes') is not None:
+        normalized, error = _normalize_node_tags(payload.get('unit'), payload.get('nodes'))
+        if error:
+            return error
+
+    llm = get_llm_client()
+    results = []
+    for data_id in dict.fromkeys(data_ids):
+        sheet, error = _load_sheet(data_id)
+        if error:
+            results.append({'data_id': data_id, 'status': 'error', 'message': '解答用紙が見つかりません'})
+            continue
+        try:
+            if normalized is not None:
+                _save_node_tags(data_id, sheet, payload['unit'], normalized)
+            result = apply_exercise(_teacher_db_id(), sheet, llm)
+        except ExerciseError as exc:
+            db.session.rollback()
+            results.append({'data_id': data_id, 'student_id': sheet['student_id'], 'status': 'skipped', 'message': str(exc)})
+            continue
+        except Exception as exc:  # LLM の一時的な失敗などで1枚が止まっても残りは続ける
+            db.session.rollback()
+            results.append({'data_id': data_id, 'student_id': sheet['student_id'], 'status': 'error',
+                            'message': f'{exc.__class__.__name__}: {str(exc)[:200]}'})
+            continue
+        results.append({'data_id': data_id, 'student_id': result.get('student_id'), 'status': 'applied',
+                        'record_count': len(result.get('items') or []), 'warnings': result.get('warnings') or []})
+    counts = {status: sum(1 for r in results if r['status'] == status) for status in ('applied', 'skipped', 'error')}
+    return make_success_response({'results': results, 'counts': counts})
 
 
 @learning_bp.route('/profiles', methods=['GET'])

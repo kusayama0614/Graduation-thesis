@@ -12,6 +12,45 @@
         <section class="card">
             <div class="card-header">
                 <div>
+                    <h2>まとめて反映</h2>
+                    <p class="card-lead">同じプリント（テスト名）の解答用紙すべてに同じ前提知識ノードを付けて，まとめてプロファイルに反映します。採点結果のない解答用紙は飛ばします。</p>
+                </div>
+            </div>
+            <div class="grid-2" style="grid-template-columns: minmax(240px, 420px) minmax(200px, 1fr);">
+                <label class="field">プリント（テスト名）
+                    <select id="bulkTest" onchange="openBulk()"><option value="">選択してください</option></select>
+                </label>
+                <label class="field">単元
+                    <select id="bulkUnit" onchange="renderBulkRows()"></select>
+                </label>
+            </div>
+            <div id="bulkBody" class="hidden">
+                <div class="muted" id="bulkLead" style="margin-bottom: 8px;"></div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th style="width: 70px;">小問</th><th style="width: 160px;">正解</th><th>依存する前提知識ノード</th></tr></thead>
+                        <tbody id="bulkRows"></tbody>
+                    </table>
+                </div>
+                <div class="button-row">
+                    <input type="text" id="bulkNewQuestion" placeholder="小問番号を追加（例: 練習29）" style="max-width: 240px; margin-top: 0;">
+                    <button class="button button-light button-small" onclick="addBulkQuestion()">小問を追加</button>
+                </div>
+                <label class="checkbox" style="margin-top: 10px;"><input type="checkbox" id="bulkIncludeApplied" onchange="updateBulkLead()"> 反映済みの解答用紙も反映し直す</label>
+                <div class="button-row">
+                    <button class="button" id="bulkButton" onclick="applyBulk()">まとめて反映</button>
+                </div>
+                <div class="hidden" id="bulkProgress">
+                    <div class="progress"><div class="progress-fill" id="bulkFill" style="width: 0%"></div></div>
+                    <div class="muted" id="bulkText"></div>
+                </div>
+                <div id="bulkResult"></div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-header">
+                <div>
                     <h2>演習プリント（解答用紙）</h2>
                     <p class="card-lead">小問に前提知識ノードを付けて「プロファイルに反映」すると，判定結果から生徒ごとの定着度が更新されます。同じプリントを反映し直しても二重には数えません。</p>
                 </div>
@@ -103,13 +142,183 @@
         });
 
         async function loadSheets() {
-            const [list, appliedPayload] = await Promise.all([
-                L.api('GET', '/analysis/answer-data?per_page=200'),
-                L.api('GET', '/learning/applied-sheets'),
-            ]);
-            sheets = list.data || [];
+            // 一覧は1ページ200件までなので，全ページを順に取得する
+            const all = [];
+            for (let page = 1; page <= 100; page += 1) {
+                const list = await L.api('GET', `/analysis/answer-data?per_page=200&page=${page}`);
+                all.push(...(list.data || []));
+                if (!list.has_next) {
+                    break;
+                }
+            }
+            const appliedPayload = await L.api('GET', '/learning/applied-sheets');
+            sheets = all;
             applied = appliedPayload.sheets || {};
             renderSheets();
+            renderBulkTests();
+        }
+
+        // ---------------------------------------------------------------- まとめて反映
+
+        let bulk = null;  // { testName, questions: [{question, expected, nodes}] }
+
+        function sheetsOfTest(testName) {
+            return sheets.filter((s) => s.test_name === testName);
+        }
+
+        function renderBulkTests() {
+            const select = document.getElementById('bulkTest');
+            const keep = select.value;
+            const names = [...new Set(sheets.map((s) => s.test_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja', { numeric: true }));
+            select.innerHTML = '<option value="">選択してください</option>' + names.map((name) => {
+                const list = sheetsOfTest(name);
+                const pending = list.filter((s) => !applied[s.id]).length;
+                return `<option value="${L.escapeHtml(name)}">${L.escapeHtml(name)}（${list.length}枚・未反映 ${pending}）</option>`;
+            }).join('');
+            select.value = names.includes(keep) ? keep : '';
+            if (!document.getElementById('bulkUnit').options.length) {
+                document.getElementById('bulkUnit').innerHTML = document.getElementById('unitSelect').innerHTML;
+            }
+            if (bulk) {
+                updateBulkLead();
+            }
+        }
+
+        async function openBulk() {
+            const testName = document.getElementById('bulkTest').value;
+            document.getElementById('bulkResult').innerHTML = '';
+            if (!testName) {
+                bulk = null;
+                document.getElementById('bulkBody').classList.add('hidden');
+                return;
+            }
+            const list = sheetsOfTest(testName);
+            try {
+                // 小問と付与済みのノードは，ノードが付いている（なければ小問の多い）解答用紙から取る
+                const score = (t) => (t.questions.some((q) => q.nodes.length) ? 1000 : 0) + t.questions.length;
+                let tags = null;
+                for (const sheet of list.slice(0, 8)) {
+                    const t = await L.api('GET', `/learning/answer-data/${encodeURIComponent(sheet.id)}/node-tags`);
+                    if (!tags || score(t) > score(tags)) {
+                        tags = t;
+                    }
+                }
+                bulk = { testName, questions: tags.questions.map((q) => ({ ...q, nodes: [...q.nodes] })) };
+                const guessed = /No\.?\s*[89]\b|三角|図形と計量/.test(testName) ? 'trigonometry' : 'quadratic_functions';
+                document.getElementById('bulkUnit').value = tags.unit || guessed;
+                document.getElementById('bulkBody').classList.remove('hidden');
+                renderBulkRows();
+                updateBulkLead();
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        function bulkTargets() {
+            const includeApplied = document.getElementById('bulkIncludeApplied').checked;
+            return sheetsOfTest(bulk.testName).filter((s) => s.student_id && (includeApplied || !applied[s.id]));
+        }
+
+        function updateBulkLead() {
+            const list = sheetsOfTest(bulk.testName);
+            const targets = bulkTargets();
+            const noId = list.filter((s) => !s.student_id).length;
+            document.getElementById('bulkLead').textContent =
+                `${list.length} 枚（反映済み ${list.filter((s) => applied[s.id]).length}${noId ? `，生徒ID未設定 ${noId}` : ''}）　→　反映する ${targets.length} 枚`;
+            const button = document.getElementById('bulkButton');
+            button.textContent = `${targets.length} 枚をまとめて反映`;
+            button.disabled = !targets.length;
+        }
+
+        function collectBulkChecked() {
+            document.querySelectorAll('#bulkRows tr[data-question]').forEach((row) => {
+                const question = bulk.questions.find((q) => q.question === row.dataset.question);
+                question.nodes = Array.from(row.querySelectorAll('input[type=checkbox]:checked')).map((box) => box.value);
+            });
+        }
+
+        function renderBulkRows() {
+            if (!bulk) {
+                return;
+            }
+            const unitId = document.getElementById('bulkUnit').value;
+            const unit = graph.graph.units[unitId];
+            const body = document.getElementById('bulkRows');
+            if (!bulk.questions.length) {
+                body.innerHTML = '<tr><td colspan="3" class="empty">解答キーに小問がありません。下の欄から小問番号を追加してください（採点結果がないと反映はできません）。</td></tr>';
+                return;
+            }
+            body.innerHTML = bulk.questions.map((q) => `<tr data-question="${L.escapeHtml(q.question)}">
+                <td class="nowrap"><strong>${L.escapeHtml(q.question)}</strong></td>
+                <td>${q.expected !== null && q.expected !== undefined ? L.escapeHtml(q.expected) : '<span class="muted">—</span>'}</td>
+                <td>${unit.nodes.map((node) => `<label class="checkbox" title="${L.escapeHtml(node.evidence || '')}">
+                    <input type="checkbox" value="${node.id}" ${q.nodes.includes(node.id) ? 'checked' : ''} onchange="collectBulkChecked()"> ${L.escapeHtml(node.label)}</label>`).join('')}</td>
+            </tr>`).join('');
+        }
+
+        function addBulkQuestion() {
+            const input = document.getElementById('bulkNewQuestion');
+            const value = input.value.trim();
+            if (!value || !bulk) {
+                return;
+            }
+            collectBulkChecked();
+            if (!bulk.questions.some((q) => q.question === value)) {
+                bulk.questions.push({ question: value, expected: null, nodes: [] });
+            }
+            input.value = '';
+            renderBulkRows();
+        }
+
+        async function applyBulk() {
+            collectBulkChecked();
+            const unit = document.getElementById('bulkUnit').value;
+            const unitNodes = graph.graph.units[unit].nodes.map((n) => n.id);
+            const nodes = {};
+            bulk.questions.forEach((q) => { nodes[q.question] = q.nodes.filter((n) => unitNodes.includes(n)); });
+            if (!Object.values(nodes).some((list) => list.length)) {
+                L.toast('少なくとも1つの小問に前提知識ノードを付けてください', 'error');
+                return;
+            }
+            const targets = bulkTargets();
+            if (!confirm(`「${bulk.testName}」の ${targets.length} 枚に同じノードを付けて，プロファイルに反映しますか？`)) {
+                return;
+            }
+            const button = document.getElementById('bulkButton');
+            button.disabled = true;
+            document.getElementById('bulkProgress').classList.remove('hidden');
+            const results = [];
+            const chunk = 10;  // 誤答ごとに Gemini で診断するため，少しずつ送って進み具合を表示する
+            try {
+                for (let i = 0; i < targets.length; i += chunk) {
+                    document.getElementById('bulkText').textContent = `${Math.min(i + chunk, targets.length)} / ${targets.length} 枚を反映中…`;
+                    const res = await L.api('POST', '/learning/answer-data/apply-bulk', {
+                        data_ids: targets.slice(i, i + chunk).map((s) => s.id), unit, nodes });
+                    results.push(...res.results);
+                    document.getElementById('bulkFill').style.width = `${Math.round((Math.min(i + chunk, targets.length) / targets.length) * 100)}%`;
+                }
+            } catch (error) {
+                L.toast(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+            renderBulkResult(results);
+            await loadSheets();
+        }
+
+        function renderBulkResult(results) {
+            const by = (status) => results.filter((r) => r.status === status);
+            const applied = by('applied');
+            const skipped = by('skipped');
+            const errors = by('error');
+            const noResults = skipped.filter((r) => (r.message || '').includes('採点結果がありません'));
+            const list = (rows) => rows.map((r) => `<li>${L.escapeHtml(r.student_id || r.data_id)}：${L.escapeHtml(r.message || '')}</li>`).join('');
+            document.getElementById('bulkText').textContent = '完了しました';
+            document.getElementById('bulkResult').innerHTML = `
+                <div class="notice notice-ok">${applied.length} 枚を反映しました。<a href="${L.resolveScreenUrl('screens/learning/profiles.html')}">② 学習者プロファイルを見る</a></div>
+                ${noResults.length ? `<div class="notice notice-warn">採点結果がないため ${noResults.length} 枚を飛ばしました。答えの書き起こし（OCR）と採点が済んでから反映してください。</div>` : ''}
+                ${skipped.length - noResults.length ? `<details class="notice notice-warn"><summary>その他の理由で飛ばした ${skipped.length - noResults.length} 枚</summary><ul class="reasons">${list(skipped.filter((r) => !noResults.includes(r)))}</ul></details>` : ''}
+                ${errors.length ? `<details class="notice notice-error" open><summary>エラー ${errors.length} 枚（もう一度「まとめて反映」で続きから反映できます）</summary><ul class="reasons">${list(errors)}</ul></details>` : ''}`;
         }
 
         function renderSheets() {

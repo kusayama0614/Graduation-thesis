@@ -713,3 +713,32 @@ def test_node_tags_get_and_applied_sheets(client):
     client.post(f'/api/learning/answer-data/{sheet_id}/apply')
     assert client.get(f'/api/learning/answer-data/{sheet_id}/node-tags').get_json()['record_count'] == 2
     assert client.get('/api/learning/applied-sheets').get_json()['sheets'] == {sheet_id: 2}
+
+
+def test_apply_bulk_tags_and_applies_each_sheet(client):
+    _login(client)
+    key_without_nodes = {'answers': {'1': 'm<16/3', '2': 'm=2, -6'}}
+    ok1 = _make_sheet(client, student_id='S001', ocr_text='1 m<16/3\n2 m=2, -6', answer_key=key_without_nodes)
+    ok2 = _make_sheet(client, student_id='S002', ocr_text='1 m>16/3\n2 m=2, -6', answer_key=key_without_nodes)
+    no_results = _make_sheet(client, student_id='S003', ocr_text='', answer_key={'answers': {}})
+    nodes = {'1': ['inequality_manipulation'], '2': ['double_root']}
+    res = client.post('/api/learning/answer-data/apply-bulk', json={
+        'data_ids': [ok1, ok2, no_results, 'missing'], 'unit': 'quadratic_functions', 'nodes': nodes})
+    body = res.get_json()
+    assert res.status_code == 200
+    assert body['counts'] == {'applied': 2, 'skipped': 1, 'error': 1}
+    by_id = {r['data_id']: r for r in body['results']}
+    assert by_id[ok1]['status'] == 'applied' and by_id[ok1]['record_count'] == 2
+    assert '採点結果がありません' in by_id[no_results]['message']
+    # ノードは全ての解答用紙に付き，反映済みとして数えられる
+    assert client.get(f'/api/learning/answer-data/{ok2}/node-tags').get_json()['questions'][1]['nodes'] == ['double_root']
+    assert set(client.get('/api/learning/applied-sheets').get_json()['sheets']) == {ok1, ok2}
+    profile = client.get('/api/learning/profiles/S002').get_json()['profile']
+    assert profile['error_tendencies'] == {'inequality_manipulation': 1}
+    # 再反映しても二重に数えない
+    again = client.post('/api/learning/answer-data/apply-bulk', json={'data_ids': [ok1]}).get_json()
+    assert again['counts']['applied'] == 1
+    assert client.get('/api/learning/applied-sheets').get_json()['sheets'][ok1] == 2
+    assert client.post('/api/learning/answer-data/apply-bulk', json={'data_ids': []}).status_code == 400
+    assert client.post('/api/learning/answer-data/apply-bulk', json={
+        'data_ids': [ok1], 'unit': 'quadratic_functions', 'nodes': {'1': ['side_identification']}}).status_code == 400

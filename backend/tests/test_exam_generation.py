@@ -53,6 +53,11 @@ def _job(client, exam_id, **body):
     return res.get_json()['job']
 
 
+def _pid(client, exam_id, number):
+    with client.application.app_context():
+        return TestProblem.query.filter_by(exam_id=exam_id, number=number).first().id
+
+
 def _individual_rows(client):
     with client.application.app_context():
         rows = GeneratedExplanation.query.filter_by(kind='individual').order_by(GeneratedExplanation.created_at).all()
@@ -81,7 +86,8 @@ def test_plan_counts_distinct_decisions_without_calling_llm(client):  # noqa: F8
 def test_exam_generation_reuses_skips_and_resumes(client):  # noqa: F811
     llm = FakeLLM(writer=correct_writer)
     exam_id = _setup(client, llm)
-    job = _job(client, exam_id, classes=['1-1'])
+    only = [_pid(client, exam_id, '2(1)')]
+    job = _job(client, exam_id, classes=['1-1'], problem_ids=only)
     assert job['status'] == 'completed' and job['total'] == 3
     assert (job['generated'], job['reused'], job['skipped'], job['done']) == (2, 1, 0, 3)
     rows = _individual_rows(client)
@@ -92,17 +98,17 @@ def test_exam_generation_reuses_skips_and_resumes(client):  # noqa: F811
 
     # 判断が変わっていなければ作り直さない
     calls = len(llm.calls)
-    job = _job(client, exam_id, classes=['1-1'])
+    job = _job(client, exam_id, classes=['1-1'], problem_ids=only)
     assert (job['generated'], job['reused'], job['skipped']) == (0, 0, 3) and len(llm.calls) == calls
 
     # 1-1-10 が弱くなった → 既にある解説を使い回す。1-2-1 は強い生徒の解説を使い回す
     _set_profile(client, '1-1-10', WEAK)
-    job = _job(client, exam_id)
+    job = _job(client, exam_id, problem_ids=only)
     assert (job['generated'], job['reused'], job['skipped']) == (0, 2, 2) and len(llm.calls) == calls
 
     # 使い回しをやめると生徒ごとに生成する
     _set_profile(client, '1-1-10', {'node_states': {}, 'error_tendencies': {}})
-    job = _job(client, exam_id, student_ids=['1-1-10'], reuse=False)
+    job = _job(client, exam_id, student_ids=['1-1-10'], reuse=False, problem_ids=only)
     assert job['generated'] == 1
 
 
@@ -115,7 +121,7 @@ def test_exam_generation_pauses_on_quota_and_resumes(client):  # noqa: F811
         return correct_writer(user)
 
     exam_id = _setup(client, FakeLLM(writer=writer))
-    job = _job(client, exam_id, classes=['1-1'])
+    job = _job(client, exam_id, classes=['1-1'], problem_ids=[_pid(client, exam_id, '2(1)')])
     assert job['status'] == 'paused' and '41s' in job['message']
     assert _individual_rows(client) == []
 
@@ -130,14 +136,15 @@ def test_exam_generation_pauses_on_quota_and_resumes(client):  # noqa: F811
 def test_master_and_subtractive_for_exam(client):  # noqa: F811
     llm = FakeLLM(writer=correct_writer)
     exam_id = _setup(client, llm)
-    job = _job(client, exam_id, student_ids=['1-1-1'], include_subtractive=True)
+    only = [_pid(client, exam_id, '2(1)')]
+    job = _job(client, exam_id, student_ids=['1-1-1'], include_subtractive=True, problem_ids=only)
     assert job['status'] == 'completed'
     with client.application.app_context():
         kinds = sorted(r.kind for r in GeneratedExplanation.query.all())
     assert kinds == ['individual', 'master', 'subtractive']
     # マスター解説も指紋が同じなら作り直さない
     calls = len(llm.calls)
-    _job(client, exam_id, student_ids=['1-1-2'], include_subtractive=True)
+    _job(client, exam_id, student_ids=['1-1-2'], include_subtractive=True, problem_ids=only)
     with client.application.app_context():
         assert GeneratedExplanation.query.filter_by(kind='master').count() == 1
     assert len(llm.calls) == calls
@@ -165,7 +172,9 @@ def test_review_summary_and_booklet(client):  # noqa: F811
     booklet = client.get(f'/api/learning/exams/{exam_id}/booklet?classes=1-1').get_json()
     assert [s['student_id'] for s in booklet['students']] == ['1-1-1', '1-1-2', '1-1-10']
     assert not booklet['students'][0]['ready'] and booklet['students'][0]['missing'] == 0
-    assert booklet['students'][0]['items'][1]['excluded']  # 解答ステップのない大問10は対象外
+    common_item = booklet['students'][0]['items'][1]  # 解答ステップのない大問10は全員共通の解説
+    assert common_item['common'] and common_item['ready'] and common_item['content'].startswith('# 未分解')
+    assert len({s['items'][1]['explanation_id'] for s in booklet['students']}) == 1
 
     # 教員が直すと，同じ解説を使い回した生徒にも反映される
     res = client.put(f'/api/learning/explanations/{weak_root}', json={'content': '直した解説'})
@@ -191,12 +200,59 @@ def test_answer_check_flags_mismatch(client):  # noqa: F811
     assert summary['problems'][0]['answer_check']['status'] == 'mismatch'
 
 
-def test_exam_generation_requires_students_and_steps(client):  # noqa: F811
+def test_exam_generation_requires_students_and_problems(client):  # noqa: F811
     exam_id = _setup(client, FakeLLM(writer=correct_writer))
     res = client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'classes': ['3-9']})
     assert res.status_code == 400
-    with client.application.app_context():
-        problem_id = TestProblem.query.filter_by(exam_id=exam_id, number='10').first().id
-    res = client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'problem_ids': [problem_id]})
+    res = client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'problem_ids': ['nope']})
     assert res.status_code == 400
     assert client.post('/api/learning/exams/nope/generation-jobs', json={}).status_code == 404
+
+
+def test_problem_without_steps_gets_one_common_explanation(client):  # noqa: F811
+    llm = FakeLLM(writer=correct_writer)
+    exam_id = _setup(client, llm)
+    plan = client.get(f'/api/learning/exams/{exam_id}/generation-plan?classes=1-1').get_json()
+    common_plan = plan['problems'][1]
+    assert common_plan['common'] and (common_plan['generate'], common_plan['reuse'], common_plan['llm_calls']) == (1, 2, 2)
+
+    job = _job(client, exam_id, classes=['1-1'], problem_ids=[_pid(client, exam_id, '10')])
+    assert job['status'] == 'completed' and (job['generated'], job['reused'], job['done'], job['total']) == (1, 2, 3, 3)
+    common_prompts = [u for kind, u in llm.calls if kind == 'text']
+    assert len(common_prompts) == 1 and 'y=|x^2-2x|' in common_prompts[0]
+    with client.application.app_context():
+        [row] = GeneratedExplanation.query.filter_by(kind='common').all()
+        assert row.student_id is None and row.status == 'ok'
+        trace = json.loads(row.trace)
+        assert trace['steps'][0]['attempts'][0]['claims']  # 共通の解説も Chain 4 で検算する
+        common_id = row.id
+
+    # 作り直さない（指紋が同じ）。全員分そろったので要確認もなし
+    calls = len(llm.calls)
+    job = _job(client, exam_id, classes=['1-1'], problem_ids=[_pid(client, exam_id, '10')])
+    assert job['skipped'] == 3 and len(llm.calls) == calls
+    summary = client.get(f'/api/learning/exams/{exam_id}/explanations-summary?classes=1-1').get_json()
+    assert summary['problems'][1]['common'] and summary['problems'][1]['with_explanation'] == 3
+
+    # 要確認の共通の解説は review に出て，確かめると全員分が配布できる
+    with client.application.app_context():
+        db.session.get(GeneratedExplanation, common_id).status = 'needs_review'
+        db.session.commit()
+    summary = client.get(f'/api/learning/exams/{exam_id}/explanations-summary?classes=1-1').get_json()
+    assert [r['explanation_id'] for r in summary['review']] == [common_id] and summary['review'][0]['common']
+    assert summary['problems'][1]['pending_review'] == 3
+    assert client.put(f'/api/learning/explanations/{common_id}', json={}).get_json()['updated'] == 1
+    booklet = client.get(f'/api/learning/exams/{exam_id}/booklet?student_ids=1-1-1').get_json()
+    assert booklet['students'][0]['items'][1]['ready']
+
+
+def test_common_explanation_is_regenerated_until_verified(client):  # noqa: F811
+    def writer(user):
+        return '[[2*3 = 7]] 答え: 7'
+    exam_id = _setup(client, FakeLLM(writer=writer))
+    _job(client, exam_id, student_ids=['1-1-1'], problem_ids=[_pid(client, exam_id, '10')])
+    with client.application.app_context():
+        [row] = GeneratedExplanation.query.filter_by(kind='common').all()
+        trace = json.loads(row.trace)
+    assert row.status == 'needs_review' and trace['steps'][0]['attempt_count'] == 3
+    assert any('上限' in w for w in trace['warnings'])

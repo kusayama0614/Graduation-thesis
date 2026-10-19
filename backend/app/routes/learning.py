@@ -969,8 +969,15 @@ def exam_generation_plan(exam_id):
         if problem_input['steps']:
             rows = GeneratedExplanation.query.filter_by(problem_id=problem.id, kind='individual').all()
             entry.update(exam_generation.plan_problem(problem_input, profiles, model_name, rows, reuse))
-            for key in totals:
-                totals[key] += entry[key]
+        elif problem.chain1_status == 'pending':
+            entry['pending'] = True
+            problems.append(entry)
+            continue
+        else:
+            rows = GeneratedExplanation.query.filter_by(problem_id=problem.id, kind='common').all()
+            entry.update(exam_generation.plan_common(problem_input, len(profiles), model_name, rows))
+        for key in totals:
+            totals[key] += entry[key]
         problems.append(entry)
     return make_success_response({
         'exam_id': exam.id, 'model_name': model_name, 'student_count': len(profiles),
@@ -997,9 +1004,10 @@ def start_exam_generation(exam_id):
     student_ids = [sid for sid in student_ids if sid in known]
     if not student_ids:
         return make_error_response('LEARNING_INVALID_STUDENTS', '学習者プロファイルのある生徒が選ばれていません', 400)
-    problems = [p for p in _exam_problems(exam.id, payload.get('problem_ids')) if json.loads(p.steps or '[]')]
+    # 解答ステップがない問題も対象にする（全員共通の解説を作る）
+    problems = _exam_problems(exam.id, payload.get('problem_ids'))
     if not problems:
-        return make_error_response('LEARNING_INVALID_STEPS', '解答ステップのある問題がありません（Chain 1 を確認してください）', 400)
+        return make_error_response('LEARNING_PROBLEM_NOT_FOUND', '対象の問題がありません', 400)
     running = [j for j in ExamGenerationJob.query.filter_by(exam_id=exam.id, teacher_id=_teacher_db_id()).all()
                if exam_generation.is_running(j.id)]
     if running:
@@ -1064,7 +1072,7 @@ def resume_exam_generation_job(job_id):
 
 
 def _latest_explanations(problem_ids, kind='individual'):
-    """{(problem_id, student_id): 最新の解説}"""
+    """{(problem_id, student_id): 最新の解説}（kind='common' のときは student_id が None）"""
     latest = {}
     if not problem_ids:
         return latest
@@ -1094,9 +1102,29 @@ def exam_explanations_summary(exam_id):
     student_ids = [sid for sid in student_ids if sid in known]
     problems = _exam_problems(exam.id)
     latest = _latest_explanations([p.id for p in problems])
+    common = _latest_explanations([p.id for p in problems], kind='common')
     summary, review = [], []
     for problem in problems:
         rows = [latest[(problem.id, sid)] for sid in student_ids if (problem.id, sid) in latest]
+        common_row = common.get((problem.id, None))
+        if not json.loads(problem.steps or '[]'):
+            # 解答ステップがない問題は全員共通の解説を配る
+            pending = bool(common_row and common_row.status == 'needs_review' and not common_row.reviewed)
+            if pending:
+                review.append({'problem_id': problem.id, 'number': problem.number, 'title': problem.title,
+                               'explanation_id': common_row.id, 'student_ids': [], 'common': True,
+                               'warnings': json.loads(common_row.trace or '{}').get('warnings', [])})
+            covered = len(student_ids) if common_row else 0
+            summary.append({
+                'id': problem.id, 'number': problem.number, 'title': problem.title, 'points': problem.points,
+                'step_count': 0, 'chain1_status': problem.chain1_status, 'answer_check': _answer_check(problem),
+                'common': True, 'students': len(student_ids), 'with_explanation': covered,
+                'distinct_explanations': 1 if common_row else 0,
+                'needs_review': covered if common_row and common_row.status == 'needs_review' else 0,
+                'pending_review': covered if pending else 0,
+                'reviewed': covered if common_row and common_row.reviewed else 0,
+            })
+            continue
         groups = {}
         for row in rows:
             groups.setdefault(row.reused_from or row.id, []).append(row)
@@ -1111,7 +1139,7 @@ def exam_explanations_summary(exam_id):
         summary.append({
             'id': problem.id, 'number': problem.number, 'title': problem.title, 'points': problem.points,
             'step_count': len(json.loads(problem.steps or '[]')), 'chain1_status': problem.chain1_status,
-            'answer_check': _answer_check(problem),
+            'answer_check': _answer_check(problem), 'common': False,
             'students': len(student_ids), 'with_explanation': len(rows), 'distinct_explanations': len(groups),
             'needs_review': sum(1 for r in rows if r.status == 'needs_review'),
             'pending_review': pending_review, 'reviewed': sum(1 for r in rows if r.reviewed),
@@ -1126,7 +1154,7 @@ def exam_booklet(exam_id):
     """生徒ごとの解説冊子（印刷用）。問題番号の順に，その生徒の最新の積み上げ型の解説を並べる。
 
     ?classes=1-1 / ?student_ids=... で対象を選ぶ。要確認で未確認の解説は ready=false として返す。
-    解答ステップがない問題（Chain 1 をしていない・できなかった問題）は解説の対象外（excluded）とする。
+    解答ステップがない問題（Chain 1 で分解できなかった問題）は，全員共通の解説（common=true）を載せる。
     """
     exam = _get_exam(exam_id)
     if exam is None:
@@ -1138,21 +1166,23 @@ def exam_booklet(exam_id):
     student_ids = [sid for sid in student_ids if sid in known]
     problems = _exam_problems(exam.id)
     latest = _latest_explanations([p.id for p in problems])
-    with_steps = {p.id for p in problems if json.loads(p.steps or '[]')}
+    common = _latest_explanations([p.id for p in problems], kind='common')
     students = []
     for sid in student_ids:
         items = []
         for problem in problems:
             row = latest.get((problem.id, sid))
-            excluded = row is None and problem.id not in with_steps
+            is_common = row is None and (problem.id, None) in common
+            if is_common:
+                row = common[(problem.id, None)]
             items.append({
                 'problem_id': problem.id, 'number': problem.number, 'title': problem.title,
-                'problem_text': problem.problem_text, 'points': problem.points, 'excluded': excluded,
+                'problem_text': problem.problem_text, 'points': problem.points, 'common': is_common,
                 'explanation_id': row.id if row else None, 'content': row.content if row else None,
                 'status': row.status if row else None, 'reviewed': bool(row.reviewed) if row else False,
-                'ready': excluded or (bool(row) and (row.status == 'ok' or bool(row.reviewed))),
+                'ready': bool(row) and (row.status == 'ok' or bool(row.reviewed)),
             })
         students.append({'student_id': sid, 'items': items,
                          'ready': all(i['ready'] for i in items),
-                         'missing': sum(1 for i in items if not i['explanation_id'] and not i['excluded'])})
+                         'missing': sum(1 for i in items if not i['explanation_id'])})
     return make_success_response({'exam': {'id': exam.id, 'name': exam.name}, 'students': students})

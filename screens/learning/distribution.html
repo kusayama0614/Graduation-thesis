@@ -11,7 +11,7 @@
     <main>
         <section class="card">
             <h2>1. 試験と生徒を選ぶ</h2>
-            <p class="card-lead">PDF から登録した定期試験の全問題について，選んだ生徒の解説をまとめて生成します。解答ステップ（Chain 1）がない問題は対象外です。</p>
+            <p class="card-lead">PDF から登録した定期試験の全問題について，選んだ生徒の解説をまとめて生成します。解答ステップ（Chain 1）がない問題は，個別化しない全員共通の解説を1件だけ作り，全員に配ります。</p>
             <div class="grid-2" style="gap: 12px;">
                 <label class="field"><span>定期試験</span>
                     <select id="examSelect"><option value="">読み込み中…</option></select>
@@ -185,14 +185,15 @@
                 const reuse = document.getElementById('optReuse').checked;
                 const query = [classQuery(), `reuse=${reuse}`].filter(Boolean).join('&');
                 const plan = await L.api('GET', `/learning/exams/${examId()}/generation-plan?${query}`);
-                const rows = plan.problems.map((p) => p.step_count
-                    ? `<tr><td class="nowrap">${L.escapeHtml(p.number || '')}</td><td>${L.escapeHtml(p.title)}</td><td>${p.step_count}</td>
+                const rows = plan.problems.map((p) => !p.pending
+                    ? `<tr><td class="nowrap">${L.escapeHtml(p.number || '')}</td><td>${L.escapeHtml(p.title)}</td>
+                        <td>${p.common ? '<span class="badge badge-element">なし → 全員共通</span>' : p.step_count}</td>
                         <td>${p.distinct_plans}</td><td>${p.generate}</td><td>${p.reuse}</td><td>${p.skip}</td><td>${p.llm_calls}</td></tr>`
                     : `<tr><td class="nowrap">${L.escapeHtml(p.number || '')}</td><td>${L.escapeHtml(p.title)}</td>
-                        <td colspan="6" class="muted">解答ステップがないため対象外（③ で Chain 1 をやり直してください）</td></tr>`).join('');
+                        <td colspan="6" class="muted">Chain 1（解答ステップへの分解）の実行中です。終わってから生成してください</td></tr>`).join('');
                 const t = plan.totals;
                 area.innerHTML = `
-                    <div class="notice">${plan.student_count} 人 × ${plan.problems.filter((p) => p.step_count).length} 問。
+                    <div class="notice">${plan.student_count} 人 × ${plan.problems.filter((p) => !p.pending).length} 問。
                         Gemini で生成 <strong>${t.generate}</strong> 件，使い回し ${t.reuse} 件，作成済みで省略 ${t.skip} 件。
                         Gemini の呼び出しはおよそ <strong>${t.llm_calls}</strong> 回（検算での差し戻しを除く。モデル ${L.escapeHtml(plan.model_name)}）。</div>
                     ${plan.missing_profiles.length ? `<div class="notice notice-warn">プロファイルがない生徒: ${plan.missing_profiles.map(L.escapeHtml).join('，')}</div>` : ''}
@@ -293,7 +294,7 @@
             document.getElementById('summaryRows').innerHTML = payload.problems.map((p) => {
                 const [badge, label] = CHECK_LABELS[p.answer_check.status] || ['unmarked', p.answer_check.status];
                 return `<tr><td class="nowrap">${L.escapeHtml(p.number || '')}</td><td>${L.escapeHtml(p.title)}</td>
-                    <td>${p.step_count || '<span class="badge badge-ng">なし</span>'}</td>
+                    <td>${p.step_count || '<span class="badge badge-element" title="解答ステップがないため全員共通の解説を配ります">なし → 全員共通</span>'}</td>
                     <td><span class="badge badge-${badge}" title="${L.escapeHtml(p.answer_check.detail)}">${label}</span></td>
                     <td>${p.with_explanation} / ${p.students}</td><td>${p.distinct_explanations}</td>
                     <td>${p.needs_review}${p.pending_review ? `（<strong>${p.pending_review}</strong>）` : ''}</td><td>${p.reviewed}</td></tr>`;
@@ -302,7 +303,7 @@
             document.getElementById('reviewArea').innerHTML = review.length
                 ? `<div class="table-wrap"><table><thead><tr><th>番号</th><th>問題</th><th>この解説を使う生徒</th><th>注意</th><th></th></tr></thead><tbody>
                     ${review.map((r) => `<tr><td class="nowrap">${L.escapeHtml(r.number || '')}</td><td>${L.escapeHtml(r.title)}</td>
-                        <td>${r.student_ids.map(L.escapeHtml).join('，')}</td>
+                        <td>${r.common ? '全員（解答ステップがない問題の共通の解説）' : r.student_ids.map(L.escapeHtml).join('，')}</td>
                         <td class="muted">${r.warnings.map(L.escapeHtml).join('<br>')}</td>
                         <td class="nowrap"><a class="button button-small" href="explanation.html?id=${encodeURIComponent(r.explanation_id)}&edit=1" target="_blank">確かめる</a></td></tr>`).join('')}
                     </tbody></table></div>`
@@ -314,7 +315,7 @@
             const students = payload.students || [];
             const ready = students.filter((s) => s.ready).length;
             document.getElementById('studentArea').innerHTML = students.length
-                ? `<p class="muted">配布できる生徒 ${ready} / ${students.length} 人（解答ステップのある全問の解説があり，要確認のものは確認済み）</p>
+                ? `<p class="muted">配布できる生徒 ${ready} / ${students.length} 人（全問の解説があり，要確認のものは確認済み）</p>
                     <div class="table-wrap"><table><thead><tr><th>生徒ID</th><th>状態</th><th></th></tr></thead><tbody>
                     ${students.map((s) => {
                         const pending = s.items.filter((i) => i.explanation_id && !i.ready).length;

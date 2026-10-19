@@ -8,6 +8,9 @@ Chain 2 の判断（ステップごとに含める要素と，添える誤りへ
 - 同じ指紋の解説が既にあれば，それを使い回す（reused。判断の理由はその生徒自身のものに置き換える）
 - どちらもなければ，指紋ごとに1回だけ生成する（generated）
 
+解答ステップがない問題（Chain 1 で分解できなかった問題）は判断ができないため，個別化しない全員共通の解説
+（kind='common'）を1問につき1件だけ生成し，全員に配る。
+
 生成は並列数を絞ったスレッドで行い，データベースへの書き込みは1件ずつ確定する。Gemini の利用上限に
 達したら一時停止し（paused），再開すると続きから生成する（済んだものは指紋が同じなので省略される）。
 """
@@ -56,6 +59,13 @@ def master_signature(problem_input: Dict[str, Any], model_name: Optional[str]) -
     return signature(problem_input, decisions, model_name, kind='master')
 
 
+def common_signature(problem_input: Dict[str, Any], model_name: Optional[str]) -> str:
+    payload = {'kind': 'common', 'problem_text': problem_input['problem_text'],
+               'correct_answer': problem_input.get('correct_answer'), 'model': model_name,
+               'max_attempts': chain.MAX_ATTEMPTS}
+    return hashlib.sha1(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
+
+
 def with_own_decisions(result: Dict[str, Any], decisions: List[Dict[str, Any]]) -> Dict[str, Any]:
     """使い回す解説の記録の「判断と理由」を，その生徒自身の定着度による理由に置き換える。"""
     result = copy.deepcopy(result)
@@ -86,6 +96,16 @@ def class_of(student_id: str) -> Optional[str]:
     """生徒ID「学年-組-番」の「学年-組」。"""
     parts = student_id.split('-')
     return '-'.join(parts[:2]) if len(parts) >= 3 else None
+
+
+def plan_common(problem_input: Dict[str, Any], student_count: int, model_name: Optional[str], existing_rows) -> Dict[str, Any]:
+    """解答ステップがない問題: 全員共通の解説が（同じ指紋で）既にあれば省略，なければ1件だけ生成する。"""
+    latest = _latest(existing_rows).get(('common', None))
+    done = latest is not None and latest.signature == common_signature(problem_input, model_name)
+    generate = 0 if done or not student_count else 1
+    return {'students': student_count, 'distinct_plans': 1, 'generate': generate,
+            'reuse': 0 if done else max(0, student_count - generate), 'skip': student_count if done else 0,
+            'llm_calls': generate * 2, 'common': True}
 
 
 def plan_problem(problem_input: Dict[str, Any], profiles: Dict[str, Tuple[Dict, Dict]], model_name: Optional[str],
@@ -213,14 +233,35 @@ def _run(app, job_id: str) -> None:
             continue
         problem_input = problem_to_chain_input(problem)
         label = problem.number or problem.title
-        if not problem_input['steps']:
-            errors.append({'problem': label, 'error': '解答ステップがありません（Chain 1 を確認してください）'})
-            job.done += len(profiles)
-            db.session.commit()
-            continue
         job.current = f'{label}（{problem.title}）'
         db.session.commit()
         latest = _latest(GeneratedExplanation.query.filter_by(problem_id=problem.id).all())
+
+        if not problem_input['steps']:
+            # 解答ステップがない問題: 全員共通の解説を1件だけ作る（指紋が同じなら作り直さない）
+            if problem.chain1_status == 'pending':
+                errors.append({'problem': label, 'error': 'Chain 1（解答ステップへの分解）の実行中です。終わってから生成してください'})
+            else:
+                sig = common_signature(problem_input, model_name)
+                existing = latest.get(('common', None))
+                if existing is not None and existing.signature == sig:
+                    job.skipped += len(profiles)
+                else:
+                    try:
+                        _save(job, problem.id, None, chain.generate_common_explanation(llm, problem_input), None, sig)
+                        job.generated += 1
+                        job.reused += max(0, len(profiles) - 1)
+                    except Exception as exc:
+                        db.session.rollback()
+                        if QUOTA_PATTERN.search(str(exc)):
+                            paused = str(exc)
+                            break
+                        errors.append({'problem': label, 'student_id': None,
+                                       'error': f'全員共通の解説: {exc.__class__.__name__}: {exc}'})
+            job.done += len(profiles)
+            job.errors = json.dumps(errors, ensure_ascii=False)
+            db.session.commit()
+            continue
 
         # マスター解説（比較用。引き算型の元にもなる）
         master = None

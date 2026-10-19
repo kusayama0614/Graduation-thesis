@@ -447,8 +447,9 @@ LLM は Gemini で，環境変数 `GEMINI_API_KEY`（必須）と `GEMINI_MODEL`
 試験の全問題 × 選んだ生徒（クラス単位）の解説をまとめて生成し，教員が要確認のものを確かめてから，生徒ごとの冊子として印刷します（3.1節「試験の返却と同時に全員へ解説を配布」）。
 
 - **見積もり** `GET /api/learning/exams/<exam_id>/generation-plan?classes=1-1&reuse=true`：LLM を呼ばずに，問題ごとの「生成・使い回し・省略」の件数と Gemini の呼び出し回数の目安を返します。
-- **生成** `POST /api/learning/exams/<exam_id>/generation-jobs` `{"classes": ["1-1"] | "student_ids": [...], "problem_ids"?: [...], "reuse": true, "include_master": false, "include_subtractive": false}`。解答ステップのない問題は対象外です。進み具合は `GET /api/learning/exam-generation-jobs/<job_id>`。
+- **生成** `POST /api/learning/exams/<exam_id>/generation-jobs` `{"classes": ["1-1"] | "student_ids": [...], "problem_ids"?: [...], "reuse": true, "include_master": false, "include_subtractive": false}`。進み具合は `GET /api/learning/exam-generation-jobs/<job_id>`。
 - **使い回し（指紋）**：LLM に渡す指示は「問題・ステップ・Chain 2 の判断（含める要素と誤りへの注意）・モデル」だけで決まるため，これらの指紋（signature）が同じ生徒には1回だけ生成した解説を使い回します（`reused_from` に元の解説）。判断の理由と定着度の記録はその生徒自身のものに置き換えます。判断が前回から変わっていない生徒は作り直しません（省略）。`reuse: false` で生徒ごとに生成できます（同じ判断の生徒どうしの類似度（表10）は，使い回すと 1.0 になる点に注意）。
+- **解答ステップがない問題**（Chain 1 で分解できなかったグラフの問題など）：生徒ごとの判断ができないため，個別化しない**全員共通の解説**（`kind: "common"`）を1問につき1件だけ生成し，全員の冊子に載せます。途中の式変形を省略せずに書かせ，個別の解説と同じく Chain 4 で検算して，直らなければ要確認として教員に回します。Chain 1 の実行中の問題は生成しません。
 - **一時停止と再開**：Gemini の利用上限（429 / RESOURCE_EXHAUSTED）に達するとジョブは `paused` になります。`POST /api/learning/exam-generation-jobs/<job_id>/resume` で続きから生成します（済んだ解説は指紋が同じなので省略されます）。並列数は `EXPLANATION_CONCURRENCY`（既定 3）。
 - **問題ごとの状況** `GET /api/learning/exams/<exam_id>/explanations-summary`：解説の揃い具合，異なる解説の数，要確認の件数と，**模範解答の照合**（Chain 1 が問題文から導いた最後のステップの結果と模範解答を sympy で比較。表6 層1の考え方で，略解の誤記や読み取り・分解の誤りに気づくため）を返します。`review` には要確認で未確認の解説が，使い回しの元ごとに1件ずつ並びます。
 - **教員の確認** `PUT /api/learning/explanations/<id>` `{"content"?: "直した本文", "reviewed": true, "apply_to_group": true}`：確認済みにします。本文を直すと，生成された元の文を `original_content` に残し，同じ解説を使い回した生徒にも反映します（生徒ごとに直した解説は上書きしません）。画面は解説の表示画面の「直す」「確認済みにする」。

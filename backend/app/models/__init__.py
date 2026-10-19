@@ -214,7 +214,7 @@ class GeneratedExplanation(db.Model):
     teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
     problem_id = db.Column(db.String(36), db.ForeignKey('test_problems.id'), nullable=False)
     student_id = db.Column(db.String(100))  # master（マスター解説）のときは None
-    kind = db.Column(db.String(20), default='individual')  # individual（積み上げ型）/ master / subtractive（引き算型）
+    kind = db.Column(db.String(20), default='individual')  # individual（積み上げ型）/ master / subtractive（引き算型）/ common（解答ステップがない問題の全員共通の解説）
     status = db.Column(db.String(20), nullable=False)  # ok / needs_review
     content = db.Column(db.Text)
     trace = db.Column(db.Text)  # JSON: ステップごとの判断・検算・再生成の記録

@@ -482,6 +482,64 @@ def generate_explanation(llm: LLMClient, problem: Dict[str, Any], node_states: O
     }
 
 
+COMMON_SYSTEM = (
+    'あなたは高等学校数学の定期試験の解答解説を書きます。この解説は生徒によらず全員に配る共通のものです。'
+    '解き方の流れが分かるように，途中の式変形を省略せずに書きます。計算は必ず「左辺 = 右辺」の形で書き，'
+    '数式は $...$ で囲みます。小問や場面の区切りには「### 」で始まる小見出しを付けてかまいません。'
+    'グラフや図をかく問題では，かき方の手順と，グラフの形・頂点・軸との交点・場合分けの境目などの特徴を言葉と式で示します。'
+    '生徒に語りかける「です・ます」調で書き，最後に「答え: ...」の形で結論を書きます。'
+)
+
+
+def write_common(llm: LLMClient, problem: Dict[str, Any], feedback: Optional[str] = None) -> str:
+    answer = problem.get('correct_answer') or '（模範解答の答えは登録されていません）'
+    user = f'問題文:\n{problem["problem_text"]}\n\n模範解答の答え: {answer}\n\nこの問題の解説を書いてください。'
+    if feedback:
+        user += f'\n\n前回書いた解説には次の誤りがありました。誤りを直して，解説を書き直してください。\n{feedback}'
+    return llm.generate_text(system=COMMON_SYSTEM, user=user, temperature=0.3).strip()
+
+
+def generate_common_explanation(llm: LLMClient, problem: Dict[str, Any]) -> Dict[str, Any]:
+    """解答ステップがない問題（Chain 1 で分解できなかった問題）の，個別化しない全員共通の解説。
+
+    生徒の定着度による判断（Chain 2）はできないため全員に同じ解説を配るが，解説の計算の検算（Chain 4）と，
+    上限を超えたら教員の確認に回す流れは個別の解説と同じにする。
+    """
+    feedback = None
+    attempts = []
+    text = ''
+    verification: Dict[str, Any] = {}
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        text = write_common(llm, problem, feedback)
+        try:
+            extracted = extract_claims(llm, text)
+            verification = verify_step(1, extracted, {}, problem.get('correct_answer') or None, None)
+        except Exception as exc:
+            verification = {'ok': True, 'claims': [], 'counts': {}, 'relations': [], 'relation_counts': {},
+                            'last_relation': None, 'final_check': None, 'feedback': None,
+                            'error': f'計算の抜き出しに失敗しました（{exc.__class__.__name__}）'}
+        attempts.append({'attempt': attempt, 'text': text, **verification})
+        if verification['ok']:
+            break
+        feedback = verification['feedback']
+    status = 'ok' if verification.get('ok') else 'needs_review'
+    warnings = []
+    checked_relations = [r for r in verification.get('relations', []) if r['status'] in ('ok', 'ng')]
+    if not verification.get('claims') and not checked_relations:
+        warnings.append('計算・式の変形が一つも抜き出されなかったため，この解説は検算されていません')
+    if verification.get('error'):
+        warnings.append(verification['error'])
+    if status == 'needs_review':
+        warnings.append(f'再生成の上限（{MAX_ATTEMPTS}回）に達したため，教員の確認が必要です')
+    decision = {'elements': ['result', 'reasoning'], 'weakest_node': None, 'confidence': None, 'evidence_count': None,
+                'node_confidences': {}, 'cautions': [],
+                'reasons': ['解答ステップ（Chain 1）がないため，個別化しない全員共通の解説を書く']}
+    trace = {'step_id': 1, 'title': '全員共通の解説', 'nodes': [], 'decision': decision, 'text': text,
+             'status': status, 'attempt_count': len(attempts), 'attempts': attempts, 'warnings': warnings}
+    return {'kind': 'common', 'status': status, 'content': f'# {problem["title"]}\n\n{text}\n',
+            'steps': [trace], 'warnings': warnings, 'model_name': getattr(llm, 'model_name', None)}
+
+
 def build_subtractive(problem: Dict[str, Any], master: Dict[str, Any], node_states: Dict[str, Any],
                       error_tendencies: Dict[str, int]) -> Dict[str, Any]:
     """引き算型の解説（比較用 (B)）: マスター解説から，定着済みのステップを結果だけに縮める。LLM は呼ばない。"""

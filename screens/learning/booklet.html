@@ -115,7 +115,8 @@
                         <h3 class="problem-number">${L.escapeHtml(i.number ? `大問 ${i.number}` : i.title)}${i.points ? `<span class="muted">（${i.points}点）</span>` : ''}</h3>
                         <div class="booklet-problem">${L.escapeHtml(i.problem_text)}</div>
                         ${i.content ? `${i.ready ? '' : '<div class="notice notice-warn no-print">要確認（未確認）の解説です</div>'}<div class="explanation-body">${body(i.content)}</div>`
-                            : `<p class="muted">${i.excluded ? 'この問題は個別の解説の対象外です。模範解答を見て確かめましょう。' : 'この問題の解説はまだ生成されていません。'}</p>`}
+                            : '<p class="muted">この問題の解説はまだ生成されていません。</p>'}
+                        ${i.common ? '<p class="muted no-print">（解答ステップがない問題のため，全員共通の解説です）</p>' : ''}
                     </div>`).join('')}
                     ${withSurvey ? survey(s.items) : ''}
                 </section>`).join('') || '<p class="empty">対象の生徒がいません。</p>';

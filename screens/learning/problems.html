@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>定期テスト問題と解説 - 個別解説</title>
+    <link rel="stylesheet" href="learning.css">
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <main class="grid-2">
+        <section>
+            <div class="card">
+                <div class="card-header">
+                    <h2>問題一覧</h2>
+                    <button class="button button-small" onclick="showNewForm()">＋ 新規登録</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>問題</th><th>解説</th></tr></thead>
+                        <tbody id="problemRows"><tr><td colspan="2" class="empty">読み込み中…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card hidden" id="newCard">
+                <h2>問題の登録</h2>
+                <p class="card-lead">定期テストの問題文から，生徒によらない解答ステップを作ります（Chain 1）。</p>
+                <label class="field">単元<select id="newUnit"></select></label>
+                <label class="field">タイトル<input type="text" id="newTitle" placeholder="例: 大問2(1) 判別式と定数の範囲"></label>
+                <label class="field">問題文<textarea id="newText" placeholder="問題文をそのまま入力"></textarea></label>
+                <label class="field">正しい答え <span class="hint">（任意。入れると解説の結論を照合します）</span>
+                    <input type="text" id="newAnswer" placeholder="例: m<49/8">
+                </label>
+                <label class="checkbox"><input type="checkbox" id="newManual"> 解答ステップを自分で入力する（Gemini を使わない）</label>
+                <div class="button-row">
+                    <button class="button" id="createButton" onclick="createProblem()">登録して解答ステップを作る</button>
+                    <button class="button button-light" onclick="hideNewForm()">キャンセル</button>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="card" id="emptyDetail">
+                <p class="empty">左の一覧から問題を選ぶか，新しく登録してください。</p>
+            </div>
+
+            <div id="detail" class="hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h2 id="problemTitle"></h2>
+                            <p class="card-lead" id="problemLead"></p>
+                        </div>
+                        <button class="button button-danger button-small" onclick="deleteProblem()">削除</button>
+                    </div>
+                    <label class="field">問題文<textarea id="editText"></textarea></label>
+                    <label class="field">正しい答え <span class="hint">（任意）</span><input type="text" id="editAnswer"></label>
+
+                    <h3>解答ステップ（Chain 1） <span class="muted" id="stepsSource"></span></h3>
+                    <p class="muted">各ステップが依存する前提知識を確認・修正できます。ここで付けたノードと生徒の定着度から，詳しく書くステップが決まります。</p>
+                    <div id="stepsEditor"></div>
+                    <div class="button-row">
+                        <button class="button button-light button-small" onclick="addStep()">＋ ステップを追加</button>
+                        <button class="button button-light button-small" onclick="redecompose()">Gemini で分解し直す</button>
+                    </div>
+                    <div class="button-row">
+                        <button class="button" onclick="saveProblem()">問題とステップを保存</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>生徒ごとの判断（Chain 2）</h2>
+                    <p class="card-lead">生成する前に，どのステップに何を含めるかと，その理由を確認できます（Gemini は呼びません）。</p>
+                    <label class="field" style="max-width: 320px;">生徒<select id="planStudent" onchange="loadPlan()"></select></label>
+                    <div id="planResult"></div>
+                </div>
+
+                <div class="card">
+                    <h2>解説の生成</h2>
+                    <p class="card-lead">選んだ生徒ごとに解説を書き，計算と式の変形を sympy で検算します（Chain 2〜4）。誤りがあれば自動で書き直し，3回で直らなければ「要確認」になります。</p>
+                    <div class="button-row" style="margin-top: 0;">
+                        <button class="button button-light button-small" onclick="selectStudents(true)">全員を選択</button>
+                        <button class="button button-light button-small" onclick="selectStudents(false)">選択を解除</button>
+                    </div>
+                    <div id="studentChecks" style="margin: 10px 0; max-height: 180px; overflow-y: auto;"></div>
+                    <label class="checkbox"><input type="checkbox" id="includeMaster"> マスター解説 (A) も生成する</label>
+                    <label class="checkbox"><input type="checkbox" id="includeSubtractive"> 引き算型 (B) も作る（比較用）</label>
+                    <div class="button-row">
+                        <button class="button" id="generateButton" onclick="generate()">解説を生成</button>
+                    </div>
+                    <div id="jobStatus" class="hidden">
+                        <div class="progress"><div class="progress-fill" id="jobProgress" style="width: 0%;"></div></div>
+                        <p class="muted" id="jobText"></p>
+                        <div id="jobErrors"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h2>生成済みの解説</h2>
+                            <p class="card-lead">「要確認」は検算で直らなかった解説です。表示して内容を確かめてから配布してください。</p>
+                        </div>
+                        <button class="button button-light button-small" onclick="loadComparison()">比較の指標を見る</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>生徒</th><th>種類</th><th>状態</th><th>作成</th><th></th></tr></thead>
+                            <tbody id="explanationRows"></tbody>
+                        </table>
+                    </div>
+                    <div id="comparison"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="../common/api-debug-badge.js"></script>
+    <script src="learning-common.js"></script>
+    <script>
+        const L = window.Learning;
+        const KIND_LABELS = { individual: '積み上げ型 (C)', master: 'マスター (A)', subtractive: '引き算型 (B)' };
+        let graph = null;
+        let labels = {};
+        let problems = [];
+        let profiles = [];
+        let current = null;
+        let steps = [];
+        let jobTimer = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await L.initPage('problems', '定期テスト問題と解説', 'フェーズB：学習者プロファイルに基づいて，問題ごとの解説を生徒ごとに生成します');
+                graph = await L.loadGraph();
+                labels = L.nodeLabelMap(graph);
+                document.getElementById('newUnit').innerHTML = Object.entries(graph.graph.units)
+                    .map(([id, unit]) => `<option value="${id}">${L.escapeHtml(unit.label)}</option>`).join('');
+                const profilePayload = await L.api('GET', '/learning/profiles');
+                profiles = profilePayload.profiles || [];
+                await loadProblems();
+                const open = L.queryParam('problem');
+                if (open) {
+                    openProblem(open);
+                }
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        });
+
+        async function loadProblems() {
+            const payload = await L.api('GET', '/learning/problems');
+            problems = payload.problems || [];
+            const body = document.getElementById('problemRows');
+            body.innerHTML = problems.length ? problems.map((p) => `
+                <tr class="selectable${current && current.id === p.id ? ' selected' : ''}" onclick="openProblem('${p.id}')">
+                    <td><strong>${L.escapeHtml(p.title)}</strong><div class="muted">${L.escapeHtml(graph.graph.units[p.unit] ? graph.graph.units[p.unit].label : p.unit)}・${p.steps.length} ステップ</div></td>
+                    <td class="nowrap">${p.explanation_count}</td>
+                </tr>`).join('') : '<tr><td colspan="2" class="empty">まだ問題がありません</td></tr>';
+        }
+
+        function showNewForm() {
+            document.getElementById('newCard').classList.remove('hidden');
+            document.getElementById('newTitle').focus();
+        }
+
+        function hideNewForm() {
+            document.getElementById('newCard').classList.add('hidden');
+        }
+
+        async function createProblem() {
+            const body = {
+                unit: document.getElementById('newUnit').value,
+                title: document.getElementById('newTitle').value.trim(),
+                problem_text: document.getElementById('newText').value.trim(),
+                correct_answer: document.getElementById('newAnswer').value.trim() || null,
+            };
+            if (!body.title || !body.problem_text) {
+                L.toast('タイトルと問題文を入力してください', 'error');
+                return;
+            }
+            if (document.getElementById('newManual').checked) {
+                body.steps = [{ title: '（ステップ1）', description: '', result: '', nodes: [] }];
+            }
+            const button = document.getElementById('createButton');
+            button.disabled = true;
+            button.textContent = body.steps ? '登録中…' : 'Gemini で解答ステップを作成中…';
+            try {
+                const payload = await L.api('POST', '/learning/problems', body);
+                hideNewForm();
+                ['newTitle', 'newText', 'newAnswer'].forEach((id) => { document.getElementById(id).value = ''; });
+                await loadProblems();
+                await openProblem(payload.problem.id);
+                L.toast(body.steps ? '登録しました。解答ステップを入力してください' : '解答ステップを作成しました。内容を確認してください', 'ok');
+            } catch (error) {
+                L.toast(error.message, 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = '登録して解答ステップを作る';
+            }
+        }
+
+        async function openProblem(id) {
+            try {
+                const payload = await L.api('GET', `/learning/problems/${id}`);
+                current = payload.problem;
+                steps = current.steps.map((s) => ({ ...s, nodes: [...s.nodes] }));
+                document.getElementById('emptyDetail').classList.add('hidden');
+                document.getElementById('detail').classList.remove('hidden');
+                document.getElementById('problemTitle').textContent = current.title;
+                document.getElementById('problemLead').textContent =
+                    `${graph.graph.units[current.unit].label}　／　登録 ${L.formatDateTime(current.created_at)}`;
+                document.getElementById('editText').value = current.problem_text;
+                document.getElementById('editAnswer').value = current.correct_answer || '';
+                renderSteps();
+                renderStudentChoices();
+                document.getElementById('planResult').innerHTML = '';
+                document.getElementById('comparison').innerHTML = '';
+                await loadProblems();
+                await loadExplanations();
+                if (profiles.length) {
+                    loadPlan();
+                }
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        function renderSteps() {
+            document.getElementById('stepsSource').textContent =
+                current.steps_source === 'chain1' ? '（Gemini による分解）' : '（教員が入力・修正）';
+            const unitNodes = graph.graph.units[current.unit].nodes;
+            document.getElementById('stepsEditor').innerHTML = steps.map((step, index) => `
+                <div class="step-trace" data-index="${index}">
+                    <div class="card-header" style="margin-bottom: 6px;">
+                        <h4>ステップ ${index + 1}</h4>
+                        <div>
+                            <button class="button button-light button-small" onclick="moveStep(${index}, -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
+                            <button class="button button-light button-small" onclick="moveStep(${index}, 1)" ${index === steps.length - 1 ? 'disabled' : ''}>↓</button>
+                            <button class="button button-light button-small" onclick="removeStep(${index})" ${steps.length === 1 ? 'disabled' : ''}>削除</button>
+                        </div>
+                    </div>
+                    <label class="field">内容<input type="text" data-field="title" value="${L.escapeHtml(step.title)}"></label>
+                    <label class="field">説明<input type="text" data-field="description" value="${L.escapeHtml(step.description)}"></label>
+                    <label class="field">結果の目安<input type="text" data-field="result" value="${L.escapeHtml(step.result)}"></label>
+                    <div class="field" style="font-size: 13px; font-weight: 600; color: #555;">依存する前提知識</div>
+                    <div>${unitNodes.map((node) => `
+                        <label class="checkbox" title="${L.escapeHtml(node.evidence || '')}">
+                            <input type="checkbox" data-node value="${node.id}" ${step.nodes.includes(node.id) ? 'checked' : ''}> ${L.escapeHtml(node.label)}
+                        </label>`).join('')}</div>
+                </div>`).join('');
+        }
+
+        function collectSteps() {
+            document.querySelectorAll('#stepsEditor .step-trace').forEach((element) => {
+                const step = steps[Number(element.dataset.index)];
+                element.querySelectorAll('input[data-field]').forEach((input) => { step[input.dataset.field] = input.value; });
+                step.nodes = Array.from(element.querySelectorAll('input[data-node]:checked')).map((box) => box.value);
+            });
+        }
+
+        function addStep() {
+            collectSteps();
+            steps.push({ title: '', description: '', result: '', nodes: [] });
+            renderSteps();
+        }
+
+        function removeStep(index) {
+            collectSteps();
+            steps.splice(index, 1);
+            renderSteps();
+        }
+
+        function moveStep(index, delta) {
+            collectSteps();
+            const [step] = steps.splice(index, 1);
+            steps.splice(index + delta, 0, step);
+            renderSteps();
+        }
+
+        async function saveProblem() {
+            collectSteps();
+            try {
+                const payload = await L.api('PUT', `/learning/problems/${current.id}`, {
+                    problem_text: document.getElementById('editText').value,
+                    correct_answer: document.getElementById('editAnswer').value.trim() || null,
+                    steps: steps.map(({ title, description, result, nodes }) => ({ title, description, result, nodes })),
+                });
+                current = payload.problem;
+                steps = current.steps.map((s) => ({ ...s, nodes: [...s.nodes] }));
+                renderSteps();
+                await loadProblems();
+                loadPlan();
+                L.toast('保存しました', 'ok');
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        async function redecompose() {
+            if (!confirm('Gemini で解答ステップを作り直します。今のステップは置き換わります。よろしいですか？')) {
+                return;
+            }
+            try {
+                L.toast('Gemini で解答ステップを作成中…');
+                await L.api('PUT', `/learning/problems/${current.id}`, { problem_text: document.getElementById('editText').value });
+                await L.api('POST', `/learning/problems/${current.id}/decompose`);
+                await openProblem(current.id);
+                L.toast('解答ステップを作り直しました', 'ok');
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        async function deleteProblem() {
+            if (!confirm(`「${current.title}」と，その解説をすべて削除します。よろしいですか？`)) {
+                return;
+            }
+            try {
+                await L.api('DELETE', `/learning/problems/${current.id}`);
+                current = null;
+                document.getElementById('detail').classList.add('hidden');
+                document.getElementById('emptyDetail').classList.remove('hidden');
+                await loadProblems();
+                L.toast('削除しました', 'ok');
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        function renderStudentChoices() {
+            const options = profiles.map((p) => `<option value="${L.escapeHtml(p.student_id)}">${L.escapeHtml(p.student_id)}</option>`).join('');
+            document.getElementById('planStudent').innerHTML = options || '<option value="">（プロファイルがありません）</option>';
+            document.getElementById('studentChecks').innerHTML = profiles.length ? profiles.map((p) => `
+                <label class="checkbox"><input type="checkbox" class="student-check" value="${L.escapeHtml(p.student_id)}"> ${L.escapeHtml(p.student_id)}</label>`).join('')
+                : '<p class="muted">学習者プロファイルがまだありません。「① 演習の反映」から演習を反映してください。</p>';
+        }
+
+        function selectStudents(on) {
+            document.querySelectorAll('.student-check').forEach((box) => { box.checked = on; });
+        }
+
+        async function loadPlan() {
+            const studentId = document.getElementById('planStudent').value;
+            const target = document.getElementById('planResult');
+            if (!studentId || !current) {
+                target.innerHTML = '';
+                return;
+            }
+            try {
+                const payload = await L.api('GET', `/learning/problems/${current.id}/plan?student_id=${encodeURIComponent(studentId)}`);
+                target.innerHTML = `<div class="table-wrap"><table>
+                    <thead><tr><th>ステップ</th><th>依存ノード（定着度）</th><th>含める要素と理由</th></tr></thead>
+                    <tbody>${payload.plan.map((d) => `<tr>
+                        <td><strong>${d.step_id}.</strong> ${L.escapeHtml(d.title)}</td>
+                        <td>${d.nodes.length ? d.nodes.map((n) => {
+                            const c = d.node_confidences[n];
+                            return `<div><span class="node-chip" title="${L.escapeHtml(labels[n] || '')}">${L.escapeHtml(n)}</span> ${c ? Number(c.confidence).toFixed(2) : ''}</div>`;
+                        }).join('') : '<span class="muted">なし</span>'}</td>
+                        <td>${d.elements.map((e) => `<span class="badge badge-element">${L.escapeHtml(L.ELEMENT_LABELS[e] || e)}</span>`).join('')}
+                            <ul class="reasons">${d.reasons.map((r) => `<li>${L.escapeHtml(r)}</li>`).join('')}</ul></td>
+                    </tr>`).join('')}</tbody></table></div>`;
+            } catch (error) {
+                target.innerHTML = `<div class="notice notice-error">${L.escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        async function generate() {
+            const studentIds = Array.from(document.querySelectorAll('.student-check:checked')).map((box) => box.value);
+            const includeMaster = document.getElementById('includeMaster').checked;
+            const includeSubtractive = document.getElementById('includeSubtractive').checked;
+            if (!studentIds.length && !includeMaster) {
+                L.toast('生徒を選ぶか，マスター解説の生成を選んでください', 'error');
+                return;
+            }
+            try {
+                document.getElementById('generateButton').disabled = true;
+                const payload = await L.api('POST', `/learning/problems/${current.id}/explanations`, {
+                    student_ids: studentIds, include_master: includeMaster, include_subtractive: includeSubtractive,
+                });
+                showJob(payload.job);
+            } catch (error) {
+                document.getElementById('generateButton').disabled = false;
+                L.toast(error.message, 'error');
+            }
+        }
+
+        function showJob(job) {
+            document.getElementById('jobStatus').classList.remove('hidden');
+            const percent = job.total ? Math.round((job.done / job.total) * 100) : 0;
+            document.getElementById('jobProgress').style.width = `${percent}%`;
+            const stateText = { queued: '待機中', running: '生成中', completed: '完了', failed: '失敗' }[job.status] || job.status;
+            document.getElementById('jobText').textContent = `${stateText}：${job.done} / ${job.total}`;
+            document.getElementById('jobErrors').innerHTML = (job.errors || []).map((e) =>
+                `<div class="notice notice-error">${L.escapeHtml(e.student_id || 'マスター解説')}: ${L.escapeHtml(e.error)}</div>`).join('');
+            clearTimeout(jobTimer);
+            if (job.status === 'queued' || job.status === 'running') {
+                jobTimer = setTimeout(async () => {
+                    try {
+                        const payload = await L.api('GET', `/learning/jobs/${job.id}`);
+                        showJob(payload.job);
+                    } catch (error) {
+                        L.toast(error.message, 'error');
+                    }
+                }, 2000);
+            } else {
+                document.getElementById('generateButton').disabled = false;
+                loadExplanations();
+                loadProblems();
+                L.toast(job.status === 'completed' ? '解説の生成が終わりました' : '解説の生成に失敗しました', job.status === 'completed' ? 'ok' : 'error');
+            }
+        }
+
+        async function loadExplanations() {
+            const payload = await L.api('GET', `/learning/problems/${current.id}/explanations`);
+            const rows = payload.explanations || [];
+            document.getElementById('explanationRows').innerHTML = rows.length ? rows.map((e) => `<tr>
+                <td class="nowrap">${e.student_id ? L.escapeHtml(e.student_id) : '<span class="muted">—</span>'}</td>
+                <td class="nowrap">${L.escapeHtml(KIND_LABELS[e.kind] || e.kind)}</td>
+                <td class="nowrap"><span class="badge badge-${e.status}">${e.status === 'ok' ? '検算済み' : '要確認'}</span></td>
+                <td class="nowrap">${L.formatDateTime(e.created_at)}</td>
+                <td class="nowrap"><a class="button button-small" href="${L.resolveScreenUrl('screens/learning/explanation.html')}?id=${e.id}" target="_blank">表示・印刷</a></td>
+            </tr>`).join('') : '<tr><td colspan="5" class="empty">まだ解説がありません</td></tr>';
+        }
+
+        async function loadComparison() {
+            const target = document.getElementById('comparison');
+            target.innerHTML = '<p class="muted">計算中…（初回は意味の類似度のために埋め込みを計算します）</p>';
+            try {
+                const c = await L.api('GET', `/learning/problems/${current.id}/comparison`);
+                const fmt = (v) => (v === null || v === undefined ? '—' : v);
+                const rows = c.students.flatMap((s) => ['individual', 'subtractive'].filter((k) => s[k]).map((k) => `<tr>
+                    <td class="nowrap">${L.escapeHtml(s.student_id)}</td>
+                    <td class="nowrap">${KIND_LABELS[k]}</td>
+                    <td>${fmt(s[k].metrics.weak_steps_detailed_ratio)}</td>
+                    <td>${s[k].metrics.mastered_steps_chars}</td>
+                    <td>${s[k].metrics.total_chars}</td>
+                    <td>${fmt(s[k].similarity_to_master)}</td>
+                    <td>${fmt(s[k].semantic_similarity_to_master)}</td>
+                </tr>`)).join('');
+                const between = Object.entries(c.between_students).map(([k, v]) =>
+                    `${KIND_LABELS[k]}：文字列 ${fmt(v.mean_similarity)} ／ 意味 ${fmt(v.mean_semantic_similarity)}（${v.pair_count}組）`).join('<br>');
+                target.innerHTML = `<h3>比較の指標（卒論 表10）</h3>
+                    ${c.semantic_similarity.available ? '' : `<div class="notice notice-warn">意味の類似度: ${L.escapeHtml(c.semantic_similarity.reason || '計算していません')}</div>`}
+                    ${c.master_explanation_id ? '' : '<div class="notice notice-warn">マスター解説がないため，マスターとの類似度は計算できません。</div>'}
+                    <div class="table-wrap"><table>
+                        <thead><tr><th>生徒</th><th>方式</th><th>未定着ステップのうち詳しく書いた割合</th><th>定着済みステップの文字数</th><th>全体の文字数</th><th>マスターとの文字列類似度</th><th>マスターとの意味の類似度</th></tr></thead>
+                        <tbody>${rows || '<tr><td colspan="7" class="empty">比較できる解説がありません</td></tr>'}</tbody>
+                    </table></div>
+                    <p class="muted" style="margin-top: 8px;">生徒間の平均類似度<br>${between}</p>`;
+            } catch (error) {
+                target.innerHTML = `<div class="notice notice-error">${L.escapeHtml(error.message)}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

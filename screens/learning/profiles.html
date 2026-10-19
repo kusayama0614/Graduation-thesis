@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学習者プロファイル - 個別解説</title>
+    <link rel="stylesheet" href="learning.css">
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <main class="grid-2">
+        <section class="card">
+            <h2>生徒一覧</h2>
+            <p class="card-lead">定着度が 0.5 を下回る前提知識があると，解説のそのステップが詳しく書かれます。</p>
+            <input type="search" id="studentFilter" placeholder="生徒IDで絞り込み" style="margin-bottom: 12px;">
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>生徒ID</th><th>演習</th><th>弱いノード</th><th>誤り</th></tr></thead>
+                    <tbody id="studentRows"><tr><td colspan="4" class="empty">読み込み中…</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section>
+            <div class="card" id="emptyDetail">
+                <p class="empty">左の一覧から生徒を選ぶと，前提知識ごとの定着度と演習ごとの記録が表示されます。</p>
+            </div>
+
+            <div class="card hidden" id="profileCard">
+                <div class="card-header">
+                    <div>
+                        <h2 id="profileTitle"></h2>
+                        <p class="card-lead" id="profileLead"></p>
+                    </div>
+                    <button class="button button-light button-small" onclick="rebuild()">記録から再計算</button>
+                </div>
+                <div id="unitTables"></div>
+                <p class="muted">定着度は演習ごとの正答率 r から c = 0.3·r + 0.7·(前回の c) で更新します（記録がない場合は 0.5）。縦線は閾値 0.5 です。</p>
+            </div>
+
+            <div class="card hidden" id="recordsCard">
+                <h2>演習ごとの記録</h2>
+                <p class="card-lead">初答・判定・誤りの種類（診断した前提知識）と，その根拠です。</p>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>演習</th><th>小問</th><th>初答</th><th>正解</th><th>判定</th><th>誤りの種類</th></tr></thead>
+                        <tbody id="recordRows"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="../common/api-debug-badge.js"></script>
+    <script src="learning-common.js"></script>
+    <script>
+        const L = window.Learning;
+        let graph = null;
+        let labels = {};
+        let profiles = [];
+        let selected = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await L.initPage('profiles', '学習者プロファイル', '生徒ごとの前提知識の定着度と誤りの傾向（演習の判定から自動で更新）');
+                graph = await L.loadGraph();
+                labels = L.nodeLabelMap(graph);
+                document.getElementById('studentFilter').addEventListener('input', renderStudents);
+                await loadProfiles();
+                const student = L.queryParam('student');
+                if (student) {
+                    openProfile(student);
+                }
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        });
+
+        async function loadProfiles() {
+            const payload = await L.api('GET', '/learning/profiles');
+            profiles = payload.profiles || [];
+            renderStudents();
+        }
+
+        function weakCount(profile) {
+            return Object.values(profile.node_states).filter((s) => s.confidence < 0.5).length;
+        }
+
+        function errorCount(profile) {
+            return Object.values(profile.error_tendencies).reduce((sum, n) => sum + n, 0);
+        }
+
+        function renderStudents() {
+            const filter = document.getElementById('studentFilter').value.trim().toLowerCase();
+            const rows = profiles.filter((p) => !filter || p.student_id.toLowerCase().includes(filter));
+            const body = document.getElementById('studentRows');
+            if (!rows.length) {
+                body.innerHTML = `<tr><td colspan="4" class="empty">${profiles.length ? '該当する生徒がいません' : 'まだプロファイルがありません。「① 演習の反映」から演習を反映してください。'}</td></tr>`;
+                return;
+            }
+            body.innerHTML = rows.map((p) => {
+                const weak = weakCount(p);
+                return `<tr class="selectable${selected === p.student_id ? ' selected' : ''}" onclick="openProfile('${L.escapeHtml(p.student_id)}')">
+                    <td class="nowrap"><strong>${L.escapeHtml(p.student_id)}</strong></td>
+                    <td>${p.exercise_count}</td>
+                    <td>${weak ? `<span class="badge badge-wrong">${weak}</span>` : '<span class="muted">0</span>'}</td>
+                    <td>${errorCount(p) || '<span class="muted">0</span>'}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function openProfile(studentId) {
+            try {
+                const payload = await L.api('GET', `/learning/profiles/${encodeURIComponent(studentId)}`);
+                selected = studentId;
+                renderProfile(payload.profile);
+                renderStudents();
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        function renderProfile(profile) {
+            document.getElementById('emptyDetail').classList.add('hidden');
+            document.getElementById('profileCard').classList.remove('hidden');
+            document.getElementById('recordsCard').classList.remove('hidden');
+            document.getElementById('profileTitle').textContent = `生徒 ${profile.student_id}`;
+            const counts = Object.entries(profile.judgment_counts)
+                .map(([j, n]) => `${L.JUDGMENT_LABELS[j] || j} ${n}`).join('・');
+            document.getElementById('profileLead').textContent =
+                `演習 ${profile.exercise_count} 回　／　${counts || '判定なし'}　／　更新 ${L.formatDateTime(profile.updated_at)}`;
+
+            const html = Object.entries(graph.graph.units).map(([unitId, unit]) => {
+                const rows = unit.nodes.map((node) => {
+                    const state = profile.node_states[node.id];
+                    const errors = profile.error_tendencies[node.id] || 0;
+                    const history = state && state.history ? state.history.map((h) =>
+                        `${L.escapeHtml(h.exercise_name || h.answer_sheet_id)}: 正答率 ${Math.round(h.correct_rate * 100)}%（${h.question_count}問）→ ${Number(h.confidence).toFixed(2)}`).join('<br>') : '';
+                    return `<tr>
+                        <td><span class="node-chip">${node.id}</span><div>${L.escapeHtml(node.label)}</div>${history ? `<div class="muted">${history}</div>` : ''}</td>
+                        <td>${L.confidenceBar(state ? state.confidence : null, 0.5)}</td>
+                        <td class="nowrap">${state ? `${state.evidence_count} 問` : '<span class="muted">—</span>'}</td>
+                        <td class="nowrap">${errors ? `<span class="badge badge-wrong">${errors} 回</span>` : '<span class="muted">—</span>'}</td>
+                    </tr>`;
+                }).join('');
+                const hasData = unit.nodes.some((node) => profile.node_states[node.id]);
+                return `<h3>${L.escapeHtml(unit.label)}${hasData ? '' : ' <span class="muted">（記録なし）</span>'}</h3>
+                    <div class="table-wrap"><table>
+                        <thead><tr><th>前提知識</th><th style="min-width: 200px;">定着度</th><th>根拠</th><th>誤りの記録</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table></div>`;
+            }).join('');
+            document.getElementById('unitTables').innerHTML = html;
+
+            const records = profile.records || [];
+            document.getElementById('recordRows').innerHTML = records.length ? records.map((r) => `<tr>
+                <td class="nowrap">${L.escapeHtml(r.exercise_name || r.answer_sheet_id)}<div class="muted">${L.escapeHtml(r.exercise_date || '')}</div></td>
+                <td class="nowrap"><strong>${L.escapeHtml(r.question)}</strong></td>
+                <td>${r.initial_answer ? L.escapeHtml(r.initial_answer) : '<span class="muted">—</span>'}${r.corrected ? ' <span class="badge">訂正あり</span>' : ''}</td>
+                <td>${r.expected_answer ? L.escapeHtml(r.expected_answer) : '<span class="muted">—</span>'}</td>
+                <td class="nowrap">${L.judgmentBadge(r.judgment)}</td>
+                <td>${r.error_node ? `<span class="node-chip">${L.escapeHtml(r.error_node)}</span> ${L.escapeHtml(labels[r.error_node] || '')}<div class="muted">${L.escapeHtml(r.diagnosis_note || '')}</div>` : '<span class="muted">—</span>'}</td>
+            </tr>`).join('') : '<tr><td colspan="6" class="empty">記録がありません</td></tr>';
+        }
+
+        async function rebuild() {
+            if (!selected) {
+                return;
+            }
+            try {
+                const payload = await L.api('POST', `/learning/profiles/${encodeURIComponent(selected)}/rebuild`);
+                await loadProfiles();
+                await openProfile(payload.profile.student_id);
+                L.toast('演習の記録から定着度を再計算しました', 'ok');
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>演習の反映 - 個別解説</title>
+    <link rel="stylesheet" href="learning.css">
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <main>
+        <section class="card">
+            <div class="card-header">
+                <div>
+                    <h2>演習プリント（解答用紙）</h2>
+                    <p class="card-lead">小問に前提知識ノードを付けて「プロファイルに反映」すると，判定結果から生徒ごとの定着度が更新されます。同じプリントを反映し直しても二重には数えません。</p>
+                </div>
+                <div style="min-width: 220px;">
+                    <input type="search" id="sheetFilter" placeholder="生徒ID・テスト名で絞り込み">
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>生徒ID</th><th>テスト名</th><th>実施日</th><th>採点</th><th>反映状況</th><th></th></tr>
+                    </thead>
+                    <tbody id="sheetRows"><tr><td colspan="6" class="empty">読み込み中…</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card hidden" id="detailCard">
+            <div class="card-header">
+                <div>
+                    <h2 id="detailTitle">前提知識ノードの付与</h2>
+                    <p class="card-lead" id="detailLead"></p>
+                </div>
+                <button class="button button-light button-small" onclick="closeDetail()">閉じる</button>
+            </div>
+
+            <label class="field" style="max-width: 320px;">単元
+                <select id="unitSelect" onchange="if (current) { collectChecked(); } renderQuestionRows()"></select>
+            </label>
+
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th style="width: 70px;">小問</th><th style="width: 160px;">正解</th><th>依存する前提知識ノード</th></tr></thead>
+                    <tbody id="questionRows"></tbody>
+                </table>
+            </div>
+            <div class="button-row">
+                <input type="text" id="newQuestion" placeholder="小問番号を追加（例: 3）" style="max-width: 220px; margin-top: 0;">
+                <button class="button button-light button-small" onclick="addQuestion()">小問を追加</button>
+            </div>
+            <div id="detailNotice"></div>
+            <div class="button-row">
+                <button class="button button-light" onclick="saveTags(false)">ノードを保存</button>
+                <button class="button" id="applyButton" onclick="saveTags(true)">保存してプロファイルに反映</button>
+            </div>
+
+            <div id="applyResult" class="hidden">
+                <h3>反映の結果</h3>
+                <div id="applyWarnings"></div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>小問</th><th>初答</th><th>正解</th><th>判定</th><th>ノード</th><th>誤りの種類（診断）</th></tr></thead>
+                        <tbody id="applyRows"></tbody>
+                    </table>
+                </div>
+                <div class="button-row">
+                    <a class="button" id="profileLink" href="#">この生徒のプロファイルを見る</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="../common/api-debug-badge.js"></script>
+    <script src="learning-common.js"></script>
+    <script>
+        const L = window.Learning;
+        let graph = null;
+        let labels = {};
+        let sheets = [];
+        let applied = {};
+        let current = null;  // { id, studentId, testName, questions: [{question, expected, nodes}] }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await L.initPage('exercises', '演習の反映', 'フェーズA：演習プリントの判定結果から学習者プロファイルを更新します');
+                graph = await L.loadGraph();
+                labels = L.nodeLabelMap(graph);
+                document.getElementById('unitSelect').innerHTML = Object.entries(graph.graph.units)
+                    .map(([id, unit]) => `<option value="${id}">${L.escapeHtml(unit.label)}（${L.escapeHtml(unit.scope)}）</option>`).join('');
+                document.getElementById('sheetFilter').addEventListener('input', renderSheets);
+                await loadSheets();
+                const openId = L.queryParam('sheet');
+                if (openId) {
+                    openDetail(openId);
+                }
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        });
+
+        async function loadSheets() {
+            const [list, appliedPayload] = await Promise.all([
+                L.api('GET', '/analysis/answer-data?per_page=200'),
+                L.api('GET', '/learning/applied-sheets'),
+            ]);
+            sheets = list.data || [];
+            applied = appliedPayload.sheets || {};
+            renderSheets();
+        }
+
+        function renderSheets() {
+            const filter = document.getElementById('sheetFilter').value.trim().toLowerCase();
+            const rows = sheets.filter((sheet) => !filter
+                || String(sheet.student_id || '').toLowerCase().includes(filter)
+                || String(sheet.test_name || '').toLowerCase().includes(filter));
+            const body = document.getElementById('sheetRows');
+            if (!rows.length) {
+                body.innerHTML = `<tr><td colspan="6" class="empty">${sheets.length ? '該当する解答用紙がありません' : '解答用紙がまだありません。「解答用紙アップロード」から登録してください。'}</td></tr>`;
+                return;
+            }
+            body.innerHTML = rows.map((sheet) => {
+                const count = applied[sheet.id];
+                const score = sheet.score !== null && sheet.score !== undefined
+                    ? `${sheet.correct_answers ?? '-'} / ${sheet.questions ?? '-'}（${sheet.score}点）` : '<span class="muted">未採点</span>';
+                return `<tr class="selectable${current && current.id === sheet.id ? ' selected' : ''}" onclick="openDetail('${L.escapeHtml(sheet.id)}')">
+                    <td class="nowrap">${sheet.student_id ? L.escapeHtml(sheet.student_id) : '<span class="badge badge-wrong">生徒ID未設定</span>'}</td>
+                    <td>${L.escapeHtml(sheet.test_name)}</td>
+                    <td class="nowrap">${L.escapeHtml(sheet.exam_date || sheet.upload_date || '')}</td>
+                    <td class="nowrap">${score}</td>
+                    <td class="nowrap">${count ? `<span class="badge badge-applied">反映済み（${count}問）</span>` : '<span class="badge">未反映</span>'}</td>
+                    <td class="nowrap"><button class="button button-small">ノード付与・反映</button></td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function openDetail(id) {
+            try {
+                const tags = await L.api('GET', `/learning/answer-data/${encodeURIComponent(id)}/node-tags`);
+                current = { id, studentId: tags.student_id, testName: tags.test_name, questions: tags.questions, hasResults: tags.has_results };
+                if (tags.unit) {
+                    document.getElementById('unitSelect').value = tags.unit;
+                }
+                document.getElementById('detailTitle').textContent = `前提知識ノードの付与 — ${tags.test_name || ''}`;
+                document.getElementById('detailLead').textContent =
+                    `生徒ID: ${tags.student_id || '未設定'}　／　${tags.applied ? `反映済み（${tags.record_count}問）` : '未反映'}`;
+                const notices = [];
+                if (!tags.student_id) {
+                    notices.push('<div class="notice notice-error">生徒ID（匿名ID）が設定されていないため，プロファイルに反映できません。</div>');
+                }
+                if (!tags.has_results) {
+                    notices.push('<div class="notice notice-warn">採点結果がありません。解答キーとOCR結果，または「解答データ確認」画面で確定した採点結果が必要です。</div>');
+                }
+                document.getElementById('detailNotice').innerHTML = notices.join('');
+                document.getElementById('applyButton').disabled = !tags.student_id || !tags.has_results;
+                document.getElementById('applyResult').classList.add('hidden');
+                document.getElementById('detailCard').classList.remove('hidden');
+                renderQuestionRows();
+                renderSheets();
+                document.getElementById('detailCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        function closeDetail() {
+            current = null;
+            document.getElementById('detailCard').classList.add('hidden');
+            renderSheets();
+        }
+
+        function collectChecked() {
+            document.querySelectorAll('#questionRows tr[data-question]').forEach((row) => {
+                const question = current.questions.find((q) => q.question === row.dataset.question);
+                question.nodes = Array.from(row.querySelectorAll('input[type=checkbox]:checked')).map((box) => box.value);
+            });
+        }
+
+        function renderQuestionRows() {
+            if (!current) {
+                return;
+            }
+            const unitId = document.getElementById('unitSelect').value;
+            const unitNodes = graph.graph.units[unitId].nodes.map((node) => node.id);
+            const body = document.getElementById('questionRows');
+            if (!current.questions.length) {
+                body.innerHTML = '<tr><td colspan="3" class="empty">小問がありません。下の欄から小問番号を追加してください。</td></tr>';
+                return;
+            }
+            body.innerHTML = current.questions.map((q) => {
+                const outside = q.nodes.filter((node) => !unitNodes.includes(node));
+                const boxes = graph.graph.units[unitId].nodes.map((node) => `
+                    <label class="checkbox" title="${L.escapeHtml(node.evidence || '')}">
+                        <input type="checkbox" value="${node.id}" ${q.nodes.includes(node.id) ? 'checked' : ''}>
+                        ${L.escapeHtml(node.label)}
+                    </label>`).join('');
+                return `<tr data-question="${L.escapeHtml(q.question)}">
+                    <td class="nowrap"><strong>${L.escapeHtml(q.question)}</strong></td>
+                    <td>${q.expected !== null && q.expected !== undefined ? L.escapeHtml(q.expected) : '<span class="muted">—</span>'}</td>
+                    <td>${boxes}${outside.length ? `<div class="muted">別の単元のノード（保存時に外れます）: ${outside.map(L.escapeHtml).join(', ')}</div>` : ''}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function addQuestion() {
+            const input = document.getElementById('newQuestion');
+            const value = input.value.trim();
+            if (!value) {
+                return;
+            }
+            collectChecked();
+            if (!current.questions.some((q) => q.question === value)) {
+                current.questions.push({ question: value, expected: null, nodes: [] });
+            }
+            input.value = '';
+            renderQuestionRows();
+        }
+
+        async function saveTags(applyAfter) {
+            collectChecked();
+            const unit = document.getElementById('unitSelect').value;
+            const unitNodes = graph.graph.units[unit].nodes.map((node) => node.id);
+            const nodes = {};
+            current.questions.forEach((q) => { nodes[q.question] = q.nodes.filter((node) => unitNodes.includes(node)); });
+            try {
+                await L.api('PUT', `/learning/answer-data/${encodeURIComponent(current.id)}/node-tags`, { unit, nodes });
+                if (!applyAfter) {
+                    L.toast('前提知識ノードを保存しました', 'ok');
+                    return;
+                }
+                const result = await L.api('POST', `/learning/answer-data/${encodeURIComponent(current.id)}/apply`);
+                renderApplyResult(result);
+                L.toast(`生徒 ${result.student_id} のプロファイルに反映しました`, 'ok');
+                await loadSheets();
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        function renderApplyResult(result) {
+            const diagnoses = {};
+            (result.diagnoses || []).forEach((d) => { diagnoses[d.question] = d; });
+            document.getElementById('applyWarnings').innerHTML = (result.warnings || [])
+                .map((w) => `<div class="notice notice-warn">${L.escapeHtml(w)}</div>`).join('');
+            document.getElementById('applyRows').innerHTML = (result.items || []).map((item) => {
+                const d = diagnoses[item.question];
+                const diagnosis = d
+                    ? `<span class="node-chip">${L.escapeHtml(d.error_node || '—')}</span> ${L.escapeHtml(labels[d.error_node] || '')}
+                       <div class="muted">${L.escapeHtml({ llm: 'Gemini が候補から選択', single_node: 'ノードが1つ', fallback_first_node: '最初のノード（代替）', no_node: 'ノードなし' }[d.diagnosis_method] || d.diagnosis_method)}：${L.escapeHtml(d.note || '')}</div>`
+                    : '<span class="muted">—</span>';
+                return `<tr>
+                    <td class="nowrap"><strong>${L.escapeHtml(item.question)}</strong></td>
+                    <td>${item.answer ? L.escapeHtml(item.answer) : '<span class="muted">—</span>'}${item.corrected ? ' <span class="badge">訂正あり</span>' : ''}</td>
+                    <td>${item.expected !== null && item.expected !== undefined ? L.escapeHtml(item.expected) : '<span class="muted">—</span>'}</td>
+                    <td class="nowrap">${L.judgmentBadge(item.judgment)}</td>
+                    <td>${(item.nodes || []).map((n) => `<span class="node-chip" title="${L.escapeHtml(labels[n] || '')}">${L.escapeHtml(n)}</span>`).join('') || '<span class="muted">なし</span>'}</td>
+                    <td>${diagnosis}</td>
+                </tr>`;
+            }).join('');
+            document.getElementById('profileLink').href =
+                `${L.resolveScreenUrl('screens/learning/profiles.html')}?student=${encodeURIComponent(result.student_id)}`;
+            document.getElementById('applyResult').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

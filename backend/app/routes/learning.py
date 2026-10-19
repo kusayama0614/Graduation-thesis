@@ -12,7 +12,9 @@ from app.learning import explanation as chain
 from app.learning import graph
 from app.learning.jobs import job_to_dict, problem_to_chain_input, start_job
 from app.learning.llm import LLMUnavailable, get_embedding_client, get_llm_client
-from app.learning.profile import ExerciseError, apply_exercise, profile_to_dict, rebuild_profile
+from app.learning.profile import (
+    ExerciseError, apply_exercise, key_answers, key_nodes, profile_to_dict, rebuild_profile,
+)
 from app.models import (
     AnswerSheet, ExerciseRecord, ExplanationEmbedding, GeneratedExplanation, GenerationJob, LearnerProfile,
     TestProblem,
@@ -103,6 +105,47 @@ def get_graph():
 
 
 # ==================== フェーズA: 演習 → 学習者プロファイル ====================
+
+@learning_bp.route('/answer-data/<data_id>/node-tags', methods=['GET'])
+@login_required
+def get_node_tags(data_id):
+    """解答用紙の小問の一覧と，付与済みの単元・前提知識ノード，プロファイルへの反映状況を返す。"""
+    sheet, error = _load_sheet(data_id)
+    if error:
+        return error
+    answer_key = sheet['answer_key'] if isinstance(sheet['answer_key'], dict) else {}
+    answers = key_answers(answer_key)
+    nodes = key_nodes(answer_key)
+    questions = list(answers.keys())
+    for result in sheet['question_results']:
+        q = str(result.get('question'))
+        if q not in questions:
+            questions.append(q)
+    for q in nodes:
+        if q not in questions:
+            questions.append(q)
+    questions.sort(key=lambda q: (0, int(q)) if q.isdigit() else (1, q))
+    records = ExerciseRecord.query.filter_by(teacher_id=_teacher_db_id(), answer_sheet_id=data_id).count()
+    return make_success_response({
+        'data_id': data_id,
+        'student_id': sheet['student_id'],
+        'test_name': sheet['test_name'],
+        'unit': answer_key.get('unit'),
+        'questions': [{'question': q, 'expected': answers.get(q), 'nodes': nodes.get(q, [])} for q in questions],
+        'has_results': bool(sheet['question_results']) or bool(answers and sheet['ocr_text']),
+        'applied': records > 0,
+        'record_count': records,
+    })
+
+
+@learning_bp.route('/applied-sheets', methods=['GET'])
+@login_required
+def applied_sheets():
+    """プロファイルに反映済みの解答用紙ID の一覧（演習の反映画面の表示用）。"""
+    rows = (db.session.query(ExerciseRecord.answer_sheet_id, db.func.count(ExerciseRecord.id))
+            .filter_by(teacher_id=_teacher_db_id()).group_by(ExerciseRecord.answer_sheet_id).all())
+    return make_success_response({'sheets': {sheet_id: count for sheet_id, count in rows}})
+
 
 @learning_bp.route('/answer-data/<data_id>/node-tags', methods=['PUT'])
 @login_required

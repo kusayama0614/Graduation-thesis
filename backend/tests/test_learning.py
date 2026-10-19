@@ -699,3 +699,17 @@ def test_sympy_eq_notation_from_llm_is_understood(recwarn):
 
 def verify_no_sympy_warning(recwarn):
     return not any('non-Expr' in str(w.message) for w in recwarn.list)
+
+
+def test_node_tags_get_and_applied_sheets(client):
+    _login(client)
+    sheet_id = _make_sheet(client, student_id='S001', ocr_text='1 m≦16/3\n2 m=2', answer_key=NO1_KEY)
+    tags = client.get(f'/api/learning/answer-data/{sheet_id}/node-tags').get_json()
+    assert tags['unit'] == 'quadratic_functions'
+    assert [q['question'] for q in tags['questions']] == ['1', '2']
+    assert tags['questions'][0]['nodes'] == ['inequality_manipulation', 'exact_value']
+    assert tags['has_results'] is True and tags['applied'] is False
+    assert client.get('/api/learning/applied-sheets').get_json()['sheets'] == {}
+    client.post(f'/api/learning/answer-data/{sheet_id}/apply')
+    assert client.get(f'/api/learning/answer-data/{sheet_id}/node-tags').get_json()['record_count'] == 2
+    assert client.get('/api/learning/applied-sheets').get_json()['sheets'] == {sheet_id: 2}

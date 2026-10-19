@@ -314,7 +314,7 @@ def write_report(path: str, meta: Dict[str, Any], sections: List[Dict[str, Any]]
 class _FakeLLM:
     model_name = 'fake-llm'
 
-    def generate_json(self, *, system, user, schema, schema_name, temperature=0.0):
+    def generate_json(self, *, system, user, schema, schema_name, temperature=0.0, thinking_level=None):
         if schema_name == 'error_diagnosis':
             return {'node': schema['properties']['node']['enum'][0], 'reason': '（fake）'}
         if schema_name == 'solution_steps':

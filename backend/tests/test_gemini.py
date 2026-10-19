@@ -166,3 +166,9 @@ def test_embedding_001_uses_task_type(monkeypatch):
 def test_embedding_model_can_be_configured(monkeypatch):
     monkeypatch.setenv('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001')
     assert gemini.gemini_embedding_model_name() == 'gemini-embedding-001'
+
+
+def test_thinking_level_per_call_overrides_environment(monkeypatch):
+    monkeypatch.setenv('GEMINI_THINKING_LEVEL', 'high')
+    assert gemini.build_chat_model(api_key='dummy', thinking_level='low').thinking_level == 'low'
+    assert gemini.build_chat_model(api_key='dummy').thinking_level == 'high'

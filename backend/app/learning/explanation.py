@@ -251,6 +251,7 @@ EXTRACTION_RULES = (
     '- lhs・rhs は sympy で解釈できる表記にする（掛け算 *，累乗 ^，平方根 sqrt()，角度は sin(30°) のように°を付ける，'
     '変数は半角英字。θ は t に置き換える）。lhs_text・rhs_text には解説中の元の表記を入れる。\n'
     '- 文字を定義する式（D = b^2 - 4ac など）もそのまま含める。不等式は含めない。\n'
+    '- LaTeX 記法（\\frac，\\sqrt，$ など）は使わず，49/8 や sqrt(3) のように書く。\n'
     '- final_answer には，解説が問題の最終的な答えとして述べている内容を書く（無ければ空文字）。'
 )
 
@@ -278,8 +279,9 @@ _EXTRACTION_SCHEMA = {
 
 def extract_claims(llm: LLMClient, step_text: str) -> Dict[str, Any]:
     user = f'抜き出しの規則:\n{EXTRACTION_RULES}\n\n解説文:\n{step_text}'
+    # 抜き出しは機械的な変換なので，思考を浅くして速くする（判定は sympy が行う）
     out = llm.generate_json(system=EXTRACTION_SYSTEM, user=user, schema=_EXTRACTION_SCHEMA,
-                            schema_name='calculation_claims', temperature=0.0)
+                            schema_name='calculation_claims', temperature=0.0, thinking_level='low')
     claims = [c for c in out.get('claims', []) if isinstance(c, dict) and c.get('lhs') and c.get('rhs')]
     return {'claims': claims, 'final_answer': str(out.get('final_answer', '')).strip()}
 
@@ -287,12 +289,21 @@ def extract_claims(llm: LLMClient, step_text: str) -> Dict[str, Any]:
 def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, str],
                 correct_answer: Optional[str] = None) -> Dict[str, Any]:
     """抜き出した計算を検算する。definitions はこのステップで定義された文字で更新される。"""
+    # 1巡目: 文字の定義（D = b^2 - 4ac，a = 2 など）を，書かれた順序によらず先に集める
+    definition_index = set()
+    for index, claim in enumerate(extracted['claims']):
+        name = str(claim['lhs']).strip()
+        if name not in definitions and check_claim(claim['lhs'], claim['rhs'], definitions)['status'] == 'definition':
+            definitions[name] = str(claim['rhs']).strip()
+            definition_index.add(index)
+    # 2巡目: 定義を代入して残りの計算を検算する（同じ文字の2回目以降の式は検算の対象）
     results = []
-    for claim in extracted['claims']:
-        checked = check_claim(claim['lhs'], claim['rhs'], definitions)
-        if checked['status'] == 'definition':
-            definitions[str(claim['lhs']).strip()] = str(claim['rhs']).strip()
-        results.append({**claim, **checked})
+    for index, claim in enumerate(extracted['claims']):
+        if index in definition_index:
+            results.append({**claim, 'status': 'definition', 'true_value': None,
+                            'detail': f'{str(claim["lhs"]).strip()} の定義として記録しました'})
+            continue
+        results.append({**claim, **check_claim(claim['lhs'], claim['rhs'], definitions)})
 
     feedback_lines = [
         f'ステップ{step_id}の「{r.get("lhs_text") or r["lhs"]} = {r.get("rhs_text") or r["rhs"]}」は誤りです'

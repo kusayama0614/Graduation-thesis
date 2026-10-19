@@ -27,8 +27,9 @@ class FakeLLM:
         self.diagnosis = diagnosis
         self.calls = []
 
-    def generate_json(self, *, system, user, schema, schema_name, temperature=0.0):
+    def generate_json(self, *, system, user, schema, schema_name, temperature=0.0, thinking_level=None):
         self.calls.append((schema_name, user))
+        self.thinking_levels = getattr(self, 'thinking_levels', []) + [(schema_name, thinking_level)]
         if schema_name == 'solution_steps':
             return {'steps': self.steps}
         if schema_name == 'error_diagnosis':
@@ -538,3 +539,42 @@ def test_cosine_similarity():
     assert chain.cosine_similarity([1, 0], [1, 0]) == 1.0
     assert chain.cosine_similarity([1, 0], [0, 1]) == 0.0
     assert chain.cosine_similarity([0, 0], [1, 0]) is None
+
+
+# ---------------------------------------------------------------- 実データの試行で見つかった問題の回帰テスト
+
+def test_latex_final_answer_is_not_sent_back(client):
+    def writer(user):
+        if '今回書くステップ: 3.' in user:
+            return '[[-2/2 = -1]] [[6/2 = 3]] 答え: $\\frac{-2}{2},3$'
+        return correct_writer(user)
+
+    llm = FakeLLM(writer=writer)
+    problem_id = _setup_problem_and_profiles(client, llm)
+    job = client.post(f'/api/learning/problems/{problem_id}/explanations',
+                      json={'student_ids': ['S001']}).get_json()['job']
+    detail = client.get(f'/api/learning/explanations/{job["explanation_ids"][0]}').get_json()['explanation']
+    step3 = detail['trace']['steps'][2]
+    assert step3['attempt_count'] == 1
+    assert step3['attempts'][0]['final_check']['is_correct'] is True
+
+
+def test_definitions_are_collected_before_checking_regardless_of_order():
+    claims = [  # 実データで「検算不能」になっていた並び（D の具体値が先，係数の定義が後）
+        {'lhs': 'D', 'rhs': 'b^2 - 4*a*c', 'lhs_text': 'D', 'rhs_text': 'b^2-4ac'},
+        {'lhs': 'D', 'rhs': '49 - 8*m', 'lhs_text': 'D', 'rhs_text': '49-8m'},
+        {'lhs': 'a', 'rhs': '2', 'lhs_text': 'a', 'rhs_text': '2'},
+        {'lhs': 'b', 'rhs': '5', 'lhs_text': 'b', 'rhs_text': '5'},
+        {'lhs': 'c', 'rhs': 'm - 3', 'lhs_text': 'c', 'rhs_text': 'm-3'},
+    ]
+    result = chain.verify_step(1, {'claims': claims, 'final_answer': ''}, {})
+    assert result['counts'] == {'ok': 1, 'ng': 0, 'definition': 4, 'unverifiable': 0}
+    wrong = claims[:1] + [{**claims[1], 'rhs': '49 + 8*m', 'rhs_text': '49+8m'}] + claims[2:]
+    bad = chain.verify_step(1, {'claims': wrong, 'final_answer': ''}, {})
+    assert bad['ok'] is False and '正しくは 49 - 8*m' in bad['feedback']
+
+
+def test_extraction_uses_low_thinking_level():
+    llm = FakeLLM()
+    chain.extract_claims(llm, '[[1+1 = 2]]')
+    assert ('calculation_claims', 'low') in llm.thinking_levels

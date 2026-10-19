@@ -81,6 +81,30 @@ class _Unparseable(Exception):
 
 # ---------------------------------------------------------------- 正規化 (層2)
 
+_LATEX_COMMANDS = [
+    (r'\\left|\\right', ''), (r'\\times|\\cdot', '*'), (r'\\div', '/'),
+    (r'\\leqq?|\\le\b', '<='), (r'\\geqq?|\\ge\b', '>='), (r'\\neq?\b', '!='),
+    (r'\\pi\b', 'pi'), (r'\^\{?\\circ\}?', '°'), (r'\\(sin|cos|tan|log|ln)\b', r'\1'),
+    (r'\\[,;! ]', ' '),
+]
+
+
+def _delatex(text: str) -> str:
+    """LLM が返しがちな LaTeX 表記（\\frac{49}{8} など）を通常の式の表記に直す。"""
+    if '\\' not in text and '$' not in text:
+        return text
+    text = text.replace('$', '')
+    for _ in range(10):  # 入れ子の \frac / \sqrt を内側から順に置き換える
+        replaced = re.sub(r'\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}', r'((\1)/(\2))', text)
+        replaced = re.sub(r'\\sqrt\{([^{}]*)\}', r'sqrt(\1)', replaced)
+        if replaced == text:
+            break
+        text = replaced
+    for pattern, repl in _LATEX_COMMANDS:
+        text = re.sub(pattern, repl, text)
+    return text.replace('{', '(').replace('}', ')').strip()
+
+
 def _normalize_text(value: Any) -> str:
     """文字列一致用の正規化(従来の比較の上位互換)。"""
     text = unicodedata.normalize('NFKC', str(value)).strip().upper()
@@ -460,7 +484,7 @@ def judge_answer(expected: Any, actual: Any) -> Dict[str, Any]:
         return {'is_correct': False, 'method': 'empty', 'detail': '期待値または解答が空です'}
 
     expected_text, actual_text = str(expected), str(actual)
-    verdict = _judge_math(expected_text, actual_text)
+    verdict = _judge_math(_delatex(expected_text), _delatex(actual_text))
     if verdict is None:
         return _string_fallback(expected_text, actual_text)
     if not verdict['is_correct'] and _normalize_text(expected_text) == _normalize_text(actual_text):
@@ -490,7 +514,7 @@ def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None
       definition   : 左辺が新しい文字の定義（D = b^2-4ac など）。呼び出し側で definitions に加える
       unverifiable : 式として解釈できない，または両辺の文字が異なり恒等式として判定できない
     """
-    lhs_text, rhs_text = str(lhs).strip(), str(rhs).strip()
+    lhs_text, rhs_text = _delatex(str(lhs).strip()), _delatex(str(rhs).strip())
     result: Dict[str, Any] = {'status': 'unverifiable', 'true_value': None, 'detail': ''}
     if not (_is_safe(lhs_text) and _is_safe(rhs_text)):
         result['detail'] = '安全に解釈できない文字を含むため検算しませんでした'
@@ -513,7 +537,11 @@ def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None
             and sp.Symbol(lhs_pre) not in right.free_symbols:
         return {'status': 'definition', 'true_value': None, 'detail': f'{lhs_pre} の定義として記録しました'}
 
-    left, right = left.subs(substitutions), right.subs(substitutions)
+    for _ in range(5):  # D = b^2-4ac，a = 2 … のような定義の連鎖を順に代入する
+        new_left, new_right = left.subs(substitutions), right.subs(substitutions)
+        if new_left == left and new_right == right:
+            break
+        left, right = new_left, new_right
     if left.free_symbols != right.free_symbols:
         result['detail'] = '両辺の文字が異なるため，恒等式として検算できません'
         return result

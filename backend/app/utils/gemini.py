@@ -35,7 +35,7 @@ def is_gemini_3_or_later(model_name: str) -> bool:
 
 
 def build_chat_model(model_name: Optional[str] = None, api_key: Optional[str] = None,
-                     temperature: Optional[float] = None, **kwargs: Any):
+                     temperature: Optional[float] = None, thinking_level: Optional[str] = None, **kwargs: Any):
     """ChatGoogleGenerativeAI を作る。
 
     Gemini 3 以降では temperature を渡さない（Google の推奨。明示すると推論の劣化やループの原因になる）。
@@ -46,7 +46,8 @@ def build_chat_model(model_name: Optional[str] = None, api_key: Optional[str] = 
     params: dict[str, Any] = {'model': name, 'api_key': api_key or gemini_api_key(), 'vertexai': False}
     if temperature is not None and not is_gemini_3_or_later(name):
         params['temperature'] = temperature
-    thinking_level = os.getenv('GEMINI_THINKING_LEVEL', '').strip()
+    # 呼び出しごとの指定 > 環境変数 GEMINI_THINKING_LEVEL > モデルの既定
+    thinking_level = thinking_level or os.getenv('GEMINI_THINKING_LEVEL', '').strip()
     if thinking_level and is_gemini_3_or_later(name):
         params['thinking_level'] = thinking_level
     params.update(kwargs)

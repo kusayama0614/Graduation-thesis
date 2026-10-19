@@ -231,3 +231,10 @@ def test_decimal_tolerance_inside_equation_and_lists():
 def test_list_matching_is_not_greedy():
     # 1.45 は 1.4 にも 1.45 にも許容誤差内で一致するが、全体として1対1に対応付けられる
     assert verdict('1.4, 1.45', '1.45, 1.4') == (True, 'list_equal')
+
+
+def test_latex_notation_is_understood():
+    assert verdict('m<49/8', r'm < \frac{49}{8}') == (True, 'set_equal')
+    assert verdict('√2/4', r'$\dfrac{\sqrt{2}}{4}$')[0] is True
+    assert verdict('x<=2', r'x \leq 2')[0] is True
+    assert verdict('1/2', r'\sin 30^\circ')[0] is True

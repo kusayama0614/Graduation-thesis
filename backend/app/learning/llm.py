@@ -27,8 +27,9 @@ class LLMClient(Protocol):
     model_name: str
 
     def generate_json(self, *, system: str, user: str, schema: Dict[str, Any],
-                      schema_name: str, temperature: float = 0.0) -> Dict[str, Any]:
-        """JSON Schema に従った出力を dict で返す。"""
+                      schema_name: str, temperature: float = 0.0,
+                      thinking_level: Optional[str] = None) -> Dict[str, Any]:
+        """JSON Schema に従った出力を dict で返す。thinking_level で思考の深さを個別に指定できる。"""
 
     def generate_text(self, *, system: str, user: str, temperature: float = 0.3) -> str:
         """自由記述の文章を返す。"""
@@ -44,12 +45,13 @@ class GeminiChatClient:
         self.api_key = api_key
         self.model_name = model_name or gemini_model_name()
 
-    def _chat(self, temperature: float):
-        return build_chat_model(self.model_name, api_key=self.api_key, temperature=temperature)
+    def _chat(self, temperature: float, thinking_level: Optional[str] = None):
+        return build_chat_model(self.model_name, api_key=self.api_key, temperature=temperature,
+                                thinking_level=thinking_level)
 
-    def generate_json(self, *, system, user, schema, schema_name, temperature=0.0):
+    def generate_json(self, *, system, user, schema, schema_name, temperature=0.0, thinking_level=None):
         # Gemini では JSON Schema が response_json_schema として送られ，出力がスキーマに制約される
-        structured = self._chat(temperature).with_structured_output(schema, method='json_schema')
+        structured = self._chat(temperature, thinking_level).with_structured_output(schema, method='json_schema')
         return structured.invoke([('system', system), ('human', user)])
 
     def generate_text(self, *, system, user, temperature=0.3):

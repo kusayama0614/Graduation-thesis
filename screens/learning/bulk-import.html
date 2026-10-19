@@ -151,6 +151,7 @@
                     <select id="txPrint" style="margin-top: 0; max-width: 220px;" onchange="renderTranscriptions()"></select>
                     <button class="button" id="txStart" onclick="startTranscribe(false)">書き起こしを始める（未実施・失敗の答案）</button>
                     <button class="button button-light button-small" onclick="startTranscribe(true)">選んだプリントを書き起こし直す</button>
+                    <button class="button button-light button-small" onclick="regrade()" title="書き起こしはそのままで，今の判定の規則で採点し直します（Gemini は使いません）">採点し直す</button>
                     <label class="checkbox"><input type="checkbox" id="txOnlyReview" onchange="renderTranscriptions()"> 確認が必要な答案だけ</label>
                 </div>
                 <div class="table-wrap">
@@ -507,6 +508,17 @@
             try {
                 const res = await L.api('POST', `/bulk/batches/${currentBatchId}/transcribe`, { print_nos: p ? [Number(p)] : [], redo });
                 L.toast(res.started ? `${res.started} 枚の書き起こしを始めました` : '書き起こす答案はありません', 'ok');
+                loadTranscriptions();
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        async function regrade() {
+            const p = document.getElementById('txPrint').value;
+            try {
+                const res = await L.api('POST', `/bulk/batches/${currentBatchId}/regrade`, { print_nos: p ? [Number(p)] : [] });
+                L.toast(`${res.regraded} 枚を採点し直しました（判定が変わった答案 ${res.changed} 枚）`, 'ok');
                 loadTranscriptions();
             } catch (error) {
                 L.toast(error.message, 'error');

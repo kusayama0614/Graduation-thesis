@@ -521,3 +521,36 @@ def update_transcription(answer_sheet_id):
     db.session.commit()
     return make_success_response({'transcription': _transcription_row(row, db.session.get(AnswerSheet, answer_sheet_id),
                                                                       bulk.sheet_pages(row.batch_id).get(answer_sheet_id, {}))})
+
+
+@bulk_bp.route('/batches/<batch_id>/regrade', methods=['POST'])
+@login_required
+def regrade(batch_id):
+    """書き起こしはそのままで，今の判定の規則で採点し直す（Gemini は呼ばない）。直した内容と確認済みの印は残す。"""
+    batch = _get_batch(batch_id)
+    if batch is None:
+        return make_error_response('BULK_BATCH_NOT_FOUND', 'Batch not found', 404)
+    if bulk.is_transcribing(batch.id):
+        return make_error_response('BULK_BUSY', '書き起こしの途中です', 409)
+    print_nos = {int(p) for p in ((request.get_json(silent=True) or {}).get('print_nos') or []) if str(p).isdigit()}
+    changed = total = 0
+    for row in SheetTranscription.query.filter_by(batch_id=batch.id).all():
+        if not row.items or row.status not in ('done', 'confirmed') or (print_nos and row.print_no not in print_nos):
+            continue
+        key = {q['question']: q for q in T.key_items(row.print_no)}
+        old_items = json.loads(row.items)
+        items = []
+        for item in old_items:
+            q = key.get(item['question'])
+            if q is None:
+                items.append(item)
+                continue
+            regraded = T.grade_transcribed(q, item)
+            regraded['needs_review'] = item.get('needs_review', False)
+            items.append(regraded)
+        total += 1
+        if [i['judgment'] for i in items] != [i['judgment'] for i in old_items]:
+            changed += 1
+        bulk.save_transcription(row, db.session.get(AnswerSheet, row.answer_sheet_id), items, row.status)
+        db.session.commit()
+    return make_success_response({'regraded': total, 'changed': changed})

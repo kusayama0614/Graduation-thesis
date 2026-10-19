@@ -270,5 +270,9 @@ def test_transcribe_grades_with_builtin_key_and_feeds_profile(setup):
         sheet = db.session.get(AnswerSheet, sid)
         assert sheet.correct_count == 4 and sheet.total_questions == 5
     assert client.put(f'/api/bulk/transcriptions/{sid}', json={'items': [{'question': '問99'}]}).status_code == 400
+    # 書き起こしはそのままで採点し直せる（Gemini は呼ばない）
+    calls = len(vision.transcribe_calls)
+    body = client.post(f'/api/bulk/batches/{batch["id"]}/regrade', json={}).get_json()
+    assert body['regraded'] == 2 and body['changed'] == 0 and len(vision.transcribe_calls) == calls
     # 済んだものは書き起こし直さない（redo で書き起こし直す）
     assert client.post(f'/api/bulk/batches/{batch["id"]}/transcribe', json={}).get_json()['started'] == 0

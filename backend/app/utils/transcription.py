@@ -10,8 +10,8 @@
     cases      「m=2 のとき x=−1」のような条件と値の組（一部だけなら不完全）
     text       「すべての実数」「解はない」など言葉の答え
     trig_form  「cos16°」のように三角比の形そのものを問うもの（値が等しくても別の形は誤り）
-    graph      グラフ。形（選択肢）・書かれた点・書かれた式を書き起こし，点が正しいグラフ上にあるか，式が各区間で
-               正しいか，頂点と軸との交点がそろっているかを数式処理で判定する（そろっていなければ不完全）
+    graph      グラフ。形（選択肢）・書かれた点・書かれた式を書き起こし，形が正しく正解の点（頂点・軸との交点）が
+               全て書かれていれば正解とする（ほかの点や式が書かれていても減点しない）。欠けていれば不完全
 """
 from __future__ import annotations
 
@@ -268,29 +268,39 @@ def _check_expressions(function: sp.Basic, text: str) -> Optional[str]:
 
 
 def grade_graph(q: Dict[str, Any], entry: Dict[str, Any]) -> Tuple[str, str, str]:
-    """(判定, method, 説明) を返す。形・点・式のどれかが誤りなら誤答，誤りはないが頂点・交点が欠けていれば不完全。"""
+    """(判定, method, 説明) を返す。
+
+    形が正しく，正解の点（頂点・軸との交点）が全て書かれていれば正解。それ以外の点や式が書かれていても
+    減点しない（説明に参考として残す）。正解の点が欠けていれば不完全。形が違う，または正解の点が一つもなく
+    グラフ上にない点だけが書かれていれば誤答。
+    """
     function = sp.sympify(q['function'], locals={'x': _X})
     shape = (entry.get('graph_shape') or '').strip()
-    points_text = entry.get('graph_points') or ''
     expressions = entry.get('initial_math') or ''
-    points = parse_points(points_text)
+    points = parse_points(entry.get('graph_points') or '')
     if not shape and not points and not expressions.strip():
         return J.BLANK, 'empty', ''
     if shape and shape != q['expected_shape']:
         return J.WRONG, 'graph_shape', f'形が違う（{shape}）'
+    required = parse_points('，'.join(q['required_points']))
+    same = lambda a, b: sp.simplify(a[0] - b[0]) == 0 and sp.simplify(a[1] - b[1]) == 0  # noqa: E731
+    present = [r for r in required if any(same(r, p) for p in points)]
+    missing = [r for r in required if r not in present]
     off = [p for p in points if sp.simplify(function.subs(_X, p[0]) - p[1]) != 0]
+    notes = []
     if off:
-        return J.WRONG, 'graph_point_off_curve', '正しいグラフ上にない点: ' + '，'.join(f'({a}, {b})' for a, b in off)
+        notes.append('参考: 正しいグラフ上にない点 ' + '，'.join(f'({a}, {b})' for a, b in off))
     problem = _check_expressions(function, expressions) if expressions.strip() else None
     if problem:
-        return J.WRONG, 'graph_expression', problem
-    required = parse_points('，'.join(q['required_points']))
-    missing = [r for r in required if not any(sp.simplify(r[0] - p[0]) == 0 and sp.simplify(r[1] - p[1]) == 0 for p in points)]
-    if not shape:
-        return J.INCOMPLETE, 'graph_shape_unknown', '形を読み取れていない'
+        notes.append(f'参考: {problem}')
+    if not present and off:
+        return J.WRONG, 'graph_point_off_curve', '正解の点が書かれていない。' + '　'.join(notes)
     if missing:
-        return J.INCOMPLETE, 'graph_missing_points', '書かれていない頂点・交点: ' + '，'.join(f'({a}, {b})' for a, b in missing)
-    return J.CORRECT, 'graph_correct', ''
+        notes.insert(0, '書かれていない頂点・交点: ' + '，'.join(f'({a}, {b})' for a, b in missing))
+        return J.INCOMPLETE, 'graph_missing_points', '　'.join(notes)
+    if not shape:
+        return J.INCOMPLETE, 'graph_shape_unknown', '　'.join(['形を読み取れていない'] + notes)
+    return J.CORRECT, 'graph_correct', '　'.join(notes)
 
 
 def grade_item(item: Dict[str, Any], actual: Optional[str]) -> Dict[str, str]:

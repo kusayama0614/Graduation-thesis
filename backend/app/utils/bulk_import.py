@@ -222,7 +222,7 @@ def _read_batch(app, batch_id: str) -> None:
             # LLM の呼び出しだけを並列にし，データベースへの書き込みはこのスレッドでまとめて行う
             with ThreadPoolExecutor(max_workers=workers) as pool:
                 futures = [pool.submit(work, item) for item in targets]
-                for count, future in enumerate(as_completed(futures), start=1):
+                for future in as_completed(futures):
                     page_id, reading, error = future.result()
                     page = db.session.get(ScannedPage, page_id)
                     if page is None:
@@ -232,8 +232,7 @@ def _read_batch(app, batch_id: str) -> None:
                     else:
                         page.status = 'error'
                         page.error = error
-                    if count % 10 == 0 or count == len(futures):
-                        db.session.commit()
+                    db.session.commit()  # 1件ごとに確定する（書き込みの鍵を持ったまま次の読み取りを待たない）
             db.session.commit()
             batch = db.session.get(BulkImportBatch, batch_id)
             if batch is not None and batch.status == 'reading':
@@ -493,7 +492,7 @@ def _transcribe(app, batch_id: str, targets: List[str], running_key: str) -> Non
 
             with ThreadPoolExecutor(max_workers=workers) as pool:
                 futures = [pool.submit(work, sheet_id) for sheet_id in targets]
-                for count, future in enumerate(as_completed(futures), start=1):
+                for future in as_completed(futures):
                     sheet_id, out, items, error = future.result()
                     row = SheetTranscription.query.filter_by(answer_sheet_id=sheet_id).first()
                     if row is None:
@@ -505,8 +504,7 @@ def _transcribe(app, batch_id: str, targets: List[str], running_key: str) -> Non
                     else:
                         row.raw = json.dumps(out, ensure_ascii=False)
                         save_transcription(row, db.session.get(AnswerSheet, sheet_id), items, 'done')
-                    if count % 5 == 0 or count == len(futures):
-                        db.session.commit()
+                    db.session.commit()  # 1件ごとに確定する（書き込みの鍵を持ったまま次の書き起こしを待たない）
             db.session.commit()
     except Exception as exc:
         app.logger.warning('transcription failed for %s: %s', batch_id, exc)

@@ -11,11 +11,23 @@ import re
 import socket
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash
-from sqlalchemy import inspect, text
+from sqlalchemy import event, inspect, text
+from sqlalchemy.engine import Engine
+import sqlite3
 from app.utils.api_response import make_error_response
 
 # 環境変数の読み込み
 load_dotenv()
+
+@event.listens_for(Engine, 'connect')
+def _sqlite_pragmas(dbapi_connection, _record):
+    """SQLite では WAL にして，裏処理の書き込み中も画面からの読み取りを止めない。"""
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute('PRAGMA journal_mode=WAL')
+        cursor.execute('PRAGMA busy_timeout=30000')
+        cursor.close()
+
 
 # データベースの初期化
 db = SQLAlchemy()
@@ -136,6 +148,9 @@ def create_app():
         'sqlite:///graduation_system.db'
     )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    if app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
+        # 読み取り・書き起こしの裏処理と画面の操作が同時に書き込んでも待ち合わせられるようにする
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'connect_args': {'timeout': 30}}
     
     # セッション設定
     app.config['SESSION_TYPE'] = os.getenv('SESSION_TYPE', 'filesystem')

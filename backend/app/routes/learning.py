@@ -3,8 +3,10 @@
 学習者プロファイル（フェーズA）と個別化した解説の生成（フェーズB）の API（卒業論文 3章）
 """
 import json
+import time
 from datetime import date, datetime
 
+from sqlalchemy.exc import OperationalError
 from flask import Blueprint, request
 
 from app import db
@@ -246,7 +248,15 @@ def apply_bulk():
         try:
             if normalized is not None:
                 _save_node_tags(data_id, sheet, payload['unit'], normalized)
-            result = apply_exercise(_teacher_db_id(), sheet, llm)
+            try:
+                result = apply_exercise(_teacher_db_id(), sheet, llm)
+            except OperationalError as exc:
+                if 'locked' not in str(exc):
+                    raise
+                # 裏で読み取り・書き起こしが書き込んでいる間に重なったときは，少し待って一度だけやり直す
+                db.session.rollback()
+                time.sleep(2)
+                result = apply_exercise(_teacher_db_id(), sheet, llm)
         except ExerciseError as exc:
             db.session.rollback()
             results.append({'data_id': data_id, 'student_id': sheet['student_id'], 'status': 'skipped', 'message': str(exc)})

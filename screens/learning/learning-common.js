@@ -30,6 +30,7 @@
         { key: 'exercises', label: '① 演習の反映', path: 'screens/learning/exercises.html' },
         { key: 'profiles', label: '② 学習者プロファイル', path: 'screens/learning/profiles.html' },
         { key: 'problems', label: '③ 定期テスト問題と解説', path: 'screens/learning/problems.html' },
+        { key: 'distribution', label: '④ 解説の生成と配布', path: 'screens/learning/distribution.html' },
     ];
 
     const JUDGMENT_LABELS = {

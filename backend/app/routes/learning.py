@@ -12,7 +12,7 @@ from sqlalchemy.exc import OperationalError
 from flask import Blueprint, current_app, request, send_file
 
 from app import db
-from app.learning import exam_import
+from app.learning import exam_generation, exam_import
 from app.learning import explanation as chain
 from app.learning import graph
 from app.learning.jobs import job_to_dict, problem_to_chain_input, start_job
@@ -21,14 +21,16 @@ from app.learning.profile import (
     ExerciseError, apply_exercise, key_answers, key_nodes, profile_to_dict, rebuild_profile,
 )
 from app.models import (
-    AnswerSheet, ExamImport, ExerciseRecord, ExplanationEmbedding, GeneratedExplanation, GenerationJob,
-    LearnerProfile, TestProblem,
+    AnswerSheet, ExamGenerationJob, ExamImport, ExerciseRecord, ExplanationEmbedding, GeneratedExplanation,
+    GenerationJob, LearnerProfile, TestProblem,
 )
 from app.routes.analysis import _resolve_teacher_ids
 from app.routes.auth import login_required
 from app.utils.api_response import make_error_response, make_success_response
 from app.utils.bulk_import import split_into_pages
 from app.utils.firebase_service import get_firebase_service
+from app.utils.gemini import gemini_model_name
+from app.utils.math_verification import judge_answer
 
 learning_bp = Blueprint('learning', __name__)
 
@@ -322,12 +324,35 @@ def _problem_to_dict(problem, include_counts=True):
         'answer_format': problem.answer_format,
         'chain1_status': problem.chain1_status,
         'chain1_error': problem.chain1_error,
+        'answer_check': _answer_check(problem),
         'created_at': problem.created_at.isoformat() if problem.created_at else None,
         'updated_at': problem.updated_at.isoformat() if problem.updated_at else None,
     }
     if include_counts:
         payload['explanation_count'] = GeneratedExplanation.query.filter_by(problem_id=problem.id).count()
     return payload
+
+
+def _answer_check(problem):
+    """模範解答と，Chain 1 が問題文から導いた最後のステップの結果が一致するかを sympy で確かめる（表6 層1の考え方）。
+
+    略解をそのまま信じず，食い違えば模範解答の転記・読み取りの誤りか分解の誤りを教員に確かめてもらう。
+    """
+    steps = json.loads(problem.steps or '[]')
+    if not problem.correct_answer or not steps or not steps[-1].get('result'):
+        return {'status': 'unchecked', 'detail': '模範解答または解答ステップがありません'}
+    result = steps[-1]['result']
+    candidates = [result] + ([result.split('=', 1)[1]] if result.count('=') == 1 else [])
+    try:
+        for candidate in candidates:
+            verdict = judge_answer(problem.correct_answer, candidate)
+            if verdict['is_correct']:
+                return {'status': 'match', 'detail': f'最後のステップの結果「{result}」と一致します'}
+    except Exception:
+        return {'status': 'unchecked', 'detail': '式として比べられませんでした'}
+    if verdict['method'] in ('string_mismatch', 'empty', 'type_mismatch'):
+        return {'status': 'unchecked', 'detail': f'式として比べられませんでした（最後のステップの結果「{result}」）'}
+    return {'status': 'mismatch', 'detail': f'最後のステップの結果「{result}」と模範解答が一致しません'}
 
 
 def _get_problem(problem_id):
@@ -540,9 +565,13 @@ def _explanation_to_dict(row, include_trace=True):
         'status': row.status,
         'content': row.content,
         'model_name': row.model_name,
+        'reused_from': row.reused_from,
+        'reviewed': bool(row.reviewed),
+        'edited': row.original_content is not None,
         'created_at': row.created_at.isoformat() if row.created_at else None,
     }
     if include_trace:
+        payload['original_content'] = row.original_content
         payload['trace'] = json.loads(row.trace or '{}')
         payload['profile_snapshot'] = json.loads(row.profile_snapshot) if row.profile_snapshot else None
     return payload
@@ -571,6 +600,40 @@ def get_explanation(explanation_id):
     if not row:
         return make_error_response('LEARNING_EXPLANATION_NOT_FOUND', 'Explanation not found', 404)
     return make_success_response({'explanation': _explanation_to_dict(row)})
+
+
+@learning_bp.route('/explanations/<explanation_id>', methods=['PUT'])
+@login_required
+def review_explanation(explanation_id):
+    """教員が解説を確かめる（直す）。要確認の解説は，ここで確認済みにしてから配布する（3.5節）。
+
+    body: {content?: 直した本文, reviewed?: bool（既定 true）, apply_to_group?: bool（既定 true。
+           同じ判断で使い回した生徒の解説にも同じ修正を反映する）}
+    """
+    row = GeneratedExplanation.query.filter_by(id=explanation_id, teacher_id=_teacher_db_id()).first()
+    if not row:
+        return make_error_response('LEARNING_EXPLANATION_NOT_FOUND', 'Explanation not found', 404)
+    payload = request.get_json(silent=True) or {}
+    content = payload.get('content')
+    if content is not None and (not isinstance(content, str) or not content.strip()):
+        return make_error_response('LEARNING_INVALID_CONTENT', '本文が空です', 400)
+    reviewed = bool(payload.get('reviewed', True))
+    rows = [row]
+    if payload.get('apply_to_group', True) and row.kind == 'individual':
+        root = row.reused_from or row.id
+        rows = GeneratedExplanation.query.filter(
+            GeneratedExplanation.teacher_id == row.teacher_id,
+            db.or_(GeneratedExplanation.id == root, GeneratedExplanation.reused_from == root)).all()
+        # 生徒ごとに直した解説（本文が元と異なるもの）は上書きしない
+        rows = [r for r in rows if r.id == row.id or r.content == row.content]
+    for target in rows:
+        if content is not None and content != target.content:
+            if target.original_content is None:
+                target.original_content = target.content
+            target.content = content
+        target.reviewed = reviewed
+    db.session.commit()
+    return make_success_response({'explanation': _explanation_to_dict(row), 'updated': len(rows)})
 
 
 def _embedding_vectors(rows, client):
@@ -835,3 +898,261 @@ def retry_exam_chain1(exam_id):
     exam_import.start_chain1(current_app._get_current_object(), exam.id)
     db.session.expire_all()
     return make_success_response({'exam': _exam_to_dict(_get_exam(exam_id))}, 202)
+
+
+# ==================== 定期試験の解説をまとめて生成し，生徒ごとに配布する ====================
+
+def _exam_problems(exam_id, problem_ids=None):
+    problems = TestProblem.query.filter_by(exam_id=exam_id, teacher_id=_teacher_db_id()).all()
+    if problem_ids is not None:
+        wanted = set(problem_ids)
+        problems = [p for p in problems if p.id in wanted]
+    return sorted(problems, key=lambda p: (exam_generation.number_key(p.number), p.created_at))
+
+
+def _select_students(source):
+    """student_ids（生徒IDの配列）か classes（「1-1」などの配列）で対象の生徒を選ぶ。どちらもなければ全員。"""
+    profiles = LearnerProfile.query.filter_by(teacher_id=_teacher_db_id()).all()
+    known = {p.student_id: p for p in profiles}
+    student_ids = source.get('student_ids')
+    classes = source.get('classes')
+    if isinstance(classes, str):
+        classes = [c for c in classes.split(',') if c.strip()]
+    if isinstance(student_ids, str):
+        student_ids = [s for s in student_ids.split(',') if s.strip()]
+    if student_ids:
+        if not isinstance(student_ids, list) or not all(isinstance(s, str) for s in student_ids):
+            raise ValueError('student_ids は生徒IDの配列です')
+        selected = [s.strip() for s in student_ids]
+    elif classes:
+        wanted = {c.strip() for c in classes}
+        selected = [sid for sid in known if exam_generation.class_of(sid) in wanted]
+    else:
+        selected = list(known)
+    selected = sorted(dict.fromkeys(selected), key=exam_generation.number_key)
+    return selected, known
+
+
+def _current_model_name():
+    llm = get_llm_client()
+    return getattr(llm, 'model_name', None) or gemini_model_name()
+
+
+def _exam_job_options(payload):
+    return {
+        'include_master': bool(payload.get('include_master', False)),
+        'include_subtractive': bool(payload.get('include_subtractive', False)),
+        'reuse': bool(payload.get('reuse', True)),
+    }
+
+
+@learning_bp.route('/exams/<exam_id>/generation-plan', methods=['GET'])
+@login_required
+def exam_generation_plan(exam_id):
+    """生成する前の見積もり（LLM は呼ばない）: 問題ごとに，生成・使い回し・省略の件数と Gemini の呼び出し回数の目安。"""
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    try:
+        student_ids, known = _select_students(request.args)
+    except ValueError as exc:
+        return make_error_response('LEARNING_INVALID_STUDENTS', str(exc), 400)
+    reuse = request.args.get('reuse', 'true').lower() != 'false'
+    profiles = {sid: exam_generation.student_states(known[sid]) for sid in student_ids if sid in known}
+    model_name = _current_model_name()
+    problems = []
+    totals = {'generate': 0, 'reuse': 0, 'skip': 0, 'llm_calls': 0}
+    for problem in _exam_problems(exam.id):
+        problem_input = problem_to_chain_input(problem)
+        entry = {'id': problem.id, 'number': problem.number, 'title': problem.title,
+                 'step_count': len(problem_input['steps']), 'chain1_status': problem.chain1_status}
+        if problem_input['steps']:
+            rows = GeneratedExplanation.query.filter_by(problem_id=problem.id, kind='individual').all()
+            entry.update(exam_generation.plan_problem(problem_input, profiles, model_name, rows, reuse))
+            for key in totals:
+                totals[key] += entry[key]
+        problems.append(entry)
+    return make_success_response({
+        'exam_id': exam.id, 'model_name': model_name, 'student_count': len(profiles),
+        'missing_profiles': [sid for sid in student_ids if sid not in known],
+        'problems': problems, 'totals': totals,
+    })
+
+
+@learning_bp.route('/exams/<exam_id>/generation-jobs', methods=['POST'])
+@login_required
+def start_exam_generation(exam_id):
+    """試験の全問題（または選んだ問題）× 生徒の解説をまとめて生成する。
+
+    body: {student_ids? | classes?, problem_ids?, include_master?, include_subtractive?, reuse?（既定 true）}
+    """
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    payload = request.get_json(silent=True) or {}
+    try:
+        student_ids, known = _select_students(payload)
+    except ValueError as exc:
+        return make_error_response('LEARNING_INVALID_STUDENTS', str(exc), 400)
+    student_ids = [sid for sid in student_ids if sid in known]
+    if not student_ids:
+        return make_error_response('LEARNING_INVALID_STUDENTS', '学習者プロファイルのある生徒が選ばれていません', 400)
+    problems = [p for p in _exam_problems(exam.id, payload.get('problem_ids')) if json.loads(p.steps or '[]')]
+    if not problems:
+        return make_error_response('LEARNING_INVALID_STEPS', '解答ステップのある問題がありません（Chain 1 を確認してください）', 400)
+    running = [j for j in ExamGenerationJob.query.filter_by(exam_id=exam.id, teacher_id=_teacher_db_id()).all()
+               if exam_generation.is_running(j.id)]
+    if running:
+        return make_error_response('LEARNING_JOB_RUNNING', 'この試験の解説を生成中です。終わってから実行してください', 409)
+    try:
+        get_llm_client(required=True)
+    except LLMUnavailable as exc:
+        return _llm_unavailable(exc)
+
+    job = ExamGenerationJob(
+        teacher_id=_teacher_db_id(), exam_id=exam.id, status='queued',
+        request=json.dumps({'student_ids': student_ids, 'problem_ids': [p.id for p in problems],
+                            **_exam_job_options(payload)}, ensure_ascii=False),
+        total=len(student_ids) * len(problems), done=0, errors='[]',
+    )
+    db.session.add(job)
+    db.session.commit()
+    exam_generation.start(current_app._get_current_object(), job.id)
+    db.session.expire_all()
+    return make_success_response({'job': exam_generation.job_to_dict(db.session.get(ExamGenerationJob, job.id))}, 202)
+
+
+@learning_bp.route('/exams/<exam_id>/generation-jobs', methods=['GET'])
+@login_required
+def list_exam_generation_jobs(exam_id):
+    jobs = (ExamGenerationJob.query.filter_by(exam_id=exam_id, teacher_id=_teacher_db_id())
+            .order_by(ExamGenerationJob.created_at.desc()).limit(10).all())
+    return make_success_response({'jobs': [exam_generation.job_to_dict(j) for j in jobs]})
+
+
+def _get_exam_job(job_id):
+    return ExamGenerationJob.query.filter_by(id=job_id, teacher_id=_teacher_db_id()).first()
+
+
+@learning_bp.route('/exam-generation-jobs/<job_id>', methods=['GET'])
+@login_required
+def get_exam_generation_job(job_id):
+    job = _get_exam_job(job_id)
+    if job is None:
+        return make_error_response('LEARNING_JOB_NOT_FOUND', 'Job not found', 404)
+    return make_success_response({'job': exam_generation.job_to_dict(job)})
+
+
+@learning_bp.route('/exam-generation-jobs/<job_id>/resume', methods=['POST'])
+@login_required
+def resume_exam_generation_job(job_id):
+    """一時停止・失敗したジョブを続きから実行する（済んだ解説は指紋が同じなので作り直さない）。"""
+    job = _get_exam_job(job_id)
+    if job is None:
+        return make_error_response('LEARNING_JOB_NOT_FOUND', 'Job not found', 404)
+    if exam_generation.is_running(job.id):
+        return make_error_response('LEARNING_JOB_RUNNING', 'このジョブは実行中です', 409)
+    try:
+        get_llm_client(required=True)
+    except LLMUnavailable as exc:
+        return _llm_unavailable(exc)
+    job.status = 'queued'
+    db.session.commit()
+    exam_generation.start(current_app._get_current_object(), job.id)
+    db.session.expire_all()
+    return make_success_response({'job': exam_generation.job_to_dict(_get_exam_job(job_id))}, 202)
+
+
+def _latest_explanations(problem_ids, kind='individual'):
+    """{(problem_id, student_id): 最新の解説}"""
+    latest = {}
+    if not problem_ids:
+        return latest
+    rows = (GeneratedExplanation.query.filter(GeneratedExplanation.problem_id.in_(problem_ids),
+                                              GeneratedExplanation.kind == kind)
+            .order_by(GeneratedExplanation.created_at.asc()).all())
+    for row in rows:
+        latest[(row.problem_id, row.student_id)] = row
+    return latest
+
+
+@learning_bp.route('/exams/<exam_id>/explanations-summary', methods=['GET'])
+@login_required
+def exam_explanations_summary(exam_id):
+    """試験の問題ごとに，解説の揃い具合・要確認の件数・模範解答の照合結果をまとめる。
+
+    ?classes=1-1,1-2 / ?student_ids=... で対象の生徒を絞れる（省略時はプロファイルのある全員）。
+    review には，要確認でまだ教員が確かめていない解説を，使い回しの元ごとに1件ずつ並べる。
+    """
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    try:
+        student_ids, known = _select_students(request.args)
+    except ValueError as exc:
+        return make_error_response('LEARNING_INVALID_STUDENTS', str(exc), 400)
+    student_ids = [sid for sid in student_ids if sid in known]
+    problems = _exam_problems(exam.id)
+    latest = _latest_explanations([p.id for p in problems])
+    summary, review = [], []
+    for problem in problems:
+        rows = [latest[(problem.id, sid)] for sid in student_ids if (problem.id, sid) in latest]
+        groups = {}
+        for row in rows:
+            groups.setdefault(row.reused_from or row.id, []).append(row)
+        pending_review = 0
+        for root, members in groups.items():
+            first = members[0]
+            if first.status == 'needs_review' and not first.reviewed:
+                pending_review += len(members)
+                review.append({'problem_id': problem.id, 'number': problem.number, 'title': problem.title,
+                               'explanation_id': first.id, 'student_ids': [m.student_id for m in members],
+                               'warnings': json.loads(first.trace or '{}').get('warnings', [])})
+        summary.append({
+            'id': problem.id, 'number': problem.number, 'title': problem.title, 'points': problem.points,
+            'step_count': len(json.loads(problem.steps or '[]')), 'chain1_status': problem.chain1_status,
+            'answer_check': _answer_check(problem),
+            'students': len(student_ids), 'with_explanation': len(rows), 'distinct_explanations': len(groups),
+            'needs_review': sum(1 for r in rows if r.status == 'needs_review'),
+            'pending_review': pending_review, 'reviewed': sum(1 for r in rows if r.reviewed),
+        })
+    return make_success_response({'exam': {'id': exam.id, 'name': exam.name}, 'student_count': len(student_ids),
+                                  'problems': summary, 'review': review})
+
+
+@learning_bp.route('/exams/<exam_id>/booklet', methods=['GET'])
+@login_required
+def exam_booklet(exam_id):
+    """生徒ごとの解説冊子（印刷用）。問題番号の順に，その生徒の最新の積み上げ型の解説を並べる。
+
+    ?classes=1-1 / ?student_ids=... で対象を選ぶ。要確認で未確認の解説は ready=false として返す。
+    解答ステップがない問題（Chain 1 をしていない・できなかった問題）は解説の対象外（excluded）とする。
+    """
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    try:
+        student_ids, known = _select_students(request.args)
+    except ValueError as exc:
+        return make_error_response('LEARNING_INVALID_STUDENTS', str(exc), 400)
+    student_ids = [sid for sid in student_ids if sid in known]
+    problems = _exam_problems(exam.id)
+    latest = _latest_explanations([p.id for p in problems])
+    with_steps = {p.id for p in problems if json.loads(p.steps or '[]')}
+    students = []
+    for sid in student_ids:
+        items = []
+        for problem in problems:
+            row = latest.get((problem.id, sid))
+            excluded = row is None and problem.id not in with_steps
+            items.append({
+                'problem_id': problem.id, 'number': problem.number, 'title': problem.title,
+                'problem_text': problem.problem_text, 'points': problem.points, 'excluded': excluded,
+                'explanation_id': row.id if row else None, 'content': row.content if row else None,
+                'status': row.status if row else None, 'reviewed': bool(row.reviewed) if row else False,
+                'ready': excluded or (bool(row) and (row.status == 'ok' or bool(row.reviewed))),
+            })
+        students.append({'student_id': sid, 'items': items,
+                         'ready': all(i['ready'] for i in items),
+                         'missing': sum(1 for i in items if not i['explanation_id'] and not i['excluded'])})
+    return make_success_response({'exam': {'id': exam.id, 'name': exam.name}, 'students': students})

@@ -220,6 +220,10 @@ class GeneratedExplanation(db.Model):
     trace = db.Column(db.Text)  # JSON: ステップごとの判断・検算・再生成の記録
     profile_snapshot = db.Column(db.Text)  # JSON: 生成時に参照した定着度
     model_name = db.Column(db.String(100))
+    signature = db.Column(db.String(64), index=True)  # 生成の入力（問題・ステップ・判断）の指紋。同じなら同じ指示になる
+    reused_from = db.Column(db.String(36))  # 同じ判断の生徒の解説を使い回したときの元の解説
+    reviewed = db.Column(db.Boolean, default=False)  # 教員が確かめた（直した）
+    original_content = db.Column(db.Text)  # 教員が直す前の生成文
     created_at = db.Column(db.DateTime, default=utc_now)
 
     embeddings = db.relationship('ExplanationEmbedding', lazy=True, cascade='all, delete-orphan')
@@ -355,3 +359,28 @@ class ExamImport(db.Model):
 
     def __repr__(self):
         return f'<ExamImport {self.name}>'
+
+
+class ExamGenerationJob(db.Model):
+    """定期試験の全問題 × 生徒の解説をまとめて生成するジョブ（途中で止まっても続きから再開できる）。"""
+
+    __tablename__ = 'exam_generation_jobs'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
+    exam_id = db.Column(db.String(36), nullable=False, index=True)
+    status = db.Column(db.String(20), default='queued')  # queued / running / paused / completed / failed
+    request = db.Column(db.Text)  # JSON: {student_ids, problem_ids, include_master, include_subtractive, reuse}
+    total = db.Column(db.Integer, default=0)  # 生成・使い回し・省略を合わせた件数（問題 × 生徒）
+    done = db.Column(db.Integer, default=0)
+    generated = db.Column(db.Integer, default=0)  # Gemini で生成した件数
+    reused = db.Column(db.Integer, default=0)  # 同じ判断の生徒の解説を使い回した件数
+    skipped = db.Column(db.Integer, default=0)  # 判断が変わっておらず，既にある解説をそのまま使った件数
+    current = db.Column(db.String(200))
+    message = db.Column(db.Text)
+    errors = db.Column(db.Text)  # JSON list
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    def __repr__(self):
+        return f'<ExamGenerationJob {self.exam_id} {self.status}>'

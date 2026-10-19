@@ -153,6 +153,22 @@ def _ensure_test_problem_columns():
                 conn.execute(text(f'ALTER TABLE test_problems ADD COLUMN {column_name} {column_type}'))
 
 
+def _ensure_explanation_columns():
+    """解説の使い回し・教員の確認のために generated_explanations に加えた列を，既存の SQLite に追加する。"""
+    if db.engine.dialect.name != 'sqlite':
+        return
+    inspector = inspect(db.engine)
+    if 'generated_explanations' not in set(inspector.get_table_names()):
+        return
+    existing_columns = {column['name'] for column in inspector.get_columns('generated_explanations')}
+    expected_columns = [('signature', 'TEXT'), ('reused_from', 'TEXT'), ('reviewed', 'BOOLEAN DEFAULT 0'),
+                        ('original_content', 'TEXT')]
+    with db.engine.begin() as conn:
+        for column_name, column_type in expected_columns:
+            if column_name not in existing_columns:
+                conn.execute(text(f'ALTER TABLE generated_explanations ADD COLUMN {column_name} {column_type}'))
+
+
 def create_app():
     """Flask アプリケーションファクトリ"""
     app = Flask(__name__)
@@ -200,6 +216,7 @@ def create_app():
         db.create_all()
         _ensure_answer_sheet_columns()
         _ensure_test_problem_columns()
+        _ensure_explanation_columns()
         _seed_default_teachers()
     
     # ==================== ブループリント登録 ====================

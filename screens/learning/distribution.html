@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>解説の生成と配布 - 個別解説</title>
+    <link rel="stylesheet" href="learning.css">
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <main>
+        <section class="card">
+            <h2>1. 試験と生徒を選ぶ</h2>
+            <p class="card-lead">PDF から登録した定期試験の全問題について，選んだ生徒の解説をまとめて生成します。解答ステップ（Chain 1）がない問題は対象外です。</p>
+            <div class="grid-2" style="gap: 12px;">
+                <label class="field"><span>定期試験</span>
+                    <select id="examSelect"><option value="">読み込み中…</option></select>
+                </label>
+                <label class="field"><span>クラス</span>
+                    <select id="classSelect"><option value="">すべてのクラス</option></select>
+                </label>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px;">
+                <label class="checkbox"><input type="checkbox" id="optReuse" checked> 判断が同じ生徒の解説を使い回す（Gemini の呼び出しを減らす）</label>
+                <label class="checkbox"><input type="checkbox" id="optMaster"> マスター解説も作る（比較用）</label>
+                <label class="checkbox"><input type="checkbox" id="optSubtractive"> 引き算型も作る（比較用）</label>
+            </div>
+            <div class="button-row">
+                <button class="button button-light" id="planButton" onclick="loadPlan()">見積もる（Gemini は呼びません）</button>
+                <button class="button" id="startButton" onclick="startGeneration()" disabled>解説を生成する</button>
+            </div>
+            <div id="planArea"></div>
+        </section>
+
+        <section class="card hidden" id="jobCard">
+            <h2>2. 生成の進み具合</h2>
+            <p class="card-lead">画面を閉じても生成は続きます。Gemini の利用上限で止まったときは，時間をおいて「続きから生成」を押してください（済んだ解説は作り直しません）。</p>
+            <div id="jobArea"></div>
+        </section>
+
+        <section class="card hidden" id="summaryCard">
+            <h2>3. 問題ごとの状況</h2>
+            <p class="card-lead">模範解答の照合は，Chain 1 が問題文から導いた最後のステップの結果と模範解答を sympy で比べたものです（表6 層1）。「不一致」は模範解答の読み取りか分解の誤りの可能性があるので，③ の画面で確かめてください。</p>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>番号</th><th>問題</th><th>ステップ</th><th>模範解答の照合</th><th>解説のある生徒</th><th>異なる解説</th><th>要確認（未確認）</th><th>確認済み</th></tr></thead>
+                    <tbody id="summaryRows"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card hidden" id="reviewCard">
+            <h2>4. 要確認の解説を確かめる</h2>
+            <p class="card-lead">検算で直らなかったステップがある解説です（3.5節）。開いて内容を確かめ，必要なら直してから「確認済みにする」を押してください。同じ解説を使い回した生徒にも反映されます。</p>
+            <div id="reviewArea"></div>
+        </section>
+
+        <section class="card hidden" id="distributeCard">
+            <h2>5. 配布する（印刷）</h2>
+            <p class="card-lead">生徒ごとに1枚ずつ（改ページ）解説冊子を印刷します。生徒の答案や得点は使っていないため，試験の返却と同時に配布できます（3.1節）。</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center;">
+                <label class="checkbox"><input type="checkbox" id="optSurvey" checked> 末尾にふり返りアンケートを付ける</label>
+                <button class="button" onclick="openBooklet()">選んだクラスの冊子を開く</button>
+            </div>
+            <div id="studentArea" style="margin-top: 12px;"></div>
+        </section>
+    </main>
+
+    <script src="../common/api-debug-badge.js"></script>
+    <script src="learning-common.js"></script>
+    <script>
+        const L = window.Learning;
+        let exams = [];
+        let profiles = [];
+        let currentJob = null;
+        let pollTimer = null;
+        const JOB_STATUS = { queued: '待機中', running: '生成中', paused: '一時停止', completed: '完了', failed: '失敗' };
+        const CHECK_LABELS = { match: ['ok', '一致'], mismatch: ['ng', '不一致'], unchecked: ['unmarked', '照合できず'] };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await L.initPage('distribution', '④ 解説の生成と配布', '定期試験の全問題について生徒ごとの解説を生成し，確かめて，クラスごとに印刷する');
+                const [examPayload, profilePayload] = await Promise.all([
+                    L.api('GET', '/learning/exam-imports'), L.api('GET', '/learning/profiles')]);
+                exams = (examPayload.exams || []).filter((e) => e.problem_count > 0);
+                profiles = profilePayload.profiles || [];
+                renderExamOptions();
+                renderClassOptions();
+                document.getElementById('examSelect').addEventListener('change', onSelectionChange);
+                document.getElementById('classSelect').addEventListener('change', onSelectionChange);
+                ['optReuse'].forEach((id) => document.getElementById(id).addEventListener('change', () => clearPlan()));
+                await onSelectionChange();
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        });
+
+        function remember(key, value) {
+            try {
+                localStorage.setItem(key, value);
+            } catch (error) {
+                // 保存できなくても使える
+            }
+        }
+
+        function recall(key) {
+            try {
+                return localStorage.getItem(key) || '';
+            } catch (error) {
+                return '';
+            }
+        }
+
+        function renderExamOptions() {
+            const select = document.getElementById('examSelect');
+            if (!exams.length) {
+                select.innerHTML = '<option value="">登録した定期試験がありません（③ で PDF を取り込んでください）</option>';
+                return;
+            }
+            select.innerHTML = exams.map((e) => `<option value="${e.id}">${L.escapeHtml(e.name)}（${e.problem_count}問）</option>`).join('');
+            const keep = recall('distributionExam');
+            if (exams.some((e) => e.id === keep)) {
+                select.value = keep;
+            }
+        }
+
+        function classOf(id) {
+            const m = String(id || '').match(/^(\d+)-(\d+)-(\d+)$/);
+            return m ? `${m[1]}-${m[2]}` : null;
+        }
+
+        function renderClassOptions() {
+            const counts = {};
+            profiles.forEach((p) => {
+                const key = classOf(p.student_id);
+                if (key) {
+                    counts[key] = (counts[key] || 0) + 1;
+                }
+            });
+            const keys = Object.keys(counts).sort((a, b) => a.localeCompare(b, 'ja', { numeric: true }));
+            const select = document.getElementById('classSelect');
+            select.innerHTML = `<option value="">すべての生徒（${profiles.length}人）</option>` + keys.map((key) => {
+                const [grade, classNo] = key.split('-');
+                return `<option value="${key}">${grade}年${classNo}組（${counts[key]}人）</option>`;
+            }).join('');
+            const keep = recall('distributionClass');
+            if (keys.includes(keep)) {
+                select.value = keep;
+            }
+        }
+
+        function examId() {
+            return document.getElementById('examSelect').value;
+        }
+
+        function classQuery() {
+            const value = document.getElementById('classSelect').value;
+            return value ? `classes=${encodeURIComponent(value)}` : '';
+        }
+
+        function clearPlan() {
+            document.getElementById('planArea').innerHTML = '';
+        }
+
+        async function onSelectionChange() {
+            remember('distributionExam', examId());
+            remember('distributionClass', document.getElementById('classSelect').value);
+            clearPlan();
+            stopPolling();
+            const ready = Boolean(examId());
+            document.getElementById('startButton').disabled = !ready;
+            document.getElementById('planButton').disabled = !ready;
+            ['jobCard', 'summaryCard', 'reviewCard', 'distributeCard'].forEach((id) =>
+                document.getElementById(id).classList.toggle('hidden', !ready));
+            if (!ready) {
+                return;
+            }
+            await Promise.all([loadLatestJob(), loadSummary(), loadStudents()]);
+        }
+
+        async function loadPlan() {
+            const area = document.getElementById('planArea');
+            area.innerHTML = '<p class="muted">数えています…</p>';
+            try {
+                const reuse = document.getElementById('optReuse').checked;
+                const query = [classQuery(), `reuse=${reuse}`].filter(Boolean).join('&');
+                const plan = await L.api('GET', `/learning/exams/${examId()}/generation-plan?${query}`);
+                const rows = plan.problems.map((p) => p.step_count
+                    ? `<tr><td class="nowrap">${L.escapeHtml(p.number || '')}</td><td>${L.escapeHtml(p.title)}</td><td>${p.step_count}</td>
+                        <td>${p.distinct_plans}</td><td>${p.generate}</td><td>${p.reuse}</td><td>${p.skip}</td><td>${p.llm_calls}</td></tr>`
+                    : `<tr><td class="nowrap">${L.escapeHtml(p.number || '')}</td><td>${L.escapeHtml(p.title)}</td>
+                        <td colspan="6" class="muted">解答ステップがないため対象外（③ で Chain 1 をやり直してください）</td></tr>`).join('');
+                const t = plan.totals;
+                area.innerHTML = `
+                    <div class="notice">${plan.student_count} 人 × ${plan.problems.filter((p) => p.step_count).length} 問。
+                        Gemini で生成 <strong>${t.generate}</strong> 件，使い回し ${t.reuse} 件，作成済みで省略 ${t.skip} 件。
+                        Gemini の呼び出しはおよそ <strong>${t.llm_calls}</strong> 回（検算での差し戻しを除く。モデル ${L.escapeHtml(plan.model_name)}）。</div>
+                    ${plan.missing_profiles.length ? `<div class="notice notice-warn">プロファイルがない生徒: ${plan.missing_profiles.map(L.escapeHtml).join('，')}</div>` : ''}
+                    <div class="table-wrap"><table>
+                        <thead><tr><th>番号</th><th>問題</th><th>ステップ</th><th>判断の種類</th><th>生成</th><th>使い回し</th><th>省略</th><th>呼び出しの目安</th></tr></thead>
+                        <tbody>${rows}</tbody></table></div>`;
+            } catch (error) {
+                area.innerHTML = `<div class="notice notice-error">${L.escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        async function startGeneration() {
+            const button = document.getElementById('startButton');
+            button.disabled = true;
+            try {
+                const classes = document.getElementById('classSelect').value;
+                const payload = await L.api('POST', `/learning/exams/${examId()}/generation-jobs`, {
+                    classes: classes ? [classes] : undefined,
+                    reuse: document.getElementById('optReuse').checked,
+                    include_master: document.getElementById('optMaster').checked,
+                    include_subtractive: document.getElementById('optSubtractive').checked,
+                });
+                showJob(payload.job);
+                L.toast('解説の生成を始めました', 'ok');
+            } catch (error) {
+                L.toast(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function loadLatestJob() {
+            const payload = await L.api('GET', `/learning/exams/${examId()}/generation-jobs`);
+            const job = (payload.jobs || [])[0];
+            if (job) {
+                showJob(job);
+            } else {
+                currentJob = null;
+                document.getElementById('jobArea').innerHTML = '<p class="empty">まだ生成していません。</p>';
+            }
+        }
+
+        function showJob(job) {
+            currentJob = job;
+            const percent = job.total ? Math.round((job.done / job.total) * 100) : 0;
+            const active = job.running || job.status === 'queued' || job.status === 'running';
+            const errors = job.errors || [];
+            const studentCount = (job.request.student_ids || []).length;
+            const statusBadge = { completed: 'ok', paused: 'incomplete', failed: 'ng' }[job.status] || 'unmarked';
+            document.getElementById('jobArea').innerHTML = `
+                <div><span class="badge badge-${statusBadge}">${JOB_STATUS[job.status] || job.status}</span>
+                    ${studentCount} 人 × ${(job.request.problem_ids || []).length} 問　開始 ${L.formatDateTime(job.created_at)}
+                    ${job.current ? `　／　${L.escapeHtml(job.current)} を生成中` : ''}</div>
+                <div class="progress" style="margin: 10px 0;"><div class="progress-fill" style="width:${percent}%"></div></div>
+                <div>${job.done} / ${job.total} 件（Gemini で生成 ${job.generated}，使い回し ${job.reused}，作成済みで省略 ${job.skipped}）</div>
+                ${job.message ? `<div class="notice notice-warn">${L.escapeHtml(job.message)}</div>` : ''}
+                ${['paused', 'failed'].includes(job.status) && !job.running ? '<div class="button-row"><button class="button" onclick="resumeJob()">続きから生成</button></div>' : ''}
+                ${errors.length ? `<details style="margin-top: 8px;"><summary>うまくいかなかったもの ${errors.length} 件</summary><ul class="reasons">${errors.map((e) =>
+                    `<li>${L.escapeHtml([e.problem, e.student_id].filter(Boolean).join(' '))}：${L.escapeHtml(e.error)}</li>`).join('')}</ul></details>` : ''}`;
+            stopPolling();
+            if (active) {
+                pollTimer = setTimeout(pollJob, 3000);
+            }
+        }
+
+        function stopPolling() {
+            clearTimeout(pollTimer);
+            pollTimer = null;
+        }
+
+        async function pollJob() {
+            if (!currentJob) {
+                return;
+            }
+            try {
+                const payload = await L.api('GET', `/learning/exam-generation-jobs/${currentJob.id}`);
+                const finished = !(payload.job.running || ['queued', 'running'].includes(payload.job.status));
+                showJob(payload.job);
+                if (finished) {
+                    await Promise.all([loadSummary(), loadStudents()]);
+                }
+            } catch (error) {
+                pollTimer = setTimeout(pollJob, 6000);
+            }
+        }
+
+        async function resumeJob() {
+            try {
+                const payload = await L.api('POST', `/learning/exam-generation-jobs/${currentJob.id}/resume`);
+                showJob(payload.job);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        async function loadSummary() {
+            const payload = await L.api('GET', `/learning/exams/${examId()}/explanations-summary?${classQuery()}`);
+            document.getElementById('summaryRows').innerHTML = payload.problems.map((p) => {
+                const [badge, label] = CHECK_LABELS[p.answer_check.status] || ['unmarked', p.answer_check.status];
+                return `<tr><td class="nowrap">${L.escapeHtml(p.number || '')}</td><td>${L.escapeHtml(p.title)}</td>
+                    <td>${p.step_count || '<span class="badge badge-ng">なし</span>'}</td>
+                    <td><span class="badge badge-${badge}" title="${L.escapeHtml(p.answer_check.detail)}">${label}</span></td>
+                    <td>${p.with_explanation} / ${p.students}</td><td>${p.distinct_explanations}</td>
+                    <td>${p.needs_review}${p.pending_review ? `（<strong>${p.pending_review}</strong>）` : ''}</td><td>${p.reviewed}</td></tr>`;
+            }).join('') || '<tr><td colspan="8" class="empty">問題がありません</td></tr>';
+            const review = payload.review || [];
+            document.getElementById('reviewArea').innerHTML = review.length
+                ? `<div class="table-wrap"><table><thead><tr><th>番号</th><th>問題</th><th>この解説を使う生徒</th><th>注意</th><th></th></tr></thead><tbody>
+                    ${review.map((r) => `<tr><td class="nowrap">${L.escapeHtml(r.number || '')}</td><td>${L.escapeHtml(r.title)}</td>
+                        <td>${r.student_ids.map(L.escapeHtml).join('，')}</td>
+                        <td class="muted">${r.warnings.map(L.escapeHtml).join('<br>')}</td>
+                        <td class="nowrap"><a class="button button-small" href="explanation.html?id=${encodeURIComponent(r.explanation_id)}&edit=1" target="_blank">確かめる</a></td></tr>`).join('')}
+                    </tbody></table></div>`
+                : '<p class="empty">要確認で未確認の解説はありません。</p>';
+        }
+
+        async function loadStudents() {
+            const payload = await L.api('GET', `/learning/exams/${examId()}/booklet?${classQuery()}`);
+            const students = payload.students || [];
+            const ready = students.filter((s) => s.ready).length;
+            document.getElementById('studentArea').innerHTML = students.length
+                ? `<p class="muted">配布できる生徒 ${ready} / ${students.length} 人（解答ステップのある全問の解説があり，要確認のものは確認済み）</p>
+                    <div class="table-wrap"><table><thead><tr><th>生徒ID</th><th>状態</th><th></th></tr></thead><tbody>
+                    ${students.map((s) => {
+                        const pending = s.items.filter((i) => i.explanation_id && !i.ready).length;
+                        const state = s.ready ? '<span class="badge badge-ok">配布できます</span>'
+                            : [s.missing ? `<span class="badge badge-unmarked">解説なし ${s.missing} 問</span>` : '',
+                               pending ? `<span class="badge badge-needs_review">要確認 ${pending} 問</span>` : ''].join(' ');
+                        return `<tr><td>${L.escapeHtml(s.student_id)}</td><td>${state}</td>
+                            <td class="nowrap"><a class="button button-light button-small" target="_blank" href="${bookletUrl({ student_ids: s.student_id })}">この生徒だけ</a></td></tr>`;
+                    }).join('')}</tbody></table></div>`
+                : '<p class="empty">対象の生徒がいません。</p>';
+        }
+
+        function bookletUrl(extra) {
+            const params = new URLSearchParams({ exam: examId(), ...extra });
+            if (!extra.student_ids && document.getElementById('classSelect').value) {
+                params.set('classes', document.getElementById('classSelect').value);
+            }
+            if (document.getElementById('optSurvey').checked) {
+                params.set('survey', '1');
+            }
+            return `booklet.html?${params.toString()}`;
+        }
+
+        function openBooklet() {
+            window.open(bookletUrl({}), '_blank');
+        }
+    </script>
+</body>
+</html>

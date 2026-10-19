@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>解説冊子 - 個別解説</title>
+    <link rel="stylesheet" href="learning.css">
+    <link rel="icon" href="data:,">
+    <script>
+        window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] }, startup: { typeset: false } };
+    </script>
+    <script src="../vendor/mathjax/tex-svg.js" async></script>
+    <style>
+        .booklet-student { background: white; border-radius: 12px; padding: 28px 32px; margin-bottom: 24px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06); }
+        .booklet-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 16px; gap: 12px; }
+        .booklet-head h2 { font-size: 20px; }
+        .booklet-head .who { font-size: 15px; white-space: nowrap; }
+        .booklet-item { margin-bottom: 22px; break-inside: avoid-page; }
+        .booklet-problem { background: #f7f8fd; border-left: 4px solid #667eea; padding: 10px 14px; margin: 8px 0 10px; font-size: 14px; line-height: 1.8; white-space: pre-wrap; }
+        .booklet-item h3.problem-number { font-size: 17px; margin: 0; }
+        .survey table { font-size: 13px; }
+        .survey td, .survey th { padding: 6px 8px; border: 1px solid #ccc; }
+        .survey .scale { white-space: nowrap; }
+        .survey .comment { height: 70px; border: 1px solid #ccc; border-radius: 4px; margin-top: 6px; }
+        @media print {
+            .booklet-student { box-shadow: none; padding: 0; margin: 0; border-radius: 0; break-after: page; }
+            .booklet-student:last-child { break-after: auto; }
+            .booklet-problem { background: none; border: 1px solid #999; }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <section class="card no-print">
+            <div class="card-header">
+                <div>
+                    <h2 id="title">解説冊子</h2>
+                    <p class="card-lead" id="lead">読み込み中…</p>
+                </div>
+                <div class="button-row" style="margin-top: 0;">
+                    <button class="button" onclick="window.print()">印刷する</button>
+                </div>
+            </div>
+            <div id="notices"></div>
+        </section>
+        <div id="booklet"></div>
+    </main>
+
+    <script src="../common/api-debug-badge.js"></script>
+    <script src="learning-common.js"></script>
+    <script>
+        const L = window.Learning;
+        const SURVEY = [
+            ['分かりやすさ', '分かりにくい　1・2・3・4　分かりやすい'],
+            ['詳しさ', '短すぎる　1・2・3・4・5　長すぎる（3 がちょうどよい）'],
+            ['自分のつまずき', '合っていない　1・2・3・4　合っている'],
+        ];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await L.initPage('distribution', '解説冊子', '生徒ごとの解説（印刷すると1人ずつ改ページされます）');
+                const exam = L.queryParam('exam');
+                if (!exam) {
+                    throw new Error('試験が指定されていません');
+                }
+                const params = new URLSearchParams();
+                ['classes', 'student_ids'].forEach((key) => {
+                    if (L.queryParam(key)) {
+                        params.set(key, L.queryParam(key));
+                    }
+                });
+                const payload = await L.api('GET', `/learning/exams/${encodeURIComponent(exam)}/booklet?${params.toString()}`);
+                render(payload);
+            } catch (error) {
+                document.getElementById('booklet').innerHTML = `<div class="notice notice-error">${L.escapeHtml(error.message)}</div>`;
+            }
+        });
+
+        /* 解説の先頭の「# 問題名」は冊子の見出しと重なるので除く */
+        function body(content) {
+            return L.renderMarkdown(String(content || '').replace(/^#\s+[^\n]*\n+/, ''));
+        }
+
+        function survey(items) {
+            const rows = items.filter((i) => i.content).map((i) => `<tr><td class="nowrap">${L.escapeHtml(i.number || i.title)}</td>
+                ${SURVEY.map(() => '<td></td>').join('')}</tr>`).join('');
+            return `<div class="booklet-item survey">
+                <h3 class="problem-number">ふり返り（あてはまる数字を書いてください）</h3>
+                <p class="muted" style="margin: 6px 0;">${SURVEY.map(([name, scale]) => `${name}：${scale}`).join('<br>')}</p>
+                <div class="table-wrap"><table><thead><tr><th>問題</th>${SURVEY.map(([name]) => `<th>${name}</th>`).join('')}</tr></thead>
+                <tbody>${rows}</tbody></table></div>
+                <div style="margin-top: 8px;">解説に足りなかったこと・いらなかったこと（自由に）</div>
+                <div class="comment"></div>
+            </div>`;
+        }
+
+        function render(payload) {
+            const students = payload.students || [];
+            const withSurvey = L.queryParam('survey') === '1';
+            document.title = `${payload.exam.name} 解説冊子 - 個別解説`;
+            document.getElementById('title').textContent = `${payload.exam.name} 解説冊子`;
+            document.getElementById('lead').textContent = `${students.length} 人分。印刷すると1人ずつ改ページされます。`;
+            const notReady = students.filter((s) => !s.ready);
+            document.getElementById('notices').innerHTML = notReady.length
+                ? `<div class="notice notice-warn">解説がない問題，または要確認で未確認の解説がある生徒が ${notReady.length} 人います（${notReady.map((s) => L.escapeHtml(s.student_id)).join('，')}）。④ の画面で確かめてから配布してください。</div>`
+                : '<div class="notice notice-ok">全員分の解説がそろい，要確認のものは確認済みです。</div>';
+            const container = document.getElementById('booklet');
+            container.innerHTML = students.map((s) => `
+                <section class="booklet-student">
+                    <div class="booklet-head">
+                        <h2>${L.escapeHtml(payload.exam.name)}　解説</h2>
+                        <div class="who">生徒 ${L.escapeHtml(s.student_id)}　氏名 ＿＿＿＿＿＿＿＿</div>
+                    </div>
+                    ${s.items.map((i) => `<div class="booklet-item">
+                        <h3 class="problem-number">${L.escapeHtml(i.number ? `大問 ${i.number}` : i.title)}${i.points ? `<span class="muted">（${i.points}点）</span>` : ''}</h3>
+                        <div class="booklet-problem">${L.escapeHtml(i.problem_text)}</div>
+                        ${i.content ? `${i.ready ? '' : '<div class="notice notice-warn no-print">要確認（未確認）の解説です</div>'}<div class="explanation-body">${body(i.content)}</div>`
+                            : `<p class="muted">${i.excluded ? 'この問題は個別の解説の対象外です。模範解答を見て確かめましょう。' : 'この問題の解説はまだ生成されていません。'}</p>`}
+                    </div>`).join('')}
+                    ${withSurvey ? survey(s.items) : ''}
+                </section>`).join('') || '<p class="empty">対象の生徒がいません。</p>';
+            L.typesetMath(container);
+        }
+    </script>
+</body>
+</html>

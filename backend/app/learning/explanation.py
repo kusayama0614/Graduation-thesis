@@ -254,6 +254,7 @@ def _element_instructions(decision: Dict[str, Any], step: Dict[str, Any]) -> Lis
                      'その誤りが起きやすい箇所に，混同しないための注意を一言添える。')
     if 'similar_check' in elements:
         lines.append('最後に，理解を確かめる簡単な類題を1問，答えを付けて示す。')
+    lines.append(BLIND_RULE)
     return lines
 
 
@@ -284,6 +285,11 @@ TEMPLATE_SYSTEM = (
 )
 
 
+# 生徒には個別化した解説とマスター解説の区別がつかないようにする（比較のため）
+BLIND_RULE = ('この生徒の記録（誤りの回数や定着度）や，この解説が生徒に合わせて書かれていることには触れない。'
+              '注意や復習は「あなたは〜」「記録では〜」とせず，誰にでも当てはまる一般的な書き方にする。')
+
+
 def _template_instructions(decision: Dict[str, Any], step: Dict[str, Any]) -> List[str]:
     labels = graph.node_labels()
     elements = decision['elements']
@@ -304,6 +310,7 @@ def _template_instructions(decision: Dict[str, Any], step: Dict[str, Any]) -> Li
     if 'similar_check' in elements:
         lines.append('本文の最後に \\ruidai{...} で，理解を確かめる簡単な類題を1問，答えを付けて示す。')
     lines.append('⟦図1⟧ のような印は図・表の位置を表す。印は消さずに同じ位置に残す。')
+    lines.append(BLIND_RULE)
     return lines
 
 
@@ -551,6 +558,12 @@ def generate_explanation(llm: LLMClient, problem: Dict[str, Any], node_states: O
                 verification = {'ok': True, 'claims': [], 'counts': {}, 'relations': [], 'relation_counts': {},
                                 'last_relation': last_relation, 'final_check': None, 'feedback': None,
                                 'error': f'計算の抜き出しに失敗しました（{exc.__class__.__name__}）'}
+            if template:
+                latex_problems = tex_template.check_latex(text)
+                if latex_problems:  # 壊れた TeX は PDF にできないので，計算の誤りと同じく差し戻す
+                    verification = {**verification, 'ok': False, 'latex_errors': latex_problems,
+                                    'feedback': 'TeX の書き方に誤りがあります: ' + '，'.join(latex_problems)
+                                                + (f'。{verification["feedback"]}' if verification.get('feedback') else '')}
             attempts.append({'attempt': attempt, 'text': text, **verification})
             if verification['ok']:
                 definitions = step_definitions

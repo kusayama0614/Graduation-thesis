@@ -75,6 +75,14 @@
                 <a class="button button-light hidden" id="texDownload" href="#">TeX をダウンロード（選んだクラス）</a>
             </div>
             <p class="muted hidden" id="texNote" style="margin-top: 6px;">TeX はテンプレートと同じ体裁で，生徒ごとに改ページして1つのファイルにまとめます（組・番を表題に記入）。テンプレートと同じ方法（xelatex など）でコンパイルしてください。</p>
+            <div id="pdfBox" class="hidden" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #eee;">
+                <h3>生徒ごとの PDF（解答解説A・B）</h3>
+                <p class="muted">1人につき「○年○組○番_解答解説A.pdf」（個別化した解説）と「○年○組○番_解答解説B.pdf」（マスター解説）を作ります。表題の枠は「解説A」「解説B」だけで，どちらが個別化したものかは書きません。演習の記録が少なく個別化しているとは言い難い生徒の A は，ファイル名の最後に「※」を付けます。</p>
+                <div class="button-row">
+                    <button class="button" id="pdfButton" onclick="startPdfExport()">PDF を作る（選んだクラス）</button>
+                </div>
+                <div id="pdfArea"></div>
+            </div>
             <div id="studentArea" style="margin-top: 12px;"></div>
         </section>
     </main>
@@ -189,7 +197,7 @@
                 return;
             }
             renderTemplate();
-            await Promise.all([loadLatestJob(), loadSummary(), loadStudents()]);
+            await Promise.all([loadLatestJob(), loadSummary(), loadStudents(), loadPdfJob()]);
         }
 
         function currentExam() {
@@ -211,6 +219,7 @@
             link.href = `${L.API_BASE_URL}/learning/exams/${examId()}/booklet.tex?${params.toString()}`;
             link.classList.toggle('hidden', !template);
             document.getElementById('texNote').classList.toggle('hidden', !template);
+            document.getElementById('pdfBox').classList.toggle('hidden', !template);
         }
 
         async function refreshExam(exam) {
@@ -401,14 +410,94 @@
                     <div class="table-wrap"><table><thead><tr><th>生徒ID</th><th>状態</th><th></th></tr></thead><tbody>
                     ${students.map((s) => {
                         const pending = s.items.filter((i) => i.explanation_id && !i.ready).length;
-                        const state = s.ready ? '<span class="badge badge-ok">配布できます</span>'
+                        const evidence = s.evidence || {};
+                        const flag = s.insufficient
+                            ? ` <span class="badge badge-incomplete" title="${L.escapeHtml(evidence.rule || '')}">※ 記録が少ない（根拠の十分なステップ ${evidence.ratio === null || evidence.ratio === undefined ? '—' : Math.round(evidence.ratio * 100) + '%'}）</span>` : '';
+                        const state = (s.ready ? '<span class="badge badge-ok">配布できます</span>'
                             : [s.missing ? `<span class="badge badge-unmarked">解説なし ${s.missing} 問</span>` : '',
-                               pending ? `<span class="badge badge-needs_review">要確認 ${pending} 問</span>` : ''].join(' ');
+                               pending ? `<span class="badge badge-needs_review">要確認 ${pending} 問</span>` : ''].join(' ')) + flag;
                         return `<tr><td>${L.escapeHtml(s.student_id)}</td><td>${state}</td>
                             <td class="nowrap"><a class="button button-light button-small" target="_blank" href="${bookletUrl({ student_ids: s.student_id })}">この生徒だけ</a>
                             ${currentExam() && currentExam().template ? `<a class="button button-light button-small" href="${L.API_BASE_URL}/learning/exams/${examId()}/booklet.tex?student_ids=${encodeURIComponent(s.student_id)}">TeX</a>` : ''}</td></tr>`;
                     }).join('')}</tbody></table></div>`
                 : '<p class="empty">対象の生徒がいません。</p>';
+        }
+
+        let pdfJob = null;
+        let pdfTimer = null;
+
+        async function loadPdfJob() {
+            clearTimeout(pdfTimer);
+            pdfJob = null;
+            document.getElementById('pdfArea').innerHTML = '';
+            if (!currentExam() || !currentExam().template) {
+                return;
+            }
+            const payload = await L.api('GET', `/learning/exams/${examId()}/pdf-exports`);
+            const cls = document.getElementById('classSelect').value;
+            const job = (payload.jobs || []).find((j) => (cls ? (j.request.classes || []).includes(cls) : !(j.request.classes || []).length));
+            if (job) {
+                showPdfJob(job);
+            }
+        }
+
+        async function startPdfExport() {
+            const button = document.getElementById('pdfButton');
+            button.disabled = true;
+            try {
+                const cls = document.getElementById('classSelect').value;
+                const payload = await L.api('POST', `/learning/exams/${examId()}/pdf-exports`, { classes: cls ? [cls] : undefined });
+                showPdfJob(payload.job);
+            } catch (error) {
+                L.toast(error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function pdfLink(file) {
+            return file.ready
+                ? `<a href="${L.API_BASE_URL}/learning/pdf-exports/${pdfJob.id}/files/${file.index}" download="${L.escapeHtml(file.filename)}">${L.escapeHtml(file.filename)}</a>`
+                : `<span class="muted">${L.escapeHtml(file.filename)}（作れませんでした）</span>`;
+        }
+
+        function showPdfJob(job) {
+            pdfJob = job;
+            const active = job.running || ['queued', 'running'].includes(job.status);
+            const percent = job.total ? Math.round((job.done / job.total) * 100) : 0;
+            const base = `${L.API_BASE_URL}/learning/pdf-exports/${job.id}/zip`;
+            const classes = (job.request.classes || []).map((c) => { const [g, k] = c.split('-'); return `${g}年${k}組`; }).join('・') || '解答解説';
+            const zipName = (kind) => `${classes}_解答解説${kind}.zip`;
+            const byStudent = {};
+            job.files.forEach((f) => { (byStudent[f.student_id] = byStudent[f.student_id] || {})[f.kind] = f; });
+            const failures = job.errors.filter((e) => !e.warning);
+            const warnings = job.errors.filter((e) => e.warning);
+            const flagged = job.files.filter((f) => f.kind === 'A' && f.insufficient).length;
+            document.getElementById('pdfArea').innerHTML = `
+                <div style="margin-top: 8px;">${active ? 'PDF を作っています…' : (job.status === 'completed' ? 'PDF ができました。' : 'PDF を作れませんでした。')}
+                    ${job.done} / ${job.total} 件　（作成 ${L.formatDateTime(job.created_at)}）</div>
+                <div class="progress" style="margin: 8px 0;"><div class="progress-fill" style="width:${percent}%"></div></div>
+                ${job.message ? `<div class="notice notice-error">${L.escapeHtml(job.message)}</div>` : ''}
+                ${!active && job.files.some((f) => f.ready) ? `<div class="button-row">
+                    <a class="button" href="${base}" download="${L.escapeHtml(zipName(''))}">一括ダウンロード（ZIP・A と B）</a>
+                    <a class="button button-light" href="${base}?kind=A" download="${L.escapeHtml(zipName('A'))}">A だけ</a>
+                    <a class="button button-light" href="${base}?kind=B" download="${L.escapeHtml(zipName('B'))}">B だけ</a></div>` : ''}
+                ${flagged ? `<p class="muted">※ 付き（記録が少ない）: ${flagged} 人</p>` : ''}
+                ${warnings.length ? `<details><summary>注意 ${warnings.length} 件</summary><ul class="reasons">${warnings.map((e) => `<li>${L.escapeHtml(e.file)}：${L.escapeHtml(e.error)}</li>`).join('')}</ul></details>` : ''}
+                ${failures.length ? `<details open><summary>作れなかったもの ${failures.length} 件</summary><ul class="reasons">${failures.map((e) => `<li>${L.escapeHtml(e.file)}：${L.escapeHtml(e.error)}</li>`).join('')}</ul></details>` : ''}
+                ${Object.keys(byStudent).length ? `<details${active ? '' : ' open'}><summary>生徒ごとの PDF</summary><div class="table-wrap"><table><thead><tr><th>生徒</th><th>A</th><th>B</th></tr></thead><tbody>
+                    ${Object.entries(byStudent).map(([sid, f]) => `<tr><td>${L.escapeHtml(sid)}</td><td>${f.A ? pdfLink(f.A) : ''}</td><td>${f.B ? pdfLink(f.B) : ''}</td></tr>`).join('')}
+                    </tbody></table></div></details>` : ''}`;
+            clearTimeout(pdfTimer);
+            if (active) {
+                pdfTimer = setTimeout(async () => {
+                    try {
+                        showPdfJob((await L.api('GET', `/learning/pdf-exports/${job.id}`)).job);
+                    } catch (error) {
+                        pdfTimer = setTimeout(() => showPdfJob(job), 5000);
+                    }
+                }, 2500);
+            }
         }
 
         function bookletUrl(extra) {

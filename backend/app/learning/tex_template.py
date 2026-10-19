@@ -26,7 +26,7 @@ _FIGURE_MARK = re.compile(r'⟦図(\d+)⟧')
 
 # テンプレートに無い「復習」「類題」の見た目（教員がプリアンブルで定義していればそちらが優先される）
 EXTRA_MACROS = r"""
-% ---- 個別解説で使う要素（テンプレートで定義されていなければこの見た目にする） ----
+% ---- 復習・類題の見た目（テンプレートで定義されていなければこの見た目にする） ----
 \providecommand{\fukushu}[1]{\par\vspace{1pt}\noindent\tikz[baseline=(t.base)]\node[draw,dashed,inner sep=1.2pt,font=\scriptsize\sffamily](t){復習};\ #1\par}
 \providecommand{\ruidai}[1]{\par\vspace{1pt}\noindent\tikz[baseline=(t.base)]\node[draw,inner sep=1.2pt,font=\scriptsize\sffamily](t){類題};\ #1\par}
 """
@@ -215,6 +215,34 @@ def assemble(section: Dict[str, Any], bodies: List[str]) -> str:
     return ''.join(parts)
 
 
+def check_latex(body: str) -> List[str]:
+    """LLM が書いた手順の本文の TeX が壊れていないか（括弧・環境・数式の閉じ忘れ）を調べる。問題点の一覧を返す。"""
+    problems = []
+    text = re.sub(r'(?<!\\)%[^\n]*', '', _FIGURE_MARK.sub('', body))  # コメントと図の印を除く
+    text = text.replace('\\\\', ' ').replace('\\{', '').replace('\\}', '').replace('\\$', '')
+    depth = 0
+    for ch in text:
+        depth += 1 if ch == '{' else -1 if ch == '}' else 0
+        if depth < 0:
+            break
+    if depth != 0:
+        problems.append('{ と } の数が合っていません')
+    stack: List[str] = []
+    for kind, name in re.findall(r'\\(begin|end)\{([^}]*)\}', text):
+        if kind == 'begin':
+            stack.append(name)
+        elif not stack or stack.pop() != name:
+            problems.append(f'\\end{{{name}}} に対応する \\begin{{{name}}} がありません')
+            break
+    if stack:
+        problems.append(f'\\begin{{{stack[-1]}}} が閉じていません')
+    if text.count('\\[') != text.count('\\]'):
+        problems.append('\\[ と \\] の数が合っていません')
+    if len(re.findall(r'\$', text.replace('$$', ''))) % 2:
+        problems.append('$ の数が奇数です（数式が閉じていません）')
+    return problems
+
+
 def fingerprint(section: Optional[Dict[str, Any]]) -> Optional[str]:
     if not section:
         return None
@@ -240,7 +268,8 @@ def _title_for(title_block: str, student_id: Optional[str]) -> str:
     return _SEAT.sub(repl, title_block, count=1)
 
 
-def build_document(parsed: Dict[str, Any], students: List[Tuple[Optional[str], Dict[str, str]]]) -> str:
+def build_document(parsed: Dict[str, Any], students: List[Tuple[Optional[str], Dict[str, str]]],
+                   label: Optional[str] = None) -> str:
     """生徒ごとの解説（{問題番号: 小問の TeX}）を，テンプレートと同じ体裁の1つの TeX 文書にする。
 
     複数の生徒は改ページして続ける（クラス分を一度にコンパイルして印刷できる）。解説がない小問はテンプレートのまま。
@@ -258,4 +287,7 @@ def build_document(parsed: Dict[str, Any], students: List[Tuple[Optional[str], D
             for sub in d['subs']:
                 parts.append(contents.get(sub['number']) or sub['tex'])
         pages.append(''.join(parts))
-    return parsed['preamble'] + EXTRA_MACROS + '\\begin{document}' + ''.join(pages) + '\n\\end{document}\n'
+    # 表題の右の枠（\\kaisetsulabel）。個別化した解説とマスター解説を「解説A」「解説B」のように区別がつかない名前にする
+    relabel = (f'\\providecommand{{\\kaisetsulabel}}{{}}\\renewcommand{{\\kaisetsulabel}}{{{label}}}\n'
+               if label else '')
+    return parsed['preamble'] + EXTRA_MACROS + relabel + '\\begin{document}' + ''.join(pages) + '\n\\end{document}\n'

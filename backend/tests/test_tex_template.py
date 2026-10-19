@@ -197,3 +197,37 @@ def test_template_upload_errors(client):  # noqa: F811
     assert client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': 'abc'}).status_code == 400
     assert client.post(f'/api/learning/exam-imports/{exam_id}/template', json={}).status_code == 400
     assert client.get(f'/api/learning/exams/{exam_id}/booklet.tex').status_code == 400
+
+
+def test_check_latex_finds_broken_tex():
+    assert tex_template.check_latex('$x=1$ \\[ y \\] \\begin{align*}a&=b\\\\ c&=d\\end{align*} 50\\% と \\{ ⟦図1⟧') == []
+    assert tex_template.check_latex('\\begin{align*} x=1') == ['\\begin{align*} が閉じていません']
+    assert tex_template.check_latex('\\begin{itemize}\\item a\\end{enumerate}')[0].startswith('\\end{enumerate}')
+    assert tex_template.check_latex('$x=1') == ['$ の数が奇数です（数式が閉じていません）']
+    assert tex_template.check_latex('\\frac{1}{2') == ['{ と } の数が合っていません']
+
+
+def test_broken_latex_is_sent_back_and_rewritten(client):  # noqa: F811
+    state = {'first': True}
+
+    def writer(user):
+        if '今回書くステップ: 1.' in user and '判別式' in user and state['first']:
+            state['first'] = False
+            return '\\begin{align*} D=m^2+4m-12 [[m^2-4*1*(-m+3) = m^2+4m-12]]'  # 環境が閉じていない
+        if '今回書くステップ: 1.' in user and '判別式' in user:
+            assert 'TeX の書き方に誤りがあります' in user  # 差し戻しの理由が渡る
+        return template_writer(user)
+
+    llm = FakeLLM(writer=writer)
+    llm.template_nodes = {1: ['discriminant_setup'], 2: ['double_root']}
+    exam_id = _setup(client, llm)
+    client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': TEMPLATE})
+    with client.application.app_context():
+        problem_id = TestProblem.query.filter_by(exam_id=exam_id, number='1(1)').first().id
+    job = client.post(f'/api/learning/exams/{exam_id}/generation-jobs',
+                      json={'student_ids': ['1-1-1'], 'problem_ids': [problem_id]}).get_json()['job']
+    assert job['status'] == 'completed'
+    content, trace = next(iter(_rows(client, 'individual').values()))
+    step1 = trace['steps'][0]
+    assert step1['attempt_count'] == 2 and step1['attempts'][0]['latex_errors'] == ['\\begin{align*} が閉じていません']
+    assert tex_template.check_latex(content) == []

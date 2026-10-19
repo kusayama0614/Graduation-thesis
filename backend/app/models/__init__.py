@@ -387,3 +387,25 @@ class ExamGenerationJob(db.Model):
 
     def __repr__(self):
         return f'<ExamGenerationJob {self.exam_id} {self.status}>'
+
+
+class PdfExportJob(db.Model):
+    """生徒ごとの解答解説 PDF（A: 個別化した解説，B: マスター解説）を書き出すジョブ。"""
+
+    __tablename__ = 'pdf_export_jobs'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
+    exam_id = db.Column(db.String(36), nullable=False, index=True)
+    status = db.Column(db.String(20), default='queued')  # queued / running / completed / failed
+    request = db.Column(db.Text)  # JSON: {student_ids, classes}
+    total = db.Column(db.Integer, default=0)
+    done = db.Column(db.Integer, default=0)
+    files = db.Column(db.Text)  # JSON list: [{student_id, kind, filename, insufficient, evidence, path}]
+    message = db.Column(db.Text)
+    errors = db.Column(db.Text)  # JSON list
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    def __repr__(self):
+        return f'<PdfExportJob {self.exam_id} {self.status}>'

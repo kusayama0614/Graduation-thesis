@@ -3,6 +3,7 @@
 学習者プロファイル（フェーズA）と個別化した解説の生成（フェーズB）の API（卒業論文 3章）
 """
 import json
+import re
 import os
 import shutil
 import time
@@ -12,7 +13,7 @@ from sqlalchemy.exc import OperationalError
 from flask import Blueprint, current_app, request, send_file
 
 from app import db
-from app.learning import exam_generation, exam_import, tex_template
+from app.learning import exam_generation, exam_import, pdf_export, tex_template
 from app.learning import explanation as chain
 from app.learning import graph
 from app.learning.jobs import job_to_dict, problem_to_chain_input, start_job
@@ -21,7 +22,7 @@ from app.learning.profile import (
     ExerciseError, apply_exercise, key_answers, key_nodes, profile_to_dict, rebuild_profile,
 )
 from app.models import (
-    AnswerSheet, ExamGenerationJob, ExamImport, ExerciseRecord, ExplanationEmbedding, GeneratedExplanation,
+    AnswerSheet, ExamGenerationJob, ExamImport, PdfExportJob, ExerciseRecord, ExplanationEmbedding, GeneratedExplanation,
     GenerationJob, LearnerProfile, TestProblem,
 )
 from app.routes.analysis import _resolve_teacher_ids
@@ -1191,7 +1192,10 @@ def exam_booklet(exam_id):
                 'status': row.status if row else None, 'reviewed': bool(row.reviewed) if row else False,
                 'ready': bool(row) and (row.status == 'ok' or bool(row.reviewed)),
             })
-        students.append({'student_id': sid, 'items': items,
+        traces = [json.loads(latest[(p.id, sid)].trace or '{}') for p in problems if (p.id, sid) in latest]
+        evidence = pdf_export.personalization_evidence(traces, *_evidence_settings())
+        students.append({'student_id': sid, 'items': items, 'insufficient': evidence['insufficient'],
+                         'evidence': evidence,
                          'ready': all(i['ready'] for i in items),
                          'missing': sum(1 for i in items if not i['explanation_id'])})
     return make_success_response({'exam': {'id': exam.id, 'name': exam.name}, 'students': students})
@@ -1317,7 +1321,7 @@ def exam_booklet_tex(exam_id):
             if content:
                 contents[tex_template.normalize_number(problem.number or '')] = content
         students.append((sid, contents))
-    document = tex_template.build_document(parsed, students)
+    document = tex_template.build_document(parsed, students, label=pdf_export.KIND_LABELS['A'])
     label = request.args.get('classes') or (student_ids[0] if len(student_ids) == 1 else 'students')
     filename = f'個別解説_{label}.tex'
     response = current_app.response_class(document, mimetype='application/x-tex; charset=utf-8')
@@ -1325,3 +1329,110 @@ def exam_booklet_tex(exam_id):
     response.headers['Content-Disposition'] = (f'attachment; filename="kobetsu_kaisetsu.tex"; '
                                                f"filename*=UTF-8''{quote(filename)}")
     return response
+
+
+# ==================== 生徒ごとの PDF（解答解説A: 個別化，解答解説B: マスター） ====================
+
+def _evidence_settings():
+    return (int(current_app.config.get('PERSONALIZATION_MIN_EVIDENCE') or pdf_export.MIN_EVIDENCE),
+            float(current_app.config.get('PERSONALIZATION_MIN_RATIO') or pdf_export.MIN_EVIDENCED_RATIO))
+
+
+@learning_bp.route('/exams/<exam_id>/pdf-exports', methods=['POST'])
+@login_required
+def start_pdf_export(exam_id):
+    """選んだ生徒（クラス）の解答解説A・B を PDF にする。body: {classes?: [...], student_ids?: [...]}
+
+    ファイル名は「1年1組20番_解答解説A.pdf」（個別化），「…_解答解説B.pdf」（マスター）。根拠となる演習の記録が
+    少なく個別化しているとは言い難い生徒の A は「…_解答解説A※.pdf」。
+    """
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    if not exam.template_tex:
+        return make_error_response('LEARNING_TEMPLATE_MISSING', 'マスター解説の TeX（テンプレート）を先に読み込んでください', 400)
+    payload = request.get_json(silent=True) or {}
+    try:
+        student_ids, known = _select_students(payload)
+    except ValueError as exc:
+        return make_error_response('LEARNING_INVALID_STUDENTS', str(exc), 400)
+    student_ids = [sid for sid in student_ids if sid in known]
+    if not student_ids:
+        return make_error_response('LEARNING_INVALID_STUDENTS', '対象の生徒がいません', 400)
+    running = [j for j in PdfExportJob.query.filter_by(exam_id=exam.id, teacher_id=_teacher_db_id()).all()
+               if pdf_export.is_running(j.id)]
+    if running:
+        return make_error_response('LEARNING_JOB_RUNNING', 'PDF を作成中です。終わってから実行してください', 409)
+    classes = payload.get('classes') if isinstance(payload.get('classes'), list) else []
+    job = PdfExportJob(teacher_id=_teacher_db_id(), exam_id=exam.id, status='queued',
+                       request=json.dumps({'student_ids': student_ids, 'classes': classes}, ensure_ascii=False),
+                       total=len(student_ids) * 2, done=0, files='[]', errors='[]')
+    db.session.add(job)
+    db.session.commit()
+    pdf_export.start(current_app._get_current_object(), job.id)
+    db.session.expire_all()
+    return make_success_response({'job': pdf_export.job_to_dict(db.session.get(PdfExportJob, job.id))}, 202)
+
+
+@learning_bp.route('/exams/<exam_id>/pdf-exports', methods=['GET'])
+@login_required
+def list_pdf_exports(exam_id):
+    jobs = (PdfExportJob.query.filter_by(exam_id=exam_id, teacher_id=_teacher_db_id())
+            .order_by(PdfExportJob.created_at.desc()).limit(5).all())
+    return make_success_response({'jobs': [pdf_export.job_to_dict(j) for j in jobs]})
+
+
+def _get_pdf_job(job_id):
+    return PdfExportJob.query.filter_by(id=job_id, teacher_id=_teacher_db_id()).first()
+
+
+@learning_bp.route('/pdf-exports/<job_id>', methods=['GET'])
+@login_required
+def get_pdf_export(job_id):
+    job = _get_pdf_job(job_id)
+    if job is None:
+        return make_error_response('LEARNING_JOB_NOT_FOUND', 'Job not found', 404)
+    return make_success_response({'job': pdf_export.job_to_dict(job)})
+
+
+def _attachment(path, filename, mimetype, ascii_name):
+    from urllib.parse import quote
+    response = send_file(path, mimetype=mimetype)
+    response.headers['Content-Disposition'] = (f'attachment; filename="{ascii_name}"; '
+                                               f"filename*=UTF-8''{quote(filename)}")
+    return response
+
+
+@learning_bp.route('/pdf-exports/<job_id>/files/<int:index>', methods=['GET'])
+@login_required
+def download_pdf_file(job_id, index):
+    job = _get_pdf_job(job_id)
+    files = json.loads(job.files or '[]') if job else []
+    if job is None or not 0 <= index < len(files) or not files[index].get('path') \
+            or not os.path.exists(files[index]['path']):
+        return make_error_response('LEARNING_FILE_NOT_FOUND', 'File not found', 404)
+    entry = files[index]
+    ascii_name = f'{entry["student_id"]}_{entry["kind"]}{"_low" if entry.get("insufficient") else ""}.pdf'
+    return _attachment(entry['path'], entry['filename'], 'application/pdf', re.sub(r'[^A-Za-z0-9._-]', '_', ascii_name))
+
+
+@learning_bp.route('/pdf-exports/<job_id>/zip', methods=['GET'])
+@login_required
+def download_pdf_zip(job_id):
+    """書き出した PDF をクラス（選んだ生徒）ごとに1つの ZIP でダウンロードする。?kind=A / B で片方だけにできる。"""
+    job = _get_pdf_job(job_id)
+    if job is None:
+        return make_error_response('LEARNING_JOB_NOT_FOUND', 'Job not found', 404)
+    files = [f for f in json.loads(job.files or '[]') if f.get('path')]
+    kind = request.args.get('kind')
+    if kind in ('A', 'B'):
+        files = [f for f in files if f['kind'] == kind]
+    if not files:
+        return make_error_response('LEARNING_FILE_NOT_FOUND', 'ダウンロードできる PDF がありません', 404)
+    directory = pdf_export.export_dir(current_app.config.get('UPLOAD_FOLDER') or 'uploads', job.exam_id)
+    os.makedirs(directory, exist_ok=True)
+    target = pdf_export.zip_files(files, os.path.join(directory, f'{job.id}{"_" + kind if kind else ""}.zip'))
+    classes = json.loads(job.request or '{}').get('classes') or []
+    label = '・'.join(f'{c.split("-")[0]}年{c.split("-")[1]}組' for c in classes if re.match(r'^\d+-\d+$', c)) or '解答解説'
+    return _attachment(target, f'{label}_解答解説{kind or ""}.zip', 'application/zip',
+                       f'{"_".join(classes) or "students"}_kaisetsu{kind or ""}.zip')

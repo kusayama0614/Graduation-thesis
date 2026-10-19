@@ -69,7 +69,7 @@ _SUPERSCRIPT_RUN = re.compile('[⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+')
 _SUPERSCRIPT_MAP = str.maketrans('⁻⁰¹²³⁴⁵⁶⁷⁸⁹', '-0123456789')
 _CHAR_MAP = str.maketrans({
     '−': '-', '–': '-', '—': '-', '―': '-', '‐': '-',
-    '×': '*', '⋅': '*', '÷': '/',
+    '×': '*', '⋅': '*', '·': '*', '・': '*', '∙': '*', '÷': '/',
     '≦': '<=', '≤': '<=', '≧': '>=', '≥': '>=', '≠': '!=',
     'π': 'pi', '、': ',', '，': ',',
 })
@@ -85,8 +85,27 @@ _LATEX_COMMANDS = [
     (r'\\left|\\right', ''), (r'\\times|\\cdot', '*'), (r'\\div', '/'),
     (r'\\leqq?|\\le\b', '<='), (r'\\geqq?|\\ge\b', '>='), (r'\\neq?\b', '!='),
     (r'\\pi\b', 'pi'), (r'\^\{?\\circ\}?', '°'), (r'\\(sin|cos|tan|log|ln)\b', r'\1'),
-    (r'\\[,;! ]', ' '),
+    (r'\\q?quad\b', ' '), (r'\\[,;:>! ]', ' '),
+    (r'\\pm\b|\\mp\b', '±'),
 ]
+
+# 「b'」「b''」のようなプライム付きの文字（微分ではなく別の文字）。「'」は安全のため受け付けないので，
+# 先に b_p・b_pp という名前に置き換える（表示するときは b' に戻す）
+_PRIME = re.compile(r"([A-Za-z])(['′’]+)")
+_PRIME_NAME = re.compile(r'\b([A-Za-z])_(p+)\b')
+
+
+def _replace_primes(text: str) -> str:
+    return _PRIME.sub(lambda m: f'{m.group(1)}_{"p" * len(m.group(2))}', text)
+
+
+def _restore_primes(text: str) -> str:
+    return _PRIME_NAME.sub(lambda m: m.group(1) + "'" * len(m.group(2)), text)
+
+
+def symbol_name(text: Any) -> str:
+    """解説中の文字の名前（D，b'，m など）を，定義の記録と代入で使う名前にそろえる。"""
+    return _delatex(str(text).strip()).strip()
 
 
 def _unwrap_sympy_eq(text: str) -> str:
@@ -105,13 +124,16 @@ def _unwrap_sympy_eq(text: str) -> str:
 
 def _delatex(text: str) -> str:
     """LLM が返しがちな LaTeX 表記（\\frac{49}{8} など）や Eq(...) を通常の式の表記に直す。"""
-    text = _unwrap_sympy_eq(text)
+    text = _replace_primes(_unwrap_sympy_eq(text))
     if '\\' not in text and '$' not in text:
         return text
     text = text.replace('$', '')
     for _ in range(10):  # 入れ子の \frac / \sqrt を内側から順に置き換える
         replaced = re.sub(r'\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}', r'((\1)/(\2))', text)
-        replaced = re.sub(r'\\sqrt\{([^{}]*)\}', r'sqrt(\1)', replaced)
+        # 前に空白を入れ，直前の \pm・\le などの命令とつながらないようにする（\pm\sqrt6 → \pm sqrt(6)）
+        replaced = re.sub(r'\\sqrt\{([^{}]*)\}', r' sqrt(\1)', replaced)
+        # 中括弧のない \sqrt6・\sqrt 2・\sqrt x（LaTeX と同じく，次の1文字だけが根号の中に入る）
+        replaced = re.sub(r'\\sqrt\s*([0-9A-Za-z])', r' sqrt(\1)', replaced)
         if replaced == text:
             break
         text = replaced
@@ -528,8 +550,8 @@ _IDENTIFIER = re.compile(r'^[A-Za-z][A-Za-z0-9_]*$')
 
 def _format_value(expr: sp.Basic) -> str:
     if expr.has(sp.Float):
-        return str(sp.N(expr, 6))
-    return str(sp.simplify(expr))
+        return _restore_primes(str(sp.N(expr, 6)))
+    return _restore_primes(str(sp.simplify(expr)))
 
 
 _DECIMAL_IN_TEXT = re.compile(r'\d*\.\d+')
@@ -581,8 +603,9 @@ def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None
         left, right = _to_expr(lhs_pre), _to_expr(rhs_pre)
         substitutions = {}
         for name, value in (definitions or {}).items():
-            if _IDENTIFIER.match(name) and _is_safe(str(value)):
-                substitutions[sp.Symbol(name)] = _to_expr(_preprocess(str(value)))
+            name, value_text = symbol_name(name), _delatex(str(value))
+            if _IDENTIFIER.match(name) and _is_safe(value_text):
+                substitutions[sp.Symbol(name)] = _to_expr(_preprocess(value_text))
     except _Unparseable as exc:
         result['detail'] = f'式として解釈できませんでした（{exc}）'
         return result
@@ -592,7 +615,8 @@ def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None
 
     if _IDENTIFIER.match(lhs_pre) and sp.Symbol(lhs_pre) not in substitutions \
             and sp.Symbol(lhs_pre) not in right.free_symbols:
-        return {'status': 'definition', 'true_value': None, 'detail': f'{lhs_pre} の定義として記録しました'}
+        return {'status': 'definition', 'true_value': None,
+                'detail': f'{_restore_primes(lhs_pre)} の定義として記録しました'}
 
     for _ in range(5):  # D = b^2-4ac，a = 2 … のような定義の連鎖を順に代入する
         new_left, new_right = left.subs(substitutions), right.subs(substitutions)
@@ -622,7 +646,7 @@ class _Unverifiable(Exception):
 def _definition_substitutions(definitions: Optional[Dict[str, str]]) -> Dict[sp.Symbol, sp.Basic]:
     substitutions = {}
     for name, value in (definitions or {}).items():
-        value_text = _delatex(str(value))
+        name, value_text = symbol_name(name), _delatex(str(value))
         if _IDENTIFIER.match(name) and _is_safe(value_text):
             substitutions[sp.Symbol(name)] = _to_expr(_preprocess(value_text))
     return substitutions
@@ -677,6 +701,39 @@ def _relation_solution(text: str, definitions: Optional[Dict[str, str]]):
     return var, solution
 
 
+def solved_values(text: Any) -> Optional[Tuple[Optional[str], List[str]]]:
+    """「x = 1-sqrt(6)」「x = 1-√6, 1+√6」のような解いた形なら (文字, [値, ...])，
+    「1+sqrt(6)」のような文字を含まない値だけなら (None, [値])，それ以外は None を返す。
+
+    複数の解を並べた書き方（x = 1-√6, 1+√6）が別々の式として抜き出されたときに，1つの解のリストに
+    まとめ直すために使う（解いた形どうしを変形として比べると，正しい解答が「誤り」になるため）。
+    """
+    raw = _delatex(str(text).strip())
+    if not _is_safe(raw):
+        return None
+    variable: Optional[str] = None
+    values: List[str] = []
+    try:
+        parts = _expand_plus_minus(_split_top_level(_preprocess(raw)))
+        for part in parts:
+            kind, obj = _parse_item(part)
+            if kind == 'rel':
+                if len(obj) != 1 or not isinstance(obj[0], sp.Equality):
+                    return None
+                left, right = obj[0].lhs, obj[0].rhs
+                if not isinstance(left, sp.Symbol) or right.free_symbols or (variable and str(left) != variable):
+                    return None
+                variable = str(left)
+                values.append(part.split('=', 1)[1].strip())
+            elif isinstance(obj, sp.Expr) and not obj.free_symbols:
+                values.append(part.strip())
+            else:
+                return None
+    except Exception:  # 解釈できないものは「解いた形ではない」として扱う
+        return None
+    return (variable, values) if values else None
+
+
 def check_relation_step(previous: Any, current: Any, definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """不等式・方程式の変形「previous → current」が同値か（解集合が一致するか）を検算する。
 
@@ -706,7 +763,7 @@ def _format_solution(var: sp.Symbol, solution) -> str:
     if solution == sp.S.Reals:
         return 'すべての実数'
     if isinstance(solution, sp.FiniteSet):
-        return f'{var} = ' + ', '.join(str(v) for v in sorted(solution, key=lambda v: float(v)))
+        return _restore_primes(f'{var} = ' + ', '.join(str(v) for v in sorted(solution, key=lambda v: float(v))))
     try:
         text = str(solution.as_relational(var))
     except Exception:
@@ -716,4 +773,4 @@ def _format_solution(var: sp.Symbol, solution) -> str:
     text = re.sub(r'\(\(([^()]*)\)\)', r'(\1)', text)
     if re.fullmatch(r'\([^()]*\)', text):
         text = text[1:-1]
-    return text.replace('&', 'かつ').replace('|', 'または').replace('<=', '≦').replace('>=', '≧')
+    return _restore_primes(text.replace('&', 'かつ').replace('|', 'または').replace('<=', '≦').replace('>=', '≧'))

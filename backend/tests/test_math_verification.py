@@ -238,3 +238,69 @@ def test_latex_notation_is_understood():
     assert verdict('√2/4', r'$\dfrac{\sqrt{2}}{4}$')[0] is True
     assert verdict('x<=2', r'x \leq 2')[0] is True
     assert verdict('1/2', r'\sin 30^\circ')[0] is True
+
+
+# ---- 解説の検算（Chain 4）: 複数解の並記・プライム・中黒 ----------------------
+
+from app.learning import explanation as chain  # noqa: E402
+from app.utils.math_verification import check_claim, check_relation_step, solved_values  # noqa: E402
+
+
+def _relations(*items):
+    return {'claims': [], 'final_answer': '',
+            'relations': [{'expr': e, 'text': e, 'transformed_from_previous': t} for e, t in items]}
+
+
+def test_multiple_solutions_written_together_are_one_solution_set():
+    for written in ('x=1-\\sqrt{6}, 1+\\sqrt{6}', 'x=1-\\sqrt{6},\; 1+\\sqrt{6}', 'x=1\\pm\\sqrt{6}', 'x=1\\pm\\sqrt6'):
+        assert check_relation_step('x^2-2*x-5=0', written)['status'] == 'ok', written
+    assert check_relation_step('x^2-2*x-5>=0', 'x\\leqq 1-\\sqrt6,\\quad 1+\\sqrt6\\leqq x')['status'] == 'ok'
+    assert judge_answer('x=1+sqrt(6), 1-sqrt(6)', 'x=1\\pm\\sqrt6')['is_correct']
+
+
+def test_solutions_extracted_separately_are_merged_not_compared_with_each_other():
+    # 「x = 1-√6, 1+√6」が別々の式として抜き出され，2つ目に「変形」の印が付いても誤りにしない
+    result = chain.verify_step(1, _relations(('x^2-2*x-5=0', False), ('x=1-sqrt(6)', True), ('1+sqrt(6)', True)), {})
+    assert result['ok'] and [(r['status'], r['expr']) for r in result['relations']] == [
+        ('condition', 'x^2-2*x-5=0'), ('ok', 'x=1-sqrt(6), 1+sqrt(6)')]
+    result = chain.verify_step(1, _relations(('(m+6)*(m-2)=0', False), ('m=2', True), ('m=-6', False)), {})
+    assert result['ok'] and result['relations'][1]['expr'] == 'm=2, -6'
+
+
+def test_merging_solutions_still_catches_real_errors():
+    result = chain.verify_step(1, _relations(('x^2-2*x-5=0', False), ('x=1-sqrt(6)', True), ('x=1+sqrt(5)', True)), {})
+    assert not result['ok'] and result['relations'][1]['status'] == 'ng'
+    # 不等式はまとめない（x>2 → x>3 は誤り）
+    result = chain.verify_step(1, _relations(('x>2', False), ('x>3', True)), {})
+    assert [r['status'] for r in result['relations']] == ['condition', 'ng']
+
+
+def test_solved_values():
+    assert solved_values('x=1-sqrt(6)') == ('x', ['1-sqrt(6)'])
+    assert solved_values('1+\\sqrt{6}') == (None, ['1+ sqrt(6)'])
+    assert solved_values('x>2') is None and solved_values('x=y+1') is None
+
+
+def test_prime_variables_are_separate_letters():
+    assert check_claim("b'", '-1')['status'] == 'definition'
+    definitions = {"b'": '-1', 'a': '1', 'c': '-5'}
+    assert check_claim("b'^2-ac", '(-1)^2-1\\cdot(-5)', definitions)['status'] == 'ok'
+    wrong = check_claim("b'^2-ac", '7', definitions)
+    assert wrong['status'] == 'ng' and wrong['true_value'] == '6'
+    assert check_claim("b'^2-b''", "b'^2-b''")['status'] == 'ok'  # b' と b'' は別の文字
+    # 解説の中で b' = -1 と定義してから b'^2 - ac を検算できる
+    result = chain.verify_step(1, {'claims': [
+        {'lhs': "b'", 'rhs': '-1', 'lhs_text': "b'", 'rhs_text': '-1'},
+        {'lhs': 'a', 'rhs': '1', 'lhs_text': 'a', 'rhs_text': '1'},
+        {'lhs': 'c', 'rhs': '-5', 'lhs_text': 'c', 'rhs_text': '-5'},
+        {'lhs': "b'^2-a*c", 'rhs': '6', 'lhs_text': "b'^2-ac", 'rhs_text': '6'}], 'relations': [], 'final_answer': ''}, {})
+    assert [c['status'] for c in result['claims']] == ['definition', 'definition', 'definition', 'ok']
+    assert result['claims'][0]['detail'] == "b' の定義として記録しました"
+
+
+def test_middle_dots_and_sqrt_without_braces():
+    for lhs, rhs in [('1\\cdot(-5)', '-5'), ('1·(-5)', '-5'), ('1・(-5)', '-5'), ('4·1·(-m+3)', '-4*m+12'),
+                     ('\\sqrt{(-1)^2-1\\cdot(-5)}', '\\sqrt6'),
+                     ('x^2-2\\cdot 2\\sqrt2\\cdot x+(2\\sqrt2)^2', '(x-2\\sqrt2)^2')]:
+        assert check_claim(lhs, rhs)['status'] == 'ok', (lhs, rhs)
+    assert check_claim('1·(-5)', '5')['status'] == 'ng'

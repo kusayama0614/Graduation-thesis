@@ -25,7 +25,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from app.learning import graph, tex_template
 from app.learning.llm import LLMClient
 from app.learning.profile import confidence_of
-from app.utils.math_verification import _IDENTIFIER, check_claim, check_relation_step, is_math_expression, judge_answer
+from app.utils.math_verification import (
+    _IDENTIFIER, check_claim, check_relation_step, is_math_expression, judge_answer, solved_values, symbol_name,
+)
 
 # ---------------------------------------------------------------- 詳しさの決定規則（Chain 2）
 
@@ -355,6 +357,9 @@ EXTRACTION_RULES = (
     '（移項・両辺を割る・因数分解して解くなど）なら transformed_from_previous を true，新しい条件や別の条件を'
     '書き始めたもの（D > 0 という条件を立てる，別の条件を並べる など）なら false にする。'
     'このステップの最初の式が，前のステップの最後の式を変形したものなら true にする。\n'
+    '- 複数の解をカンマなどで並べたもの（「x = 1-√6, 1+√6」「x ≦ 1-√6，1+√6 ≦ x」）は，別々の relations に分けず，'
+    '「x = 1-sqrt(6), 1+sqrt(6)」のように1つの relation の expr にまとめる。\n'
+    "- b' のようなプライム付きの文字は，そのまま b' と書く。\n"
     '- LaTeX 記法（\\frac，\\sqrt，$ など）は使わず，49/8 や sqrt(3) のように書く。\n'
     '- final_answer には，解説が問題の最終的な答えとして述べている内容を，単位を付けずに書く（無ければ空文字）。'
 )
@@ -412,6 +417,31 @@ def _strip_unit(answer: str) -> str:
     return match.group(1) if match else (answer or '').strip()
 
 
+def merge_solution_lists(relations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """「x = 1-√6, 1+√6」のように並べた複数の解が，別々の relations として抜き出されたものを1つにまとめ直す。
+
+    同じ文字の解いた形（x = 値）が続く場合と，解いた形のすぐ後に値だけ（1+√6）が続く場合は，それぞれの解を
+    独立した解のリストとして扱い，並びの前の式とだけ解集合で比べる。解いた形から別の値の解いた形への変形は
+    正しい解答には現れないので，まとめても誤りを見逃さない（不等式はまとめない）。
+    """
+    merged: List[Dict[str, Any]] = []
+    for relation in relations:
+        solved = solved_values(relation.get('expr', ''))
+        last = merged[-1] if merged else None
+        if solved and last is not None and last.get('_variable') and solved[0] in (None, last['_variable']):
+            last['expr'] = f'{last["expr"]}, ' + ', '.join(solved[1])
+            last['text'] = f'{last.get("text") or ""}, {relation.get("text") or relation.get("expr")}'
+            last['merged_count'] = last.get('merged_count', 1) + 1
+            continue
+        entry = dict(relation)
+        if solved and solved[0]:
+            entry['_variable'] = solved[0]
+        merged.append(entry)
+    for entry in merged:
+        entry.pop('_variable', None)
+    return merged
+
+
 def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, str],
                 correct_answer: Optional[str] = None, previous_relation: Optional[str] = None) -> Dict[str, Any]:
     """抜き出した計算を検算する。definitions はこのステップで定義された文字で更新される。
@@ -423,7 +453,7 @@ def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, 
     definition_index = set()
     local_names = set()  # このステップで定義・更新した文字
     for index, claim in enumerate(extracted['claims']):
-        name = str(claim['lhs']).strip()
+        name = symbol_name(claim['lhs'])  # b' のような文字も，定義と代入で同じ名前（b_p）にする
         if name not in definitions and check_claim(claim['lhs'], claim['rhs'], definitions)['status'] == 'definition':
             definitions[name] = str(claim['rhs']).strip()
             definition_index.add(index)
@@ -432,10 +462,10 @@ def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, 
     # その文字の直前の値と比べ，成り立てば値を更新していく（D = b^2-4ac のように係数が未定義の公式でも連鎖をたどれる）
     results = []
     for index, claim in enumerate(extracted['claims']):
-        name = str(claim['lhs']).strip()
+        name = symbol_name(claim['lhs'])
         if index in definition_index:
             results.append({**claim, 'status': 'definition', 'true_value': None,
-                            'detail': f'{name} の定義として記録しました'})
+                            'detail': f'{claim.get("lhs_text") or claim["lhs"]} の定義として記録しました'})
             continue
         if _IDENTIFIER.match(name) and name in definitions:
             checked = check_claim(definitions[name], claim['rhs'], definitions)
@@ -459,7 +489,7 @@ def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, 
     # 不等式・方程式の変形: 直前の式を変形したものだけ，解集合が一致するかを確かめる
     relation_results = []
     previous = previous_relation
-    for relation in extracted.get('relations', []):
+    for relation in merge_solution_lists(extracted.get('relations', [])):
         entry = {**relation, 'status': 'condition', 'detail': '新しい条件のため比較しません',
                  'previous_expr': None, 'previous_solution': None, 'current_solution': None}
         if relation.get('transformed_from_previous') and previous:

@@ -268,6 +268,18 @@ def _title_for(title_block: str, student_id: Optional[str]) -> str:
     return _SEAT.sub(repl, title_block, count=1)
 
 
+_GYRE_STYLE = re.compile(r'TeX Gyre (\w+) (Bold Italic|Bold|Italic)')
+
+
+def font_compat(preamble: str) -> str:
+    """テンプレートのフォント指定を，Mac の xelatex でも見つかる名前に直す。
+
+    「TeX Gyre Termes Bold Italic」のような書体ごとの名前は，Linux（Overleaf など）では見つかるが，Mac では
+    フォントの内部名（TeXGyreTermes-BoldItalic）でないと見つからない。内部名はどちらでも見つかるので，常に置き換える。
+    """
+    return _GYRE_STYLE.sub(lambda m: f'TeXGyre{m.group(1)}-{m.group(2).replace(" ", "")}', preamble)
+
+
 def build_document(parsed: Dict[str, Any], students: List[Tuple[Optional[str], Dict[str, str]]],
                    label: Optional[str] = None) -> str:
     """生徒ごとの解説（{問題番号: 小問の TeX}）を，テンプレートと同じ体裁の1つの TeX 文書にする。
@@ -290,4 +302,4 @@ def build_document(parsed: Dict[str, Any], students: List[Tuple[Optional[str], D
     # 表題の右の枠（\\kaisetsulabel）。個別化した解説とマスター解説を「解説A」「解説B」のように区別がつかない名前にする
     relabel = (f'\\providecommand{{\\kaisetsulabel}}{{}}\\renewcommand{{\\kaisetsulabel}}{{{label}}}\n'
                if label else '')
-    return parsed['preamble'] + EXTRA_MACROS + relabel + '\\begin{document}' + ''.join(pages) + '\n\\end{document}\n'
+    return font_compat(parsed['preamble']) + EXTRA_MACROS + relabel + '\\begin{document}' + ''.join(pages) + '\n\\end{document}\n'

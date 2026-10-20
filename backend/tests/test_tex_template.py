@@ -231,3 +231,9 @@ def test_broken_latex_is_sent_back_and_rewritten(client):  # noqa: F811
     step1 = trace['steps'][0]
     assert step1['attempt_count'] == 2 and step1['attempts'][0]['latex_errors'] == ['\\begin{align*} が閉じていません']
     assert tex_template.check_latex(content) == []
+
+
+def test_font_names_are_made_findable_on_mac():
+    preamble = '\\setmathsfont(Digits,Latin)[ItalicFont={TeX Gyre Termes Bold Italic}]{TeX Gyre Termes}\\setsansfont{TeX Gyre Heros Bold}'
+    assert tex_template.font_compat(preamble) == (
+        '\\setmathsfont(Digits,Latin)[ItalicFont={TeXGyreTermes-BoldItalic}]{TeX Gyre Termes}\\setsansfont{TeXGyreHeros-Bold}')

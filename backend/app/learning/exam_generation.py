@@ -275,8 +275,8 @@ def _run(app, job_id: str) -> None:
                     job.skipped += len(profiles)
                 else:
                     try:
-                        common = (chain.template_common(problem_input) if problem_input.get('template')
-                                  else chain.generate_common_explanation(llm, problem_input))
+                        common = _with_retry(lambda: chain.template_common(problem_input) if problem_input.get('template')
+                                             else chain.generate_common_explanation(llm, problem_input))
                         _save(job, problem.id, None, common, None, sig)
                         job.generated += 1
                         job.reused += max(0, len(profiles) - 1)
@@ -324,10 +324,11 @@ def _run(app, job_id: str) -> None:
             by_signature.setdefault(row.signature, row)
 
         # 後でまとめて並行に生成するので，この問題の plans と problem_id を引数の既定値で固定する
-        def save_for(student_id, source_row, result, reused, plans=plans, problem_id=problem.id):
+        def save_for(student_id, source_row, result, reused, plans=plans, problem_id=problem.id, fallback=False):
             decisions, sig, snapshot = plans[student_id]
-            own = with_own_decisions(result, decisions)
-            row = _save(job, problem_id, student_id, own, snapshot, sig,
+            own = result if fallback else with_own_decisions(result, decisions)
+            # 代わりに載せた解説には指紋を付けない（次の生成で「作成済み」とみなさず，個別化し直す）
+            row = _save(job, problem_id, student_id, own, snapshot, None if fallback else sig,
                         reused_from=source_row.id if reused and source_row is not None else None)
             return row
 
@@ -361,13 +362,30 @@ def _run(app, job_id: str) -> None:
     _finish(job, errors, paused)
 
 
+def _with_retry(make):
+    """全員共通の解説などを作る。Gemini の時間切れなどで失敗したら，もう1回だけ作り直す（利用上限はそのまま送出）。"""
+    try:
+        return make()
+    except Exception as exc:
+        if QUOTA_PATTERN.search(str(exc)):
+            raise
+        diagnostics.log(f'失敗したので作り直します: {exc.__class__.__name__}: {str(exc)[:200]}')
+        return make()
+
+
+GENERATION_ROUNDS = 2  # 失敗した解説（Gemini の時間切れなど）は，最後にもう1回まとめて作り直す
+
+
 def _generate_tasks(job, tasks: List[Dict[str, Any]], profiles, llm, workers: int,
                     errors: List[Dict[str, Any]]) -> Optional[str]:
-    """使い回せない解説（指紋ごとに1件）を並行に生成して保存する。利用上限に達したら残りを取り消し，その理由を返す。"""
+    """使い回せない解説（指紋ごとに1件）を並行に生成して保存する。利用上限に達したら残りを取り消し，その理由を返す。
+
+    生成に失敗した解説は最後にもう1回作り直す。それでも失敗したら，テンプレートがある問題はマスター解説の手順を
+    そのまま載せ（指紋を付けないので，次の生成で個別化し直す），どの生徒にも解説がない問題を残さない。
+    """
     from app import db
 
     in_flight: Dict[Any, Dict[str, Any]] = {}
-    paused = None
 
     def work(task):
         student_id = task['students'][0]
@@ -385,42 +403,72 @@ def _generate_tasks(job, tasks: List[Dict[str, Any]], profiles, llm, workers: in
             job.current = '，'.join(labels[:4]) + (' ほか' if len(labels) > 4 else '')
         db.session.commit()
 
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {}
-        for task in tasks:
-            future = pool.submit(work, task)
-            futures[future] = task
-        in_flight.update(futures)
-        show_current()
-        for future in as_completed(futures):
-            task = in_flight.pop(future)
-            students, label = task['students'], task['label']
-            if future.cancelled():
-                continue
-            try:
-                result = future.result()
-            except Exception as exc:
-                db.session.rollback()
-                if QUOTA_PATTERN.search(str(exc)):
-                    paused = str(exc)
-                    for other in futures:
-                        other.cancel()
+    def save(task, result, fallback=False):
+        students = task['students']
+        first = task['save_for'](students[0], None, result, False, fallback=fallback)
+        job.generated += 0 if fallback else 1
+        job.done += 1
+        for student_id in students[1:]:
+            task['save_for'](student_id, first, result, True, fallback=fallback)
+            job.reused += 1
+            job.done += 1
+
+    def run_round(round_tasks):
+        """1回分を並行に実行する。戻り値: (失敗した [(task, 例外)], 利用上限の理由 or None)"""
+        failed, paused = [], None
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(work, task): task for task in round_tasks}
+            in_flight.update(futures)
+            show_current()
+            for future in as_completed(futures):
+                task = in_flight.pop(future)
+                if future.cancelled():
                     continue
-                for student_id in students:
-                    errors.append({'problem': label, 'student_id': student_id, 'error': f'{exc.__class__.__name__}: {exc}'})
-                    job.done += 1
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    db.session.rollback()
+                    if QUOTA_PATTERN.search(str(exc)):
+                        paused = str(exc)
+                        for other in futures:
+                            other.cancel()
+                        continue
+                    diagnostics.log(f"{task['label']} {task['students'][0]}: 生成に失敗 {exc.__class__.__name__}: {str(exc)[:200]}")
+                    failed.append((task, exc))
+                    show_current()
+                    continue
+                save(task, result)
                 job.errors = json.dumps(errors, ensure_ascii=False)
                 show_current()
-                continue
-            first = task['save_for'](students[0], None, result, False)
-            job.generated += 1
-            job.done += 1
-            for student_id in students[1:]:
-                task['save_for'](student_id, first, result, True)
-                job.reused += 1
+        return failed, paused
+
+    remaining, paused = list(tasks), None
+    failed: List[Tuple[Dict[str, Any], Exception]] = []
+    for round_number in range(GENERATION_ROUNDS):
+        if round_number:
+            diagnostics.log(f'生成に失敗した {len(remaining)} 件を作り直します')
+            job.message = f'生成に失敗した {len(remaining)} 件を作り直しています'
+            db.session.commit()
+        failed, paused = run_round(remaining)
+        remaining = [task for task, _ in failed]
+        if paused or not remaining:
+            break
+    job.message = None
+    for task, exc in failed:
+        reason = f'{exc.__class__.__name__}: {exc}'
+        if task['input'].get('template'):
+            fallback = chain.template_fallback(task['input'], reason)
+            save(task, fallback, fallback=True)
+            for student_id in task['students']:
+                errors.append({'problem': task['label'], 'student_id': student_id, 'warning': True,
+                               'error': f'個別化できなかったため，マスター解説の手順をそのまま載せました（次の「解説を生成する」で'
+                                        f'個別化し直します）。原因: {reason}'})
+        else:
+            for student_id in task['students']:
+                errors.append({'problem': task['label'], 'student_id': student_id, 'error': reason})
                 job.done += 1
-            job.errors = json.dumps(errors, ensure_ascii=False)
-            show_current()
+    job.errors = json.dumps(errors, ensure_ascii=False)
+    db.session.commit()
     return paused
 
 

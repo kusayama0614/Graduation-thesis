@@ -348,6 +348,8 @@
             const percent = job.total ? Math.round((job.done / job.total) * 100) : 0;
             const active = job.running || job.status === 'queued' || job.status === 'running';
             const errors = job.errors || [];
+            const failures = errors.filter((e) => !e.warning);
+            const fallbacks = errors.filter((e) => e.warning);
             const studentCount = (job.request.student_ids || []).length;
             const statusBadge = { completed: 'ok', paused: 'incomplete', failed: 'ng' }[job.status] || 'unmarked';
             // サーバーの再起動で実行していたスレッドが無くなったジョブ（記録上は「生成中」のまま）
@@ -375,7 +377,9 @@
                 ${(['paused', 'failed'].includes(job.status) || orphaned) && !job.running ? '<div class="button-row"><button class="button" onclick="resumeJob()">続きから生成</button></div>' : ''}
                 ${errors.some((e) => /DEADLINE_EXCEEDED|504|UNAVAILABLE|503/.test(e.error || '')) ? '<div class="notice notice-warn">Gemini の応答が時間内に返らなかった（混雑していた）解説があります。生成が終わったあと，下のボタンで失敗した解説だけを作り直せます（できている解説は作り直しません）。</div>' : ''}
                 ${job.status === 'completed' && errors.length && !job.running && job.request?.mode !== 'polish' ? '<div class="button-row"><button class="button" onclick="resumeJob()">うまくいかなかった解説を作り直す</button></div>' : ''}
-                ${errors.length ? `<details style="margin-top: 8px;"><summary>うまくいかなかったもの ${errors.length} 件</summary><ul class="reasons">${errors.map((e) =>
+                ${failures.length ? `<details style="margin-top: 8px;"><summary>うまくいかなかったもの ${failures.length} 件</summary><ul class="reasons">${failures.map((e) =>
+                    `<li>${L.escapeHtml([e.problem, e.student_id].filter(Boolean).join(' '))}：${L.escapeHtml(e.error)}</li>`).join('')}</ul></details>` : ''}
+                ${fallbacks.length ? `<details style="margin-top: 8px;"><summary>マスター解説の手順で代わりに載せたもの ${fallbacks.length} 件（もう一度「解説を生成する」を押すと個別化し直します）</summary><ul class="reasons">${fallbacks.map((e) =>
                     `<li>${L.escapeHtml([e.problem, e.student_id].filter(Boolean).join(' '))}：${L.escapeHtml(e.error)}</li>`).join('')}</ul></details>` : ''}`;
             stopPolling();
             if (active) {
@@ -507,8 +511,12 @@
             const payload = await L.api('GET', `/learning/exams/${examId()}/booklet?${classQuery()}`);
             const students = payload.students || [];
             const ready = students.filter((s) => s.ready).length;
+            const missingStudents = students.filter((s) => s.missing).length;
             document.getElementById('studentArea').innerHTML = students.length
                 ? `<p class="muted">配布できる生徒 ${ready} / ${students.length} 人（全問の解説があり，要確認のものは確認済み）</p>
+                    ${missingStudents ? `<div class="notice notice-warn">解説のない問題がある生徒が ${missingStudents} 人います（生成が途中で止まったか，失敗した分です）。
+                        下のボタンで，足りない解説だけを作ります（できている解説は作り直しません）。
+                        <div class="button-row"><button class="button" onclick="startGeneration()">足りない解説を作る（このクラス）</button></div></div>` : ''}
                     <div class="table-wrap"><table><thead><tr><th>生徒ID</th><th>状態</th><th></th></tr></thead><tbody>
                     ${students.map((s) => {
                         const pending = s.items.filter((i) => i.explanation_id && !i.ready).length;

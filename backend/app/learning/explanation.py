@@ -857,6 +857,14 @@ def template_master(problem: Dict[str, Any]) -> Dict[str, Any]:
             'warnings': [], 'model_name': 'teacher-template'}
 
 
+def template_fallback(problem: Dict[str, Any], reason: str) -> Dict[str, Any]:
+    """個別化の生成が失敗し続けたときに代わりに載せる解説: テンプレートの手順をそのまま使う（検算済みの教員の解説）。"""
+    result = template_master(problem)
+    result['kind'] = 'individual'
+    result['warnings'] = [f'個別化できなかったため，マスター解説の手順をそのまま載せた（{reason[:200]}）']
+    return result
+
+
 def template_common(problem: Dict[str, Any]) -> Dict[str, Any]:
     """テンプレートに手順のない問題の全員共通の解説: テンプレートの部分をそのまま配る。"""
     decision = {'elements': ['result'], 'weakest_node': None, 'confidence': None, 'evidence_count': None,

@@ -335,3 +335,42 @@ def test_writing_calls_use_light_thinking():
     client = Client()
     assert explanation.generate_writing(client, 's', 'u') == 'ok'
     assert client.kwargs['thinking_level'] == explanation.WRITING_THINKING_LEVEL == 'low'
+
+
+def test_failed_generation_is_retried_then_falls_back_to_the_template(client):  # noqa: F811
+    from tests.test_tex_template import template_writer
+
+    state = {'fail': True, 'writes': 0}
+
+    def flaky_writer(user):
+        state['writes'] += 1
+        if state['fail'] and 'マスター解説のこの手順' in user:  # 個別化の手順だけ失敗させる
+            raise RuntimeError("504 DEADLINE_EXCEEDED. {'error': {'code': 504}}")
+        return template_writer(user)
+
+    llm = FakeLLM(writer=flaky_writer)
+    llm.template_nodes = {1: ['discriminant_setup'], 2: ['double_root']}
+    exam_id = _setup(client, llm)
+    client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': TEMPLATE})
+    res = client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'classes': ['1-1']})
+    job = res.get_json()['job']
+    assert job['status'] == 'completed'
+    fallbacks = [e for e in job['errors'] if e.get('warning')]
+    # 問題 3 はテンプレートのない共通の解説（この偽の LLM では書けない）なので除いて調べる
+    assert fallbacks and not [e for e in job['errors'] if not e.get('warning') and e.get('problem') != '3']
+    # どの生徒にもテンプレートのある問題の解説がある（失敗した分はマスター解説の手順で代わりに載せる）
+    booklet = client.get(f'/api/learning/exams/{exam_id}/booklet?classes=1-1').get_json()['students']
+    assert all(i['explanation_id'] for s in booklet for i in s['items'] if i['number'] != '3')
+    with client.application.app_context():
+        rows = GeneratedExplanation.query.filter_by(kind='individual').all()
+        assert rows and all(r.signature is None for r in rows)  # 代わりの解説は「作成済み」とみなさない
+
+    # Gemini が戻れば，次の生成で個別化し直す
+    state['fail'] = False
+    job = client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'classes': ['1-1']}).get_json()['job']
+    assert job['generated'] >= 1 and not [e for e in job['errors'] if e.get('problem') != '3']
+    with client.application.app_context():
+        latest = {}
+        for row in GeneratedExplanation.query.filter_by(kind='individual').order_by(GeneratedExplanation.created_at).all():
+            latest[(row.problem_id, row.student_id)] = row
+        assert all(r.signature for r in latest.values())

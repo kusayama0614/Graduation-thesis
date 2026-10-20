@@ -91,3 +91,36 @@ def test_inflight_calls_are_listed_while_running():
     class Message:
         usage_metadata = {'input_tokens': 1200, 'output_tokens': 900, 'output_token_details': {'reasoning': 700}}
     assert _usage(Message()) == '入力 1200・出力 900（うち思考 700）トークン'
+
+
+def test_transient_gemini_errors_are_retried_after_waiting():
+    from app.learning.llm import call_with_retry
+
+    waits, attempts = [], []
+
+    def flaky():
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise RuntimeError("503 UNAVAILABLE. {'error': {'message': 'This model is currently experiencing high demand.'}}")
+        return 'ok'
+
+    assert call_with_retry(flaky, 'test', delays=[15, 45, 90], sleep=waits.append) == 'ok'
+    assert waits == [15, 45]
+
+    def quota():
+        raise RuntimeError('429 RESOURCE_EXHAUSTED quota')
+    waits.clear()
+    try:
+        call_with_retry(quota, 'test', delays=[15], sleep=waits.append)
+        raised = False
+    except RuntimeError:
+        raised = True
+    assert raised and waits == []  # 利用上限は待っても通らないので，すぐに一時停止させる
+
+    def always():
+        raise RuntimeError('504 DEADLINE_EXCEEDED')
+    try:
+        call_with_retry(always, 'test', delays=[1, 2], sleep=waits.append)
+    except RuntimeError:
+        pass
+    assert waits == [1, 2]

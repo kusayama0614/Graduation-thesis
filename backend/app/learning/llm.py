@@ -9,11 +9,14 @@ LLM には Gemini（既定 gemini-3.8-flash）を用いる。設定は app/utils
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Protocol
+import os
+import re
+import time
+from typing import Any, Callable, Dict, List, Optional, Protocol
 
 from flask import current_app
 
-from app.utils.diagnostics import timed
+from app.utils.diagnostics import log, timed
 from app.utils.gemini import (
     build_chat_model, embed_for_similarity, gemini_api_key, gemini_embedding_model_name, gemini_model_name,
     message_text,
@@ -36,6 +39,31 @@ class LLMClient(Protocol):
         """自由記述の文章を返す。"""
 
 
+# Gemini 側の一時的な混雑・時間切れ（503 UNAVAILABLE「high demand」，504 DEADLINE_EXCEEDED，500 INTERNAL）。
+# 少し待てば通ることが多いので，間をあけて作り直す（利用上限の 429 は待っても通らないので対象外）
+TRANSIENT_PATTERN = re.compile(r'\b50[034]\b|UNAVAILABLE|DEADLINE_EXCEEDED|high demand|overloaded|INTERNAL', re.IGNORECASE)
+
+
+def transient_retry_delays() -> List[float]:
+    """一時的なエラーのあとに待つ秒数（GEMINI_TRANSIENT_RETRY_DELAYS，既定「15,45,90」）。"""
+    raw = os.getenv('GEMINI_TRANSIENT_RETRY_DELAYS', '15,45,90')
+    return [float(x) for x in raw.split(',') if x.strip()]
+
+
+def call_with_retry(call: Callable[[], Any], what: str, delays: Optional[List[float]] = None,
+                    sleep: Callable[[float], None] = time.sleep) -> Any:
+    """call() を実行し，一時的なエラーなら delays の秒数ずつ待って作り直す。それ以外のエラーはそのまま送出する。"""
+    delays = transient_retry_delays() if delays is None else delays
+    for attempt, delay in enumerate([*delays, None]):
+        try:
+            return call()
+        except Exception as exc:
+            if delay is None or not TRANSIENT_PATTERN.search(str(exc)):
+                raise
+            log(f'{what}: Gemini が混雑しています（{str(exc)[:80]}）。{delay:g} 秒待って作り直します（{attempt + 1}/{len(delays)}）')
+            sleep(delay)
+
+
 class GeminiChatClient:
     """LangChain の ChatGoogleGenerativeAI を用いた実装。
 
@@ -53,15 +81,22 @@ class GeminiChatClient:
     def generate_json(self, *, system, user, schema, schema_name, temperature=0.0, thinking_level=None):
         # Gemini では JSON Schema が response_json_schema として送られ，出力がスキーマに制約される
         structured = self._chat(temperature, thinking_level).with_structured_output(schema, method='json_schema')
-        with timed(f'Gemini {schema_name}', track=True) as info:
-            info['detail'] = f'思考 {thinking_level or "既定"}'
-            return structured.invoke([('system', system), ('human', user)])
+
+        def call():
+            with timed(f'Gemini {schema_name}', track=True) as info:
+                info['detail'] = f'思考 {thinking_level or "既定"}'
+                return structured.invoke([('system', system), ('human', user)])
+        return call_with_retry(call, f'Gemini {schema_name}')
 
     def generate_text(self, *, system, user, temperature=0.3, thinking_level=None):
-        with timed('Gemini 文章', track=True) as info:
-            message = self._chat(temperature, thinking_level).invoke([('system', system), ('human', user)])
-            info['detail'] = f'思考 {thinking_level or "既定"}，' + _usage(message)
-            return message_text(message)
+        chat = self._chat(temperature, thinking_level)
+
+        def call():
+            with timed('Gemini 文章', track=True) as info:
+                message = chat.invoke([('system', system), ('human', user)])
+                info['detail'] = f'思考 {thinking_level or "既定"}，' + _usage(message)
+                return message_text(message)
+        return call_with_retry(call, 'Gemini 文章')
 
     def read_image_json(self, *, system, user, image_bytes, mime_type, schema, schema_name, thinking_level=None):
         """画像（スキャンしたページなど）を読み取り，JSON Schema に従った出力を dict で返す。"""

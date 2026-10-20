@@ -374,3 +374,27 @@ def test_failed_generation_is_retried_then_falls_back_to_the_template(client):  
         for row in GeneratedExplanation.query.filter_by(kind='individual').order_by(GeneratedExplanation.created_at).all():
             latest[(row.problem_id, row.student_id)] = row
         assert all(r.signature for r in latest.values())
+
+
+def test_polish_job_retries_groups_that_failed_once(client):  # noqa: F811
+    llm = PolishingLLM()
+    exam_id = _setup(client, llm)
+    client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': TEMPLATE})
+    client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'classes': ['1-1']})
+    with client.application.app_context():
+        for row in GeneratedExplanation.query.filter_by(kind='individual').all():
+            trace = json.loads(row.trace)
+            trace['steps'][0]['text'] = '判別式を計算します。$D=m^2+4m-12$ となります。'
+            row.trace = json.dumps(trace, ensure_ascii=False)
+        db.session.commit()
+    original = llm.generate_json
+    failures = {'left': 1}
+
+    def flaky(**kwargs):
+        if kwargs['schema_name'] == 'polished_steps' and failures['left']:
+            failures['left'] -= 1
+            raise RuntimeError('503 UNAVAILABLE high demand')
+        return original(**kwargs)
+    llm.generate_json = flaky
+    job = client.post(f'/api/learning/exams/{exam_id}/polish-jobs', json={'classes': ['1-1']}).get_json()['job']
+    assert job['status'] == 'completed' and not job['errors'] and job['done'] == job['total']

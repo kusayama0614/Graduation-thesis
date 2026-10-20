@@ -669,41 +669,54 @@ def _run_polish(job, request: Dict[str, Any], llm, errors: List[Dict[str, Any]])
     job.total = len(groups)
     db.session.commit()
     paused = None
-    for group in groups:
-        problem, source = group['problem'], group['source']
-        label = problem.number or problem.title
-        job.current = f'{label}（{problem.title}）'
-        db.session.commit()
-        try:
-            polished = polish_module.polish(llm, problem_to_chain_input(problem), _row_result(source), group['earlier'])
-        except Exception as exc:
-            db.session.rollback()
-            if QUOTA_PATTERN.search(str(exc)):
-                paused = str(exc)
-                break
-            errors.append({'problem': label, 'student_id': source.student_id, 'error': f'{exc.__class__.__name__}: {exc}'})
-            job.done += 1
-            job.errors = json.dumps(errors, ensure_ascii=False)
+    pending = list(groups)
+    failed: List[Tuple[Dict[str, Any], Exception]] = []
+    for round_number in range(GENERATION_ROUNDS):  # 失敗した解説（Gemini の混雑など）は最後にもう1回整え直す
+        failed = []
+        if round_number:
+            diagnostics.log(f'整えるのに失敗した {len(pending)} 件をもう一度整えます')
+        for group in pending:
+            problem, source = group['problem'], group['source']
+            label = problem.number or problem.title
+            job.current = f'{label}（{problem.title}）'
             db.session.commit()
-            continue
-        result = polished['result']
-        if result is not None:
-            first = None
-            for member in group['members']:
-                own_decisions = [s['decision'] for s in json.loads(member.trace or '{}').get('steps', [])]
-                own = with_own_decisions(result, own_decisions)
-                snapshot = json.loads(member.profile_snapshot) if member.profile_snapshot else None
-                row = _save(job, problem.id, member.student_id, own, snapshot, member.signature,
-                            reused_from=first.id if first is not None else None, reviewed=bool(member.reviewed))
-                first = first or row
-            if polished.get('llm_called'):
-                job.generated += 1
-            else:
-                job.skipped += 1
-            job.reused += len(group['members']) - 1
-        job.done += 1
-        job.errors = json.dumps(errors, ensure_ascii=False)
-        db.session.commit()
+            try:
+                polished = polish_module.polish(llm, problem_to_chain_input(problem), _row_result(source), group['earlier'])
+            except Exception as exc:
+                db.session.rollback()
+                if QUOTA_PATTERN.search(str(exc)):
+                    paused = str(exc)
+                    break
+                failed.append((group, exc))
+                continue
+            result = polished['result']
+            if result is not None:
+                first = None
+                for member in group['members']:
+                    own_decisions = [s['decision'] for s in json.loads(member.trace or '{}').get('steps', [])]
+                    own = with_own_decisions(result, own_decisions)
+                    snapshot = json.loads(member.profile_snapshot) if member.profile_snapshot else None
+                    row = _save(job, problem.id, member.student_id, own, snapshot, member.signature,
+                                reused_from=first.id if first is not None else None, reviewed=bool(member.reviewed))
+                    first = first or row
+                if polished.get('llm_called'):
+                    job.generated += 1
+                else:
+                    job.skipped += 1
+                job.reused += len(group['members']) - 1
+            job.done += 1
+            db.session.commit()
+        pending = [group for group, _ in failed]
+        if paused or not pending:
+            break
+    if not paused:
+        for group, exc in failed:
+            label = group['problem'].number or group['problem'].title
+            errors.append({'problem': label, 'student_id': group['source'].student_id,
+                           'error': f'{exc.__class__.__name__}: {exc}'})
+            job.done += 1
+    job.errors = json.dumps(errors, ensure_ascii=False)
+    db.session.commit()
     _finish(job, errors, paused)
 
 

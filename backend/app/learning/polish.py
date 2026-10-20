@@ -8,7 +8,8 @@
 2. マスター解説や前に書いた注意と同じ趣旨の注意（chui 環境）は，プログラムで削る（LLM は呼ばない）
 3. 敬体（です・ます）・長すぎる注意があるステップだけを，解説1件につき1回の LLM 呼び出しでまとめて直す。
    数式は ⟦式1⟧ のような印に置き換えて渡し，返ってきた文章に元の数式を戻す（LLM が数式を書き換えられない）。
-   直しきれなかったステップがあれば，そのステップだけもう1回呼ぶ（解説1件につき最大2回）
+   直しきれなかったステップがあれば，そのステップだけもう1回呼ぶ（解説1件につき最大2回）。
+   それでも残った敬体は，地の文の語尾を機械的に常体に直す（「外します」→「外す」など）
 4. 直した文章は，数式が1つでも変わっていたら採用しない（検算済みの計算を変えない）。図の印・TeX の形も確かめる
 """
 from __future__ import annotations
@@ -36,6 +37,7 @@ _MATH_MARK = re.compile(r'⟦式(\d+)⟧')
 # 文字が似ていても趣旨が違う注意（「接するとき」と「共有点をもたないとき」）があるので，似ているだけでは削らない
 SIMILAR_CAUTION = 0.5
 SAME_CAUTION = 0.85
+CONTAINED_CAUTION = 0.9
 _FILLER = re.compile(r'注意|必要|忘れ|気をつけ|間違え|誤り|ミス')
 MAX_POLISH_CALLS = 2
 LONG_CAUTION_SENTENCES = 2
@@ -96,8 +98,14 @@ def caution_overlap(a: str, b: str, context: frozenset = frozenset()):
 
 
 def _same(a: str, b: str, context: frozenset = frozenset()) -> bool:
-    """ほぼ同じ文の注意（プログラムで削ってよい）。"""
-    return caution_overlap(a, b, context)[1] >= SAME_CAUTION
+    """同じ内容の注意（プログラムで削ってよい）: ほぼ同じ文か，一方の内容語がもう一方にほぼ全部含まれる。
+
+    例:「両辺に $-1$ をかけると不等号の向きが逆になる」と「両辺に負の数をかけると不等号の向きが逆になる」。
+    「接するとき」と「共有点をもたないとき」のように条件が違うものは，含まれない語があるので削らない。
+    """
+    shorter, longer = caution_overlap(a, b, context)
+    size = min(len(_content_pairs(a, context)), len(_content_pairs(b, context)))
+    return longer >= SAME_CAUTION or (shorter >= CONTAINED_CAUTION and size >= 5)
 
 
 def _similar(a: str, b: str, context: frozenset = frozenset()) -> bool:
@@ -173,6 +181,77 @@ def drop_duplicate_cautions(bodies: List[str], known_cautions: List[str],
             new = re.sub(r'\n{3,}', '\n\n', new).strip()
         result.append(new)
     return result
+
+
+# ---------------------------------------------------------------- 敬体 → 常体（LLM で直しきれなかったときの最後の手段）
+
+_KANJI = re.compile(r'[一-龥々]')
+_HIRA = re.compile(r'[ぁ-ん]')
+_GODAN = {  # い段 → (終止形, 過去形, 否定形の語幹)
+    'し': ('す', 'した', 'さ'), 'き': ('く', 'いた', 'か'), 'ぎ': ('ぐ', 'いだ', 'が'), 'ち': ('つ', 'った', 'た'),
+    'に': ('ぬ', 'んだ', 'な'), 'び': ('ぶ', 'んだ', 'ば'), 'み': ('む', 'んだ', 'ま'), 'り': ('る', 'った', 'ら'),
+    'い': ('う', 'った', 'わ'),
+}
+# い段で終わるのに一段活用の動詞（「用います」→「用いる」）
+_ICHIDAN_I = ('用い', '強い', '起き', '生き', '過ぎ', '落ち', '満ち', '足り', '借り', '降り', '浴び', '延び', '伸び', '帯び', 'でき')
+_SAHEN_BEFORE = 'とにをくうがでもはよ'  # 「〜とします」「〜にします」「よくします」の「し」は「する」
+_SAHEN_KANJI = '接属対関反有適達発課化熱察'  # 漢字1字でもサ変（「接します」→「接する」）
+
+
+def _plain_verb(before: str, ending: str) -> Optional[str]:
+    """「…外し」+「ます」→「…外す」のように，語尾の直前（before）と敬体の語尾から常体を作る。作れなければ None。"""
+    form = {'ます': 0, 'ましょう': 0, 'ました': 1, 'ません': 2}[ending]
+    if not before:
+        return None
+    last, prev, prev2 = before[-1], before[-2:-1], before[-3:-2]
+    if last == 'し':
+        sahen = (not prev or not (_KANJI.match(prev) or _HIRA.match(prev)) or prev in _SAHEN_BEFORE + _SAHEN_KANJI
+                 or (_KANJI.match(prev) and prev2 and not _HIRA.match(prev2)))
+        if sahen:  # 「計算し」「代入し」「⟦式1⟧とし」→ サ変
+            return before[:-1] + ('する', 'した', 'しない')[form]
+    if before.endswith('あり') and form == 2:
+        return before[:-2] + 'ない'
+    if (last in 'みき' or last == 'い') and prev in ('て', 'で'):  # 「〜てみます」「〜ています」「〜てきます」
+        if last == 'き':
+            return before[:-1] + ('くる', 'きた', 'こない')[form]
+        return before + ('る', 'た', 'ない')[form]
+    if _KANJI.match(last) or last in 'えけげせぜてでねべぺめれ' or before.endswith(_ICHIDAN_I) or last == 'じ':
+        return before + ('る', 'た', 'ない')[form]  # 一段（「求め」「見」「用い」「生じ」）
+    if last in _GODAN:
+        dictionary, past, negative = _GODAN[last]
+        if form == 1 and last == 'き' and before.endswith(('行き', 'いき')):
+            past = 'った'
+        return before[:-1] + (dictionary, past, negative + 'ない')[form]
+    return None
+
+
+_PLAIN_FIXED = [
+    (re.compile(r'でしょう'), 'だろう'),
+    (re.compile(r'でした'), 'であった'),
+    (re.compile(r'です(?=[，、,])'), 'であり'),
+    (re.compile(r'です'), 'である'),
+    (re.compile(r'してください'), 'すること'),
+]
+
+
+def to_plain_style(text: str) -> str:
+    """地の文の敬体を常体に機械的に直す（LLM で直しきれなかったときだけ使う。数式は印にしてから渡す）。
+
+    「外します」→「外す」，「計算します」→「計算する」，「求めました」→「求めた」，「なりません」→「ならない」，
+    「注意しましょう」→「注意する」，「範囲です」→「範囲である」。直し方がわからない語尾はそのまま残す。
+    """
+    out, pos = [], 0
+    for match in re.finditer(r'ましょう|ました|ません|ます', text):
+        if match.start() < pos:
+            continue
+        before = text[pos:match.start()]
+        converted = _plain_verb(before, match.group(0))
+        out.append(converted if converted is not None else before + match.group(0))
+        pos = match.end()
+    text = ''.join(out) + text[pos:]
+    for pattern, replacement in _PLAIN_FIXED:
+        text = pattern.sub(replacement, text)
+    return text
 
 
 def mask_math(tex: str):
@@ -291,6 +370,19 @@ def polish(llm, problem: Dict[str, Any], previous: Dict[str, Any],
         newly_checked.update(i for i, found in issues.items() if any(f.startswith(SOFT_MARK) for f in found))
         changed.extend(i for i in _ask(llm, fixed, issues, known, context) if i not in changed)
         # 2回目は，敬体・長い注意などが残ったステップだけ（似ている注意を残したのは LLM の判断として受け入れる）
+        issues = explanation_issues(fixed, known, context, soft=False)
+    if llm is not None:
+        # それでも敬体が残った手順は，地の文の語尾を機械的に常体に直す（数式は印にして触らない）
+        for index, body in enumerate(fixed):
+            if not _POLITE.search(plain_text(body)):
+                continue
+            masked, found = mask_math(body)
+            new = unmask_math(to_plain_style(masked), found)
+            seen = known + [c for b in fixed[:index] for c in cautions(b)]
+            if new is not None and new != body and acceptable(body, fix_text(new), seen, context):
+                fixed[index] = fix_text(new)
+                if index not in changed:
+                    changed.append(index)
         issues = explanation_issues(fixed, known, context, soft=False)
     changed = [i for i in changed if fixed[i] != bodies[i]]
     if not changed and not fixed_typos and not newly_checked:

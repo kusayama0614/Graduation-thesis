@@ -115,8 +115,9 @@ def test_polish_keeps_original_when_math_would_change(client):  # noqa: F811
     client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': TEMPLATE})
     client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'student_ids': ['1-1-1']})
     contents = [c for _, _, c, _ in _rows(client)]
-    # 数式を変えた直しは採用しない（誤字だけはプログラムで直る）。直せなかったステップはもう1回だけ頼む
-    assert any('$D=m^2+4m-12$ となります' in c for c in contents)
+    # 数式を変えた直しは採用しない（誤字だけはプログラムで直る）。直せなかったステップはもう1回だけ頼み，
+    # それでも残った敬体は語尾を機械的に常体にする
+    assert any('$D=m^2+4m-12$ となる' in c for c in contents) and all('ます' not in c for c in contents)
     assert len([k for k, _ in llm.calls if k == 'polished_steps']) == polish.MAX_POLISH_CALLS
     assert all('m^2+4m-13' not in c and 'とつ' not in c for c in contents)
 
@@ -180,6 +181,8 @@ def test_cautions_with_the_same_point_are_duplicates_but_different_points_are_no
     assert polish.drop_duplicate_cautions([body], [master]) == [body]
     issues = polish.style_issues(body, [master])
     assert len(issues) == 1 and issues[0].startswith(polish.SOFT_MARK) and polish.hard_issues(body, [master]) == []
+    contained = body.replace('負の数をかけると', '両辺に負の数をかけると')  # 元の注意の語がすべて含まれる
+    assert polish.drop_duplicate_cautions([contained], [master]) == ['$-2x>4$ の両辺を $-2$ で割って $x<-2$ である。']
     same = body.replace('負の数をかけると', '両辺に $-1$ をかけると')
     assert polish.drop_duplicate_cautions([same], [master]) == ['$-2x>4$ の両辺を $-2$ で割って $x<-2$ である。']
 
@@ -261,3 +264,58 @@ class KeepLLM(CautionJudgeLLM):
         self.users.append(user)
         return {'steps': [{'step': int(n), 'body': b} for n, b in
                           re.findall(r'### 手順(\d+)\n指摘:\n(?:- .*\n)*本文（TeX）:\n(.*?)(?=\n\n### |\Z)', user, re.S)]}
+
+
+def test_mechanical_plain_style_for_leftover_polite_endings():
+    cases = {
+        '絶対値記号をそのまま外します。': '絶対値記号をそのまま外す。',
+        '⟦式1⟧を解きます。解は ⟦式2⟧ です。': '⟦式1⟧を解く。解は ⟦式2⟧ である。',
+        '⟦式3⟧の外側の範囲です。': '⟦式3⟧の外側の範囲である。',
+        '頂点は(1, 1)になります。': '頂点は(1, 1)になる。',
+        '2つの公式を使い分けましょう。符号には注意が必要です。': '2つの公式を使い分ける。符号には注意が必要である。',
+        '判別式を計算します。⟦式1⟧とします。': '判別式を計算する。⟦式1⟧とする。',
+        '解を求めました。解はありません。成り立ちません。': '解を求めた。解はない。成り立たない。',
+        '直線は放物線に接します。グラフを考えてみます。含まれています。': '直線は放物線に接する。グラフを考えてみる。含まれている。',
+    }
+    for polite, plain in cases.items():
+        assert polish.to_plain_style(polite) == plain
+
+
+def test_polish_falls_back_to_mechanical_plain_style_when_llm_leaves_it():
+    from app.learning import tex_template
+    section = tex_template.sections(tex_template.parse(TEMPLATE))['1(1)']
+    bodies = tex_template.step_bodies(section)
+    bodies[0] = '$x^2-2x-5=0$ を解きます。解は $x=1\\pm\\sqrt{6}$ です。'
+    previous = {'format': 'latex', 'content': '', 'steps': [{'text': b, 'attempts': []} for b in bodies]}
+    llm = KeepLLM()  # 何も直さずに返す
+    out = polish.polish(llm, {'template': section, 'problem_text': ''}, previous)
+    assert len(llm.users) == polish.MAX_POLISH_CALLS
+    assert out['result']['steps'][0]['text'] == '$x^2-2x-5=0$ を解く。解は $x=1\\pm\\sqrt{6}$ である。'
+
+
+def test_polish_job_keeps_teacher_edits_but_polishes_approved_only(client):  # noqa: F811
+    llm = PolishingLLM()
+    exam_id = _setup(client, llm)
+    client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': TEMPLATE})
+    client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'classes': ['1-1']})
+    with client.application.app_context():
+        rows = GeneratedExplanation.query.filter_by(kind='individual').all()
+        for index, row in enumerate(rows):
+            trace = json.loads(row.trace)
+            trace['steps'][0]['text'] = '判別式を計算します。$D=m^2+4m-12$ となります。'
+            row.trace = json.dumps(trace, ensure_ascii=False)
+            row.reused_from = None
+            row.reviewed = True  # 確認済みにした
+            if index == 0:  # 本文を直したもの
+                row.original_content, row.content = row.content, row.content + '% 教員の修正'
+        db.session.commit()
+        edited = (rows[0].problem_id, rows[0].student_id)
+    client.post(f'/api/learning/exams/{exam_id}/polish-jobs', json={'classes': ['1-1']})
+    with client.application.app_context():
+        latest = {}
+        for row in GeneratedExplanation.query.filter_by(kind='individual').order_by(GeneratedExplanation.created_at).all():
+            latest[(row.problem_id, row.student_id)] = row
+        assert latest[edited].content.endswith('% 教員の修正')
+        polished = [r for key, r in latest.items() if key != edited and json.loads(r.trace)['steps'][0]['text']
+                    .startswith('判別式を計算')]
+        assert polished and all(r.reviewed and 'ます' not in json.loads(r.trace)['steps'][0]['text'] for r in polished)

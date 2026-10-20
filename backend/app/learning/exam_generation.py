@@ -181,7 +181,7 @@ def _row_result(row) -> Dict[str, Any]:
 
 
 def _save(job, problem_id: str, student_id: Optional[str], result: Dict[str, Any], snapshot, sig: Optional[str],
-          reused_from: Optional[str] = None):
+          reused_from: Optional[str] = None, reviewed: bool = False):
     from app import db
     from app.models import GeneratedExplanation
 
@@ -190,7 +190,7 @@ def _save(job, problem_id: str, student_id: Optional[str], result: Dict[str, Any
         teacher_id=job.teacher_id, problem_id=problem_id, student_id=student_id, kind=result['kind'],
         status=result['status'], content=result['content'], trace=json.dumps(trace, ensure_ascii=False),
         profile_snapshot=json.dumps(snapshot, ensure_ascii=False) if snapshot is not None else None,
-        model_name=result.get('model_name'), signature=sig, reused_from=reused_from,
+        model_name=result.get('model_name'), signature=sig, reused_from=reused_from, reviewed=reviewed,
     )
     db.session.add(row)
     db.session.commit()
@@ -527,7 +527,8 @@ def polish_groups(problems, student_ids: List[str], dry_run: bool = True) -> Lis
     for problem in templated:
         by_root: Dict[str, List[Any]] = {}
         for row in latest_by_problem[problem.id].values():
-            if not row.reviewed:  # 教員が確かめた（直した）解説は変えない
+            # 教員が本文を直した解説は変えない（確認済みにしただけの解説は，計算を変えずに文章だけ整える）
+            if row.original_content is None:
                 by_root.setdefault(row.reused_from or row.id, []).append(row)
         problem_input = problem_to_chain_input(problem)
         for root, members in by_root.items():
@@ -591,7 +592,7 @@ def _run_polish(job, request: Dict[str, Any], llm, errors: List[Dict[str, Any]])
                 own = with_own_decisions(result, own_decisions)
                 snapshot = json.loads(member.profile_snapshot) if member.profile_snapshot else None
                 row = _save(job, problem.id, member.student_id, own, snapshot, member.signature,
-                            reused_from=first.id if first is not None else None)
+                            reused_from=first.id if first is not None else None, reviewed=bool(member.reviewed))
                 first = first or row
             if polished.get('llm_called'):
                 job.generated += 1

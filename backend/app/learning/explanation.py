@@ -311,7 +311,9 @@ def _template_instructions(decision: Dict[str, Any], step: Dict[str, Any]) -> Li
     for caution in decision.get('cautions', []):
         lines.append(f'この生徒は「{caution["label"]}」で誤りの記録が{caution["error_count"]}回ある。本文の最後に '
                      '\\begin{chui} ... \\end{chui} で，その誤りが起きやすい箇所に向けた注意を添える。注意は要点を1つに'
-                     '絞って2文以内にし，下の「マスター解説の注意」や，この解説で既に書いた注意と同じ趣旨なら書かない。')
+                     '絞って2文以内にし，下の「マスター解説の注意」や，この解説で既に書いた注意と同じ内容なら書かない'
+                     '（「両辺に $-1$ をかけると不等号の向きが逆になる」に対する「両辺に負の数をかけると…」のような'
+                     '言い換えも同じ内容とみなし，元からある注意に任せる）。')
     if 'similar_check' in elements:
         lines.append('本文の最後に \\ruidai{...} で，理解を確かめる簡単な類題を1問，答えを付けて示す。')
     lines.append('⟦図1⟧ のような印は図・表の位置を表す。印は消さずに同じ位置に残す。')
@@ -652,14 +654,17 @@ def generate_explanation(llm: LLMClient, problem: Dict[str, Any], node_states: O
         texts.append(text)
         step_traces.append(_step_trace(step, decision, text, attempts, verification))
     result = _result(kind, problem, steps, texts, step_traces, getattr(llm, 'model_name', None))
-    if template and kind == 'individual':
-        # 書き足した部分の文体（敬体）・注意の重複や長さが残っていれば，1回の呼び出しでまとめて整える
-        try:
-            polished = polish.polish(llm, problem, result)
-            if polished['result'] is not None:
-                result = polished['result']
-        except Exception:  # 整えられなくても，検算済みの解説はそのまま使う
-            pass
+    return _polished(llm, problem, result) if template and kind == 'individual' else result
+
+
+def _polished(llm: Optional[LLMClient], problem: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any]:
+    """書き足した部分の文体（敬体）・注意の重複や長さが残っていれば，1回の呼び出しでまとめて整える。"""
+    try:
+        polished = polish.polish(llm, problem, result)
+        if polished['result'] is not None:
+            return polished['result']
+    except Exception:  # 整えられなくても，検算済みの解説はそのまま使う
+        pass
     return result
 
 
@@ -816,8 +821,11 @@ def repair_explanation(llm: Optional[LLMClient], problem: Dict[str, Any], previo
     if dry_run:
         return {'result': None, 'rechecked_ok': rechecked_ok, 'rewrite_steps': rewrite_steps}
     model_name = (getattr(llm, 'model_name', None) if rewrite_steps else None) or previous.get('model_name')
-    return {'result': _result(previous.get('kind', 'individual'), problem, steps, texts, traces, model_name),
-            'rechecked_ok': rechecked_ok, 'rewrite_steps': rewrite_steps}
+    kind = previous.get('kind', 'individual')
+    result = _result(kind, problem, steps, texts, traces, model_name)
+    if rewrite_steps and template and kind == 'individual':  # 書き直した手順も，生成のときと同じように整える
+        result = _polished(llm, problem, result)
+    return {'result': result, 'rechecked_ok': rechecked_ok, 'rewrite_steps': rewrite_steps}
 
 
 def template_master(problem: Dict[str, Any]) -> Dict[str, Any]:

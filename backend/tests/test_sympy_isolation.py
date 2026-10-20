@@ -38,3 +38,37 @@ def test_slow_computation_is_stopped_and_worker_replaced(process_mode, monkeypat
     result = mv.check_claim('2+3', '5')
     assert result['status'] == 'unverifiable' and '時間がかかりすぎた' in result['detail']
     assert mv.judge_answer('x=1', 'x=1')['method'] in ('string_exact', 'string_mismatch')
+
+
+def test_fallback_thread_respects_time_limit():
+    import time
+
+    from app.utils import sympy_isolation
+
+    original = sympy_isolation._functions
+    sympy_isolation._functions = lambda: {'slow': lambda: time.sleep(5)}
+    try:
+        started = time.monotonic()
+        try:
+            sympy_isolation._run_in_thread('slow', [], 0.5)
+            raised = False
+        except sympy_isolation.TimeLimitExceeded:
+            raised = True
+        assert raised and time.monotonic() - started < 2
+    finally:
+        sympy_isolation._functions = original
+
+
+def test_diagnostics_dump_and_quiet_polling():
+    import logging
+
+    from app import _QuietPolling
+    from app.utils import diagnostics
+
+    assert '--- スレッド' in diagnostics.thread_stacks()
+    quiet = _QuietPolling()
+    poll = logging.LogRecord('werkzeug', logging.INFO, '', 0,
+                             '127.0.0.1 - - "GET /api/learning/exam-generation-jobs/c4919f69-f76f HTTP/1.1" 200 -', None, None)
+    other = logging.LogRecord('werkzeug', logging.INFO, '', 0, '127.0.0.1 - - "POST /api/learning/exams/x/pdf-exports HTTP/1.1" 202 -',
+                              None, None)
+    assert not quiet.filter(poll) and quiet.filter(other)

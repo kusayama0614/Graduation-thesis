@@ -322,8 +322,9 @@ def _ask(llm, fixed: List[str], issues: Dict[int, List[str]], known: List[str],
     listed = '\n'.join(f'- {c}' for c in known) or '（なし）'
     user = (f'既に書かれた注意（マスター解説・前の小問）:\n{listed}\n\n'
             f'次の手順の本文を，指摘に従って直してください。step には手順の番号を入れます。\n\n{listing}')
+    from app.learning.explanation import WRITING_THINKING_LEVEL  # 文章を直すだけなので深く考えさせない（応答を速くする）
     out = llm.generate_json(system=POLISH_SYSTEM, user=user, schema=_schema(), schema_name='polished_steps',
-                            temperature=0.0)
+                            temperature=0.0, thinking_level=WRITING_THINKING_LEVEL)
     changed = []
     for item in out.get('steps', []):
         index = int(item.get('step', 0)) - 1

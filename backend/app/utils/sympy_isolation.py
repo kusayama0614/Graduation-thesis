@@ -7,7 +7,8 @@
 
 - 作業プロセスの数は SYMPY_WORKERS（既定 3）。最初の呼び出しのときに起動する（sympy の読み込みに数秒かかる）
 - SYMPY_ISOLATION=off で同じプロセスで直接実行する（テスト用。時間の上限はなくなる）
-- 作業プロセスを起動できないときは，同じプロセスで直接実行する（検算そのものは止めない）
+- 作業プロセスを起動できないときは，作り直してもう1回試し，それでもだめなら同じプロセスの別スレッドで実行する。
+  そのときも上限の時間で待つのをやめる（時間切れの扱い）ので，ジョブが止まり続けることはない
 """
 from __future__ import annotations
 
@@ -20,6 +21,8 @@ import sys
 import threading
 import time
 from typing import Any, Dict, List, Optional
+
+from app.utils import diagnostics
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 STARTUP_TIMEOUT = 120
@@ -171,14 +174,38 @@ def run_isolated(name: str, args: List[Any], limit: Optional[float] = None) -> A
     if os.getenv('SYMPY_ISOLATION', 'process').lower() == 'off' or _IN_WORKER:
         return _functions()[name](*args)
     limit = mv.TIME_LIMIT if limit is None else limit
-    try:
-        return _get_pool().call(name, args, limit)
-    except WorkerUnavailable:
-        global _fallback_warned
-        if not _fallback_warned:
-            _fallback_warned = True
-            print('[sympy_isolation] 作業プロセスを使えないため，同じプロセスで検算します（時間の上限なし）', file=sys.stderr)
-        return _functions()[name](*args)
+    for _ in range(2):  # 作業プロセスが落ちていたら，作り直してもう1回
+        try:
+            return _get_pool().call(name, args, limit)
+        except WorkerUnavailable as exc:
+            diagnostics.log(f'sympy の作業プロセスが使えません（{exc}）。作り直します')
+        except TimeLimitExceeded:
+            diagnostics.log(f'sympy の検算 {name} が {limit:g} 秒で終わらなかったため打ち切りました')
+            raise
+    global _fallback_warned
+    if not _fallback_warned:
+        _fallback_warned = True
+        diagnostics.log('sympy の作業プロセスを使えないため，同じプロセスの別スレッドで検算します（時間の上限は守ります）')
+    return _run_in_thread(name, args, limit)
+
+
+def _run_in_thread(name: str, args: List[Any], limit: float) -> Any:
+    box: Dict[str, Any] = {}
+
+    def target():
+        try:
+            box['result'] = _functions()[name](*args)
+        except BaseException as exc:  # noqa: BLE001  呼び出し元で送出し直す
+            box['error'] = exc
+
+    thread = threading.Thread(target=target, daemon=True, name=f'sympy-{name}')
+    thread.start()
+    thread.join(limit)
+    if thread.is_alive():  # 止められないスレッドは裏に残るが，ジョブは先に進める
+        raise TimeLimitExceeded(f'{limit:g} 秒で計算が終わりませんでした')
+    if 'error' in box:
+        raise box['error']
+    return box['result']
 
 
 _IN_WORKER = False

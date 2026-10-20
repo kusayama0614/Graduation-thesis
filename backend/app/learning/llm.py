@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Protocol
 
 from flask import current_app
 
+from app.utils.diagnostics import timed
 from app.utils.gemini import (
     build_chat_model, embed_for_similarity, gemini_api_key, gemini_embedding_model_name, gemini_model_name,
     message_text,
@@ -52,10 +53,12 @@ class GeminiChatClient:
     def generate_json(self, *, system, user, schema, schema_name, temperature=0.0, thinking_level=None):
         # Gemini では JSON Schema が response_json_schema として送られ，出力がスキーマに制約される
         structured = self._chat(temperature, thinking_level).with_structured_output(schema, method='json_schema')
-        return structured.invoke([('system', system), ('human', user)])
+        with timed(f'Gemini {schema_name}'):
+            return structured.invoke([('system', system), ('human', user)])
 
-    def generate_text(self, *, system, user, temperature=0.3):
-        return message_text(self._chat(temperature).invoke([('system', system), ('human', user)]))
+    def generate_text(self, *, system, user, temperature=0.3, thinking_level=None):
+        with timed('Gemini 文章'):
+            return message_text(self._chat(temperature, thinking_level).invoke([('system', system), ('human', user)]))
 
     def read_image_json(self, *, system, user, image_bytes, mime_type, schema, schema_name, thinking_level=None):
         """画像（スキャンしたページなど）を読み取り，JSON Schema に従った出力を dict で返す。"""

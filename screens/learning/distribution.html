@@ -369,6 +369,8 @@
                 ${orphaned ? '<div class="notice notice-warn">サーバーが再起動されたため，このジョブは途中で止まっています。「続きから生成」を押してください（済んだ解説は作り直しません）。</div>' : ''}
                 ${stalled ? `<div class="notice notice-warn">${stalledMinutes} 分以上進んでいません。Gemini の応答待ちか，時間のかかる検算で止まっている可能性があります。もう数分待っても変わらなければ，サーバーを止めて（Ctrl + C）起動し直し，この画面を再読み込みしてから「続きから生成」を押してください。</div>` : ''}
                 ${(['paused', 'failed'].includes(job.status) || orphaned) && !job.running ? '<div class="button-row"><button class="button" onclick="resumeJob()">続きから生成</button></div>' : ''}
+                ${errors.some((e) => /DEADLINE_EXCEEDED|504|UNAVAILABLE|503/.test(e.error || '')) ? '<div class="notice notice-warn">Gemini の応答が時間内に返らなかった（混雑していた）解説があります。生成が終わったあと，下のボタンで失敗した解説だけを作り直せます（できている解説は作り直しません）。</div>' : ''}
+                ${job.status === 'completed' && errors.length && !job.running && job.request?.mode !== 'polish' ? '<div class="button-row"><button class="button" onclick="resumeJob()">うまくいかなかった解説を作り直す</button></div>' : ''}
                 ${errors.length ? `<details style="margin-top: 8px;"><summary>うまくいかなかったもの ${errors.length} 件</summary><ul class="reasons">${errors.map((e) =>
                     `<li>${L.escapeHtml([e.problem, e.student_id].filter(Boolean).join(' '))}：${L.escapeHtml(e.error)}</li>`).join('')}</ul></details>` : ''}`;
             stopPolling();

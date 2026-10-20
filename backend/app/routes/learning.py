@@ -1051,6 +1051,14 @@ def _get_exam_job(job_id):
     return ExamGenerationJob.query.filter_by(id=job_id, teacher_id=_teacher_db_id()).first()
 
 
+@learning_bp.route('/debug/threads', methods=['GET'])
+@login_required
+def debug_threads():
+    """いま各スレッドがどこで待っているか（ジョブが止まって見えるときに，ブラウザで開いて原因を調べる）。"""
+    from app.utils import diagnostics
+    return current_app.response_class(diagnostics.thread_stacks(), mimetype='text/plain; charset=utf-8')
+
+
 @learning_bp.route('/exam-generation-jobs/<job_id>', methods=['GET'])
 @login_required
 def get_exam_generation_job(job_id):

@@ -319,3 +319,19 @@ def test_polish_job_keeps_teacher_edits_but_polishes_approved_only(client):  # n
         polished = [r for key, r in latest.items() if key != edited and json.loads(r.trace)['steps'][0]['text']
                     .startswith('判別式を計算')]
         assert polished and all(r.reviewed and 'ます' not in json.loads(r.trace)['steps'][0]['text'] for r in polished)
+
+
+def test_writing_calls_use_light_thinking():
+    from app.learning import explanation
+
+    class Client:
+        def __init__(self):
+            self.kwargs = None
+
+        def generate_text(self, *, system, user, temperature=0.3, thinking_level=None):
+            self.kwargs = {'thinking_level': thinking_level}
+            return 'ok'
+
+    client = Client()
+    assert explanation.generate_writing(client, 's', 'u') == 'ok'
+    assert client.kwargs['thinking_level'] == explanation.WRITING_THINKING_LEVEL == 'low'

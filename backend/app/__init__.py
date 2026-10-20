@@ -6,6 +6,7 @@ from flask import Flask, redirect, send_from_directory
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_session import Session
+import logging
 import os
 import re
 import socket
@@ -183,9 +184,22 @@ def _ensure_explanation_columns():
                 conn.execute(text(f'ALTER TABLE generated_explanations ADD COLUMN {column_name} {column_type}'))
 
 
+class _QuietPolling(logging.Filter):
+    """画面が数秒ごとに進み具合を問い合わせる行を端末に出さない（Gemini の時間や検算の打ち切りの記録が埋もれないように）。"""
+
+    _POLL = re.compile(r'"GET /api/learning/(exam-generation-jobs|pdf-exports|jobs)/[0-9a-f-]+ HTTP/[0-9.]+" 200')
+
+    def filter(self, record):
+        return not self._POLL.search(record.getMessage())
+
+
 def create_app():
     """Flask アプリケーションファクトリ"""
     app = Flask(__name__)
+    if os.getenv('QUIET_POLLING', '1') != '0':
+        werkzeug_logger = logging.getLogger('werkzeug')
+        if not any(isinstance(f, _QuietPolling) for f in werkzeug_logger.filters):
+            werkzeug_logger.addFilter(_QuietPolling())
     
     # ==================== 設定 ====================
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-change-in-production')

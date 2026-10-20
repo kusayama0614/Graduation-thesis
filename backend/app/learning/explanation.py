@@ -18,11 +18,25 @@ Chain 2 は各手順の本文を土台に内容だけを個別化する。答・
 from __future__ import annotations
 
 import difflib
+import inspect
 import math
+import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.learning import graph, polish, tex_template
+
+
+# 手順の文章を書く・整える呼び出しの思考の深さ。計算は sympy で確かめるので深く考えさせる必要はなく，
+# 既定（深い思考）のままだと1回の応答に数分かかり，Gemini の時間切れ（504 DEADLINE_EXCEEDED）でジョブが止まって見える
+WRITING_THINKING_LEVEL = os.getenv('GEMINI_WRITING_THINKING_LEVEL', 'low').strip() or None
+
+
+def generate_writing(llm, system: str, user: str) -> str:
+    """文章を書く呼び出し（思考を浅くする。思考の深さを受け付けないクライアントにはそのまま渡す）。"""
+    if WRITING_THINKING_LEVEL and 'thinking_level' in inspect.signature(llm.generate_text).parameters:
+        return llm.generate_text(system=system, user=user, temperature=0.3, thinking_level=WRITING_THINKING_LEVEL)
+    return llm.generate_text(system=system, user=user, temperature=0.3)
 from app.learning.llm import LLMClient
 from app.learning.profile import confidence_of
 from app.utils.math_verification import (
@@ -277,7 +291,7 @@ def write_step(llm: LLMClient, problem: Dict[str, Any], steps: List[Dict[str, An
     )
     if feedback:
         user += f'\n\n前回書いた説明には次の誤りがありました。誤りを直して，このステップを書き直してください。\n{feedback}'
-    return llm.generate_text(system=CHAIN2_SYSTEM, user=user, temperature=0.3).strip()
+    return generate_writing(llm, CHAIN2_SYSTEM, user).strip()
 
 
 TEMPLATE_SYSTEM = (
@@ -338,7 +352,7 @@ def write_template_step(llm: LLMClient, problem: Dict[str, Any], steps: List[Dic
     )
     if feedback:
         user += f'\n\n前回書いた本文には次の誤りがありました。誤りを直して，この手順の本文を書き直してください。\n{feedback}'
-    text = llm.generate_text(system=TEMPLATE_SYSTEM, user=user, temperature=0.3).strip()
+    text = generate_writing(llm, TEMPLATE_SYSTEM, user).strip()
     # 「```latex」などで囲まれて返ってきたときは外し，決まった誤字（下にとつ → 下に凸 など）を直す
     return polish.fix_text(re.sub(r'^```[a-zA-Z]*\n|\n?```$', '', text).strip())
 

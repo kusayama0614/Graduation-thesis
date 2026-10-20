@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from app.learning import explanation as chain
 from app.learning import tex_template
+from app.utils import diagnostics
 
 QUOTA_PATTERN = re.compile(r'RESOURCE_EXHAUSTED|\b429\b|quota', re.IGNORECASE)
 
@@ -155,6 +156,9 @@ def start(app, job_id: str) -> bool:
         try:
             with app.app_context():
                 _run(app, job_id)
+        except Exception as exc:  # 予期しない例外も端末に残す（黙って止まらないように）
+            diagnostics.log(f'ジョブ {job_id} が例外で終了しました: {exc.__class__.__name__}: {exc}')
+            raise
         finally:
             with _lock:
                 _running.discard(job_id)
@@ -162,8 +166,20 @@ def start(app, job_id: str) -> bool:
     if app.config.get('LEARNING_JOBS_INLINE'):
         run()
     else:
-        threading.Thread(target=run, daemon=True).start()
+        threading.Thread(target=run, daemon=True, name=f'job-{job_id[:8]}').start()
+        diagnostics.watch_job(lambda: _progress(app, job_id), lambda: is_running(job_id))
     return True
+
+
+def _progress(app, job_id: str):
+    from app import db
+    from app.models import ExamGenerationJob
+
+    with app.app_context():
+        job = db.session.get(ExamGenerationJob, job_id)
+        result = (job.done, job.current) if job else None
+        db.session.remove()
+        return result
 
 
 def _latest(rows):
@@ -334,8 +350,13 @@ def _run(app, job_id: str) -> None:
         db.session.commit()
 
         def work(student_id):
-            node_states, tendencies = profiles[student_id]
-            return chain.generate_explanation(llm, problem_input, node_states, tendencies)
+            diagnostics.label(f'{label} {student_id}')
+            try:
+                node_states, tendencies = profiles[student_id]
+                with diagnostics.timed('解説の生成（1件）', warn_after=600):
+                    return chain.generate_explanation(llm, problem_input, node_states, tendencies)
+            finally:
+                diagnostics.label(None)
 
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {pool.submit(work, students[0]): students for students in pending.values()}

@@ -90,3 +90,11 @@ def test_pdf_export_reports_compile_errors(client, tmp_path):  # noqa: F811
     job = client.post(f'/api/learning/exams/{exam_id}/pdf-exports', json={'student_ids': ['1-1-1']}).get_json()['job']
     assert job['status'] == 'failed' and 'Undefined control sequence' in job['message']
     assert any('個別化した解説がない問題' in e['error'] for e in job['errors'])
+
+
+def test_tex_error_summary_names_the_missing_font():
+    log = ('This is XeTeX\n! Package fontspec Error: \n(fontspec)                The font "Noto Sans CJK JP Black" cannot be\n'
+           '(fontspec)                found.\n\nFor immediate help type H <return>.\nl.17 \\newfontfamily\\titlelatin{Noto Sans CJK JP Black}\n')
+    summary = pdf_export.tex_error_summary(log)
+    assert 'The font "Noto Sans CJK JP Black" cannot be found.' in summary and 'Mac に入っていません' in summary
+    assert pdf_export.tex_error_summary('! Undefined control sequence.\nl.3 \\foo\n') == '! Undefined control sequence.'

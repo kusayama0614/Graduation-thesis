@@ -89,6 +89,30 @@ def find_engine(configured: Optional[str] = None) -> Optional[str]:
     return next((c for c in candidates if os.path.exists(c)), None)
 
 
+def tex_error_summary(log: str) -> str:
+    """TeX のログから，エラーの行（! で始まる）と，その続きの説明の行（fontspec の「見つからないフォント名」など）を取り出す。"""
+    lines = log.splitlines()
+    parts = []
+    for index, line in enumerate(lines):
+        if not line.startswith('!'):
+            continue
+        message = [line.strip()]
+        for follow in lines[index + 1:index + 6]:
+            text = follow.strip()
+            if not text or text.startswith('See the') or text.startswith('Type') or text.startswith('l.'):
+                break
+            message.append(re.sub(r'^\(\w+\)\s*', '', text))
+        parts.append(' '.join(message))
+        if len(parts) >= 2:
+            break
+    summary = ' / '.join(parts)
+    missing = re.search(r'The font "([^"]+)" cannot be\s*(?:\(\w+\)\s*)?found', log)
+    if missing:
+        summary += (f'（フォント「{missing.group(1)}」が Mac に入っていません。フォントをインストールしてから，'
+                    'もう一度「PDF を作る」を押してください）')
+    return summary
+
+
 def compile_tex(tex: str, engine: str, timeout: int = 180) -> bytes:
     """TeX を一時フォルダでコンパイルして PDF のバイト列を返す。失敗したらログの末尾を添えて PdfError。"""
     with tempfile.TemporaryDirectory(prefix='kaisetsu_') as work:
@@ -111,8 +135,7 @@ def compile_tex(tex: str, engine: str, timeout: int = 180) -> bytes:
             if os.path.exists(log_path):
                 with open(log_path, encoding='utf-8', errors='replace') as f:
                     log = f.read()
-            errors = [line for line in log.splitlines() if line.startswith('!')]
-            detail = ' / '.join(errors[:3]) or log[-600:] or result.stderr.decode('utf-8', 'replace')[-600:]
+            detail = tex_error_summary(log) or log[-600:] or result.stderr.decode('utf-8', 'replace')[-600:]
             raise PdfError(f'TeX のコンパイルに失敗しました: {detail}')
         with open(pdf, 'rb') as f:
             return f.read()

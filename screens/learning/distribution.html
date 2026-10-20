@@ -84,6 +84,13 @@
             <div id="pdfBox" class="hidden" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #eee;">
                 <h3>生徒ごとの PDF（解答解説A・B）</h3>
                 <p class="muted">1人につき「○年○組○番_解答解説A.pdf」（個別化した解説）と「○年○組○番_解答解説B.pdf」（マスター解説）を作ります。表題の枠は「解説A」「解説B」だけで，どちらが個別化したものかは書きません。演習の記録が少なく個別化しているとは言い難い生徒の A は，ファイル名の最後に「※」を付けます。</p>
+                <div class="notice" style="margin-top: 8px;">
+                    <strong>PDF の前に文章を整える</strong>：書き足した部分の敬体（です・ます）を常体（である調）にそろえ，誤字（「下にとつ」→「下に凸」など）と，マスター解説や前の小問と同じ趣旨の注意・長すぎる注意を直します。数式は変えません（変わった直しは採用しません）。
+                    <div class="button-row" style="margin-top: 6px;">
+                        <button class="button button-light" id="polishButton" onclick="startPolish()">文章を整える（選んだクラス）</button>
+                    </div>
+                    <div class="muted" id="polishPlan" style="margin-top: 4px;"></div>
+                </div>
                 <div class="button-row">
                     <button class="button" id="pdfButton" onclick="startPdfExport()">PDF を作る（選んだクラス）</button>
                 </div>
@@ -226,6 +233,9 @@
             link.classList.toggle('hidden', !template);
             document.getElementById('texNote').classList.toggle('hidden', !template);
             document.getElementById('pdfBox').classList.toggle('hidden', !template);
+            if (template) {
+                loadPolishPlan();
+            }
         }
 
         async function refreshExam(exam) {
@@ -350,7 +360,9 @@
                     ${studentCount} 人 × ${(job.request.problem_ids || []).length} 問　開始 ${L.formatDateTime(job.created_at)}
                     ${job.current ? `　／　${L.escapeHtml(job.current)} を生成中` : ''}</div>
                 <div class="progress" style="margin: 10px 0;"><div class="progress-fill" style="width:${percent}%"></div></div>
-                <div>${job.request.mode === 'repair'
+                <div>${job.request.mode === 'polish'
+                    ? `文章を整える：${job.done} / ${job.total} 件（Gemini で整えた ${job.generated}，誤字だけ直した ${job.skipped}，同じ直しを反映した生徒 ${job.reused}）`
+                    : job.request.mode === 'repair'
                     ? `要確認の解説の手直し：${job.done} / ${job.total} 件（再検算だけで解決 ${job.skipped}，ステップを書き直し ${job.generated}，同じ直しを反映した生徒 ${job.reused}）`
                     : `${job.done} / ${job.total} 件（Gemini で生成 ${job.generated}，使い回し ${job.reused}，作成済みで省略 ${job.skipped}）`}</div>
                 ${job.message ? `<div class="notice notice-warn">${L.escapeHtml(job.message)}</div>` : ''}
@@ -380,6 +392,9 @@
                 showJob(payload.job);
                 if (finished) {
                     await Promise.all([loadSummary(), loadStudents()]);
+                    if (currentExam() && currentExam().template) {
+                        loadPolishPlan();
+                    }
                 }
             } catch (error) {
                 pollTimer = setTimeout(pollJob, 6000);
@@ -415,6 +430,35 @@
                         <td class="nowrap"><a class="button button-small" href="explanation.html?id=${encodeURIComponent(r.explanation_id)}&edit=1" target="_blank">確かめる</a></td></tr>`).join('')}
                     </tbody></table></div>`
                 : '<p class="empty">要確認で未確認の解説はありません。</p>';
+        }
+
+        async function loadPolishPlan() {
+            const target = document.getElementById('polishPlan');
+            target.textContent = '整える必要がある解説を数えています…';
+            try {
+                const p = (await L.api('GET', `/learning/exams/${examId()}/polish-plan?${classQuery()}`)).plan;
+                target.textContent = p.groups
+                    ? `整える解説 ${p.explanations} 件（同じ解説の使い回しをまとめて ${p.groups} 件）：誤字だけで Gemini を呼ばずに直るもの ${p.typo_only} 件，文体・注意を直すもの ${p.llm_groups} 件（Gemini ${p.llm_calls} 回）。整えたあとに「PDF を作る」を押し直してください（変わった解説だけ作り直します）。`
+                    : '整える必要がある解説はありません。';
+                document.getElementById('polishButton').disabled = !p.groups;
+            } catch (error) {
+                target.textContent = error.message;
+            }
+        }
+
+        async function startPolish() {
+            const button = document.getElementById('polishButton');
+            button.disabled = true;
+            try {
+                const cls = document.getElementById('classSelect').value;
+                const payload = await L.api('POST', `/learning/exams/${examId()}/polish-jobs`, { classes: cls ? [cls] : undefined });
+                showJob(payload.job);
+                document.getElementById('jobCard').scrollIntoView({ behavior: 'smooth' });
+                L.toast('文章を整え始めました', 'ok');
+            } catch (error) {
+                L.toast(error.message, 'error');
+                button.disabled = false;
+            }
         }
 
         async function loadRepairPlan(count) {

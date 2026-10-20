@@ -1496,3 +1496,60 @@ def start_exam_repair(exam_id):
     exam_generation.start(current_app._get_current_object(), job.id)
     db.session.expire_all()
     return make_success_response({'job': exam_generation.job_to_dict(db.session.get(ExamGenerationJob, job.id))}, 202)
+
+
+# ==================== 文章を整える（文体・誤字・注意の重複） ====================
+
+@learning_bp.route('/exams/<exam_id>/polish-plan', methods=['GET'])
+@login_required
+def exam_polish_plan(exam_id):
+    """整える必要がある解説の数と Gemini の呼び出し回数の目安（LLM は呼ばない）。"""
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    try:
+        student_ids, known = _select_students(request.args)
+    except ValueError as exc:
+        return make_error_response('LEARNING_INVALID_STUDENTS', str(exc), 400)
+    student_ids = [sid for sid in student_ids if sid in known]
+    return make_success_response({'plan': exam_generation.polish_plan(_exam_problems(exam.id), student_ids)})
+
+
+@learning_bp.route('/exams/<exam_id>/polish-jobs', methods=['POST'])
+@login_required
+def start_exam_polish(exam_id):
+    """テンプレートで個別化した解説の文章を整える（敬体→常体，決まった誤字，同じ趣旨の注意の重複，長すぎる注意）。
+
+    数式は変えない（変わった直しは採用しない）。誤字だけならプログラムで直し，それ以外は解説1件につき Gemini を1回呼ぶ。
+    """
+    exam = _get_exam(exam_id)
+    if exam is None:
+        return make_error_response('LEARNING_EXAM_NOT_FOUND', 'Exam not found', 404)
+    payload = request.get_json(silent=True) or {}
+    try:
+        student_ids, known = _select_students(payload)
+    except ValueError as exc:
+        return make_error_response('LEARNING_INVALID_STUDENTS', str(exc), 400)
+    student_ids = [sid for sid in student_ids if sid in known]
+    problems = _exam_problems(exam.id)
+    if not exam_generation.polish_groups(problems, student_ids):
+        return make_error_response('LEARNING_NOTHING_TO_POLISH', '整える必要がある解説はありません', 400)
+    running = [j for j in ExamGenerationJob.query.filter_by(exam_id=exam.id, teacher_id=_teacher_db_id()).all()
+               if exam_generation.is_running(j.id)]
+    if running:
+        return make_error_response('LEARNING_JOB_RUNNING', 'この試験の解説を生成中です。終わってから実行してください', 409)
+    try:
+        get_llm_client(required=True)
+    except LLMUnavailable as exc:
+        return _llm_unavailable(exc)
+    job = ExamGenerationJob(
+        teacher_id=_teacher_db_id(), exam_id=exam.id, status='queued',
+        request=json.dumps({'mode': 'polish', 'student_ids': student_ids, 'problem_ids': [p.id for p in problems]},
+                           ensure_ascii=False),
+        total=0, done=0, errors='[]',
+    )
+    db.session.add(job)
+    db.session.commit()
+    exam_generation.start(current_app._get_current_object(), job.id)
+    db.session.expire_all()
+    return make_success_response({'job': exam_generation.job_to_dict(db.session.get(ExamGenerationJob, job.id))}, 202)

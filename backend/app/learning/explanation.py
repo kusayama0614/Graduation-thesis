@@ -22,7 +22,7 @@ import math
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.learning import graph, tex_template
+from app.learning import graph, polish, tex_template
 from app.learning.llm import LLMClient
 from app.learning.profile import confidence_of
 from app.utils.math_verification import (
@@ -285,6 +285,8 @@ TEMPLATE_SYSTEM = (
     '体裁（TeX の書き方，文体，式の書き方）はマスター解説の手順と同じにし，指示された「含める要素」に従って'
     '内容だけを変えます。出力は手順の本文の TeX だけで，\\tejun などの見出しや答・考え方は書きません。'
     '数式は $...$，\\[...\\]，align* 環境で書き，計算は「左辺 = 右辺」の形にします。'
+    '文はマスター解説と同じ常体（である調）で書き，書き足す部分も「〜です」「〜します」「〜しましょう」などの敬体は使いません。'
+    '数学の用語は正しい漢字で書きます（「下に凸」「上に凸」など。「とつ」と書かない）。'
 )
 
 
@@ -308,8 +310,8 @@ def _template_instructions(decision: Dict[str, Any], step: Dict[str, Any]) -> Li
         lines.append(f'本文の最初に \\fukushu{{...}} で，前提知識（{node_text}）の定義や公式の意味を1〜2文で復習する。')
     for caution in decision.get('cautions', []):
         lines.append(f'この生徒は「{caution["label"]}」で誤りの記録が{caution["error_count"]}回ある。本文の最後に '
-                     '\\begin{chui} ... \\end{chui} で，その誤りが起きやすい箇所に向けた注意を1〜2文で添える'
-                     '（マスター解説の注意と同じ内容は繰り返さない）。')
+                     '\\begin{chui} ... \\end{chui} で，その誤りが起きやすい箇所に向けた注意を添える。注意は要点を1つに'
+                     '絞って2文以内にし，下の「マスター解説の注意」や，この解説で既に書いた注意と同じ趣旨なら書かない。')
     if 'similar_check' in elements:
         lines.append('本文の最後に \\ruidai{...} で，理解を確かめる簡単な類題を1問，答えを付けて示す。')
     lines.append('⟦図1⟧ のような印は図・表の位置を表す。印は消さずに同じ位置に残す。')
@@ -323,8 +325,10 @@ def write_template_step(llm: LLMClient, problem: Dict[str, Any], steps: List[Dic
     outline = '\n'.join(f'手順{s["id"]}: {s["title"]}' for s in steps)
     previous = '\n\n'.join(f'(手順{i}) {t}' for i, t in enumerate(previous_texts, start=1)) or '（なし）'
     instructions = '\n'.join(f'- {line}' for line in _template_instructions(decision, step))
+    master_cautions = '\n'.join(f'- {c}' for c in polish.template_cautions(problem.get('template'))) or '（なし）'
     user = (
         f'問題文:\n{problem["problem_text"]}\n\n手順の全体:\n{outline}\n\n'
+        f'マスター解説の注意（同じ趣旨の注意は書かない）:\n{master_cautions}\n\n'
         f'この生徒向けにここまでに書いた手順:\n{previous}\n\n'
         f'今回書くステップ: {step["id"]}. {step["title"]}\n'
         f'マスター解説のこの手順の本文（TeX。これを土台にする）:\n{body}\n\n'
@@ -333,8 +337,8 @@ def write_template_step(llm: LLMClient, problem: Dict[str, Any], steps: List[Dic
     if feedback:
         user += f'\n\n前回書いた本文には次の誤りがありました。誤りを直して，この手順の本文を書き直してください。\n{feedback}'
     text = llm.generate_text(system=TEMPLATE_SYSTEM, user=user, temperature=0.3).strip()
-    # 「```latex」などで囲まれて返ってきたときは外す
-    return re.sub(r'^```[a-zA-Z]*\n|\n?```$', '', text).strip()
+    # 「```latex」などで囲まれて返ってきたときは外し，決まった誤字（下にとつ → 下に凸 など）を直す
+    return polish.fix_text(re.sub(r'^```[a-zA-Z]*\n|\n?```$', '', text).strip())
 
 
 # ---------------------------------------------------------------- Chain 4: 計算の抜き出しと検算
@@ -636,7 +640,16 @@ def generate_explanation(llm: LLMClient, problem: Dict[str, Any], node_states: O
             llm, problem, steps, index, decision, bodies, texts, definitions, last_relation)
         texts.append(text)
         step_traces.append(_step_trace(step, decision, text, attempts, verification))
-    return _result(kind, problem, steps, texts, step_traces, getattr(llm, 'model_name', None))
+    result = _result(kind, problem, steps, texts, step_traces, getattr(llm, 'model_name', None))
+    if template and kind == 'individual':
+        # 書き足した部分の文体（敬体）・注意の重複や長さが残っていれば，1回の呼び出しでまとめて整える
+        try:
+            polished = polish.polish(llm, problem, result)
+            if polished['result'] is not None:
+                result = polished['result']
+        except Exception:  # 整えられなくても，検算済みの解説はそのまま使う
+            pass
+    return result
 
 
 def _write(llm: LLMClient, problem: Dict[str, Any], steps: List[Dict[str, Any]], index: int, decision: Dict[str, Any],

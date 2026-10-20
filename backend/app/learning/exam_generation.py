@@ -222,6 +222,9 @@ def _run(app, job_id: str) -> None:
     if request.get('mode') == 'repair':
         _run_repair(job, request, llm, errors)
         return
+    if request.get('mode') == 'polish':
+        _run_polish(job, request, llm, errors)
+        return
 
     profiles = {}
     for student_id in request.get('student_ids', []):
@@ -478,6 +481,120 @@ def _run_repair(job, request: Dict[str, Any], llm, errors: List[Dict[str, Any]])
         else:
             job.skipped += 1
         job.reused += len(group['members']) - 1
+        job.done += 1
+        job.errors = json.dumps(errors, ensure_ascii=False)
+        db.session.commit()
+    _finish(job, errors, paused)
+
+
+# ---------------------------------------------------------------- 文章を整える（文体・誤字・注意の重複）
+
+def _earlier_cautions(problem, student_id: Optional[str], latest_by_problem: Dict[str, Dict[str, Any]],
+                      siblings: List[Any]) -> List[str]:
+    """同じ大問の前の小問で，この生徒の解説に書いた注意（テンプレートの注意を含む）。小問をまたぐ重複を見つけるため。"""
+    from app.learning import polish as polish_module
+
+    template = json.loads(problem.template) if problem.template else None
+    daimon = (template or {}).get('daimon')
+    found: List[str] = []
+    for other in siblings:
+        if other.id == problem.id:
+            break
+        other_template = json.loads(other.template) if other.template else None
+        if not other_template or other_template.get('daimon') != daimon:
+            continue
+        found.extend(polish_module.template_cautions(other_template))
+        row = latest_by_problem.get(other.id, {}).get(student_id)
+        if row is not None:
+            found.extend(polish_module.cautions(row.content or ''))
+    return found
+
+
+def polish_groups(problems, student_ids: List[str], dry_run: bool = True) -> List[Dict[str, Any]]:
+    """テンプレートで個別化した最新の解説のうち，整える必要があるもの（使い回しの元ごとに1件）。"""
+    from app.learning import polish as polish_module
+    from app.learning.jobs import problem_to_chain_input
+    from app.models import GeneratedExplanation
+
+    wanted = set(student_ids)
+    templated = sorted([p for p in problems if p.template], key=lambda p: number_key(p.number))
+    latest_by_problem: Dict[str, Dict[str, Any]] = {}
+    for problem in templated:
+        rows = (GeneratedExplanation.query.filter_by(problem_id=problem.id, kind='individual')
+                .order_by(GeneratedExplanation.created_at.asc()).all())
+        latest_by_problem[problem.id] = {r.student_id: r for r in rows if r.student_id in wanted}
+    groups = []
+    for problem in templated:
+        by_root: Dict[str, List[Any]] = {}
+        for row in latest_by_problem[problem.id].values():
+            if not row.reviewed:  # 教員が確かめた（直した）解説は変えない
+                by_root.setdefault(row.reused_from or row.id, []).append(row)
+        problem_input = problem_to_chain_input(problem)
+        for root, members in by_root.items():
+            members.sort(key=lambda r: number_key(r.student_id))
+            source = next((m for m in members if m.id == root), members[0])
+            earlier = _earlier_cautions(problem, source.student_id, latest_by_problem, templated)
+            plan = polish_module.polish(None, problem_input, _row_result(source), earlier, dry_run=True)
+            if plan['needs_llm'] or plan['fixed_typos']:
+                groups.append({'problem': problem, 'source': source, 'members': members, 'earlier': earlier,
+                               'needs_llm': plan['needs_llm']})
+    return groups
+
+
+def polish_plan(problems, student_ids: List[str]) -> Dict[str, Any]:
+    groups = polish_groups(problems, student_ids)
+    llm_groups = sum(1 for g in groups if g['needs_llm'])
+    return {'groups': len(groups), 'explanations': sum(len(g['members']) for g in groups),
+            'llm_groups': llm_groups, 'typo_only': len(groups) - llm_groups, 'llm_calls': llm_groups}
+
+
+def _run_polish(job, request: Dict[str, Any], llm, errors: List[Dict[str, Any]]) -> None:
+    """文章を整える。誤字だけなら LLM を呼ばずに直し，敬体・注意の重複や長さがある解説は1件につき1回だけ呼ぶ。
+
+    counters: generated = LLM で整えた解説，skipped = 誤字だけプログラムで直した解説，reused = 同じ直しを反映した生徒。
+    """
+    from app import db
+    from app.learning import polish as polish_module
+    from app.learning.jobs import problem_to_chain_input
+    from app.models import TestProblem
+
+    problems = [p for p in (db.session.get(TestProblem, pid) for pid in request.get('problem_ids', [])) if p]
+    groups = polish_groups(problems, request.get('student_ids', []))
+    job.total = len(groups)
+    db.session.commit()
+    paused = None
+    for group in groups:
+        problem, source = group['problem'], group['source']
+        label = problem.number or problem.title
+        job.current = f'{label}（{problem.title}）'
+        db.session.commit()
+        try:
+            polished = polish_module.polish(llm, problem_to_chain_input(problem), _row_result(source), group['earlier'])
+        except Exception as exc:
+            db.session.rollback()
+            if QUOTA_PATTERN.search(str(exc)):
+                paused = str(exc)
+                break
+            errors.append({'problem': label, 'student_id': source.student_id, 'error': f'{exc.__class__.__name__}: {exc}'})
+            job.done += 1
+            job.errors = json.dumps(errors, ensure_ascii=False)
+            db.session.commit()
+            continue
+        result = polished['result']
+        if result is not None:
+            first = None
+            for member in group['members']:
+                own_decisions = [s['decision'] for s in json.loads(member.trace or '{}').get('steps', [])]
+                own = with_own_decisions(result, own_decisions)
+                snapshot = json.loads(member.profile_snapshot) if member.profile_snapshot else None
+                row = _save(job, problem.id, member.student_id, own, snapshot, member.signature,
+                            reused_from=first.id if first is not None else None)
+                first = first or row
+            if polished['llm_steps']:
+                job.generated += 1
+            else:
+                job.skipped += 1
+            job.reused += len(group['members']) - 1
         job.done += 1
         job.errors = json.dumps(errors, ensure_ascii=False)
         db.session.commit()

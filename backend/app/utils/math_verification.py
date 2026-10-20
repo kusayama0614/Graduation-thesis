@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import os
 import re
-import threading
 import unicodedata
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
@@ -77,38 +76,10 @@ _CHAR_MAP = str.maketrans({
 })
 
 
-# sympy の計算（解集合・簡約）には時間がかかりすぎるものがある（入れ子の絶対値など）。1回の計算の上限の秒数。
-# 超えたものは判定できなかったものとして扱い，生成や採点のジョブ全体が止まらないようにする
+# sympy の計算（解集合・簡約）には，入れ子の絶対値のように終わらないものがある。検算と採点の入口（check_claim・
+# check_relation_step・judge_answer）は別プロセス（app/utils/sympy_isolation.py）で実行し，1回の上限の秒数を
+# 超えたら，そのプロセスごと止めて「判定できなかった」ものとして扱う（スレッドは外から止められないため）
 TIME_LIMIT = float(os.getenv('SYMPY_TIME_LIMIT', '10'))
-
-
-class _TimeLimit(Exception):
-    pass
-
-
-def _with_time_limit(function, *args, limit: Optional[float] = None):
-    """function(*args) を別スレッドで実行し，limit 秒で終わらなければ _TimeLimit を送出する。
-
-    Python のスレッドは外から止められないため，時間切れの計算は裏で終わるまで続く（結果は使わない）。
-    入れ子の絶対値のように時間のかかる形は，呼び出す前に除いておく。
-    """
-    limit = TIME_LIMIT if limit is None else limit
-    outcome: Dict[str, Any] = {}
-
-    def run():
-        try:
-            outcome['value'] = function(*args)
-        except BaseException as exc:  # noqa: BLE001  呼び出し元で送出し直す
-            outcome['error'] = exc
-
-    worker = threading.Thread(target=run, daemon=True)
-    worker.start()
-    worker.join(limit)
-    if worker.is_alive():
-        raise _TimeLimit(f'{limit:g} 秒で計算が終わりませんでした')
-    if 'error' in outcome:
-        raise outcome['error']
-    return outcome['value']
 
 
 class _Unparseable(Exception):
@@ -559,7 +530,7 @@ def _string_fallback(expected: str, actual: str) -> Dict[str, Any]:
 
 # ---------------------------------------------------------------- 結果の返却 (層4)
 
-def judge_answer(expected: Any, actual: Any) -> Dict[str, Any]:
+def _judge_answer_direct(expected: Any, actual: Any) -> Dict[str, Any]:
     """期待値と生徒の解答を比較する。
 
     戻り値: {'is_correct': bool, 'method': str, 'detail': str}
@@ -570,10 +541,7 @@ def judge_answer(expected: Any, actual: Any) -> Dict[str, Any]:
         return {'is_correct': False, 'method': 'empty', 'detail': '期待値または解答が空です'}
 
     expected_text, actual_text = str(expected), str(actual)
-    try:
-        verdict = _with_time_limit(_judge_math, _delatex(expected_text), _delatex(actual_text))
-    except _TimeLimit:
-        verdict = None  # 時間のかかる式は文字列の一致で判定する
+    verdict = _judge_math(_delatex(expected_text), _delatex(actual_text))
     if verdict is None:
         return _string_fallback(expected_text, actual_text)
     if not verdict['is_correct'] and _normalize_text(expected_text) == _normalize_text(actual_text):
@@ -622,7 +590,7 @@ def is_math_expression(text: Any) -> bool:
         return False
 
 
-def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+def _check_claim_direct(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """解説中の計算の主張「lhs = rhs」を検算する（卒業論文 3.5節，Chain 4）。
 
     definitions: それまでに解説中で定義された文字 {名前: 式}（例: {'D': '64-12*m'}）。代入してから比較する。
@@ -666,12 +634,7 @@ def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None
         result['detail'] = '両辺の文字が異なるため，恒等式として検算できません'
         return result
 
-    try:
-        ok, method, detail = _with_time_limit(_compare_exprs, right, left, _decimal_places(rhs_pre),
-                                              _approximation_tolerance(lhs_pre, rhs_pre))
-    except _TimeLimit as exc:
-        result['detail'] = f'検算に時間がかかりすぎたため判定しませんでした（{exc}）'
-        return result
+    ok, method, detail = _compare_exprs(right, left, _decimal_places(rhs_pre), _approximation_tolerance(lhs_pre, rhs_pre))
     if ok:
         return {'status': 'ok', 'true_value': None, 'detail': detail}
     try:
@@ -748,9 +711,7 @@ def _relation_solution(text: str, definitions: Optional[Dict[str, str]]):
         return solution
 
     try:
-        solution = _with_time_limit(solve_all)
-    except _TimeLimit as exc:
-        raise _Unverifiable(f'解集合を求められない（{exc}）')
+        solution = solve_all()
     except Exception as exc:
         raise _Unverifiable(f'解集合を求められない（{exc.__class__.__name__}）')
     return var, solution
@@ -789,7 +750,7 @@ def solved_values(text: Any) -> Optional[Tuple[Optional[str], List[str]]]:
     return (variable, values) if values else None
 
 
-def check_relation_step(previous: Any, current: Any, definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+def _check_relation_step_direct(previous: Any, current: Any, definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """不等式・方程式の変形「previous → current」が同値か（解集合が一致するか）を検算する。
 
     戻り値 status: ok / ng / unverifiable。ng のときは両方の解集合を返す。
@@ -829,3 +790,43 @@ def _format_solution(var: sp.Symbol, solution) -> str:
     if re.fullmatch(r'\([^()]*\)', text):
         text = text[1:-1]
     return _restore_primes(text.replace('&', 'かつ').replace('|', 'または').replace('<=', '≦').replace('>=', '≧'))
+
+
+# ---------------------------------------------------------------- 入口（別プロセスで時間を区切って実行する）
+
+def _plain(value: Any) -> Any:
+    return value if value is None or isinstance(value, (str, int, float, bool)) else str(value)
+
+
+def judge_answer(expected: Any, actual: Any) -> Dict[str, Any]:
+    """期待値と生徒の解答を比較する（_judge_answer_direct を時間を区切って実行する）。
+
+    戻り値: {'is_correct': bool, 'method': str, 'detail': str}。時間がかかりすぎた式は文字列の一致で判定する。
+    """
+    from app.utils.sympy_isolation import TimeLimitExceeded, run_isolated
+    try:
+        return run_isolated('judge_answer', [_plain(expected), _plain(actual)])
+    except TimeLimitExceeded:
+        return _string_fallback(str(expected), str(actual))
+
+
+def check_claim(lhs: Any, rhs: Any, definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """解説中の計算の主張「lhs = rhs」を検算する（_check_claim_direct を時間を区切って実行する）。"""
+    from app.utils.sympy_isolation import TimeLimitExceeded, run_isolated
+    try:
+        return run_isolated('check_claim', [_plain(lhs), _plain(rhs),
+                                            {str(k): _plain(v) for k, v in (definitions or {}).items()}])
+    except TimeLimitExceeded as exc:
+        return {'status': 'unverifiable', 'true_value': None,
+                'detail': f'検算に時間がかかりすぎたため判定しませんでした（{exc}）'}
+
+
+def check_relation_step(previous: Any, current: Any, definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """不等式・方程式の変形「previous → current」を検算する（_check_relation_step_direct を時間を区切って実行する）。"""
+    from app.utils.sympy_isolation import TimeLimitExceeded, run_isolated
+    try:
+        return run_isolated('check_relation_step', [_plain(previous), _plain(current),
+                                                    {str(k): _plain(v) for k, v in (definitions or {}).items()}])
+    except TimeLimitExceeded as exc:
+        return {'status': 'unverifiable', 'detail': f'解集合を求めるのに時間がかかりすぎたため判定しませんでした（{exc}）',
+                'previous_solution': None, 'current_solution': None}

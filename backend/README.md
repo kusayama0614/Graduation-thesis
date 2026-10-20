@@ -477,6 +477,12 @@ LLM は Gemini で，環境変数 `GEMINI_API_KEY`（必須）と `GEMINI_MODEL`
 - 見積もり（Gemini を呼ばない）: `GET /api/learning/exams/<exam_id>/repair-plan?classes=1-1`
 - 実行: `POST /api/learning/exams/<exam_id>/repair-jobs` `{"classes": ["1-1"]}`（進み具合・一時停止と再開は生成のジョブと同じ）
 
+### 検算が止まらないようにする仕組み
+
+sympy の計算には終わらないもの（入れ子の絶対値の解集合など）があるため，検算・採点（`check_claim`・`check_relation_step`・`judge_answer`）は常駐の作業プロセス（`app/utils/sympy_isolation.py`）で実行し，1回 `SYMPY_TIME_LIMIT` 秒（既定 10）を超えたら作業プロセスごと止めて「検算不能」として先に進みます（作業プロセスは `SYMPY_WORKERS`，既定 3）。Gemini の呼び出しも `GEMINI_TIMEOUT` 秒（既定 180）・再試行 `GEMINI_MAX_RETRIES` 回（既定 2）で打ち切ります。
+
+長いジョブの途中で Mac がスリープするとサーバーも止まります。`caffeinate -i .venv_local/bin/python run.py` のように起動すると，実行中はスリープしません。
+
 ### 生徒ごとの PDF とクラスごとの一括ダウンロード（画面「④」の「5. 配布する」）
 
 テンプレートを読み込んだ試験は，生徒ごとに2つの PDF を作ります。

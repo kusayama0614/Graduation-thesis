@@ -1397,7 +1397,8 @@ def get_pdf_export(job_id):
 
 def _attachment(path, filename, mimetype, ascii_name):
     from urllib.parse import quote
-    response = send_file(path, mimetype=mimetype)
+    # send_file は相対パスをアプリのフォルダ（backend/app）から探すため，保存したときの作業フォルダ基準の絶対パスにする
+    response = send_file(os.path.abspath(path), mimetype=mimetype)
     response.headers['Content-Disposition'] = (f'attachment; filename="{ascii_name}"; '
                                                f"filename*=UTF-8''{quote(filename)}")
     return response
@@ -1429,7 +1430,7 @@ def download_pdf_zip(job_id):
         files = [f for f in files if f['kind'] == kind]
     if not files:
         return make_error_response('LEARNING_FILE_NOT_FOUND', 'ダウンロードできる PDF がありません', 404)
-    directory = pdf_export.export_dir(current_app.config.get('UPLOAD_FOLDER') or 'uploads', job.exam_id)
+    directory = os.path.abspath(pdf_export.export_dir(current_app.config.get('UPLOAD_FOLDER') or 'uploads', job.exam_id))
     os.makedirs(directory, exist_ok=True)
     target = pdf_export.zip_files(files, os.path.join(directory, f'{job.id}{"_" + kind if kind else ""}.zip'))
     classes = json.loads(job.request or '{}').get('classes') or []

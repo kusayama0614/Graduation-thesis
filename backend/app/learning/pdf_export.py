@@ -269,7 +269,7 @@ def _run(app, job_id: str) -> None:
         db.session.commit()
         return
 
-    cache_dir = os.path.join(export_dir(app.config.get('UPLOAD_FOLDER') or 'uploads', job.exam_id), 'cache')
+    cache_dir = os.path.abspath(os.path.join(export_dir(app.config.get('UPLOAD_FOLDER') or 'uploads', job.exam_id), 'cache'))
     files: List[Dict[str, Any]] = []
     errors: List[Dict[str, Any]] = []
     for document in documents:

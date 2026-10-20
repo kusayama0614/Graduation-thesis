@@ -98,3 +98,20 @@ def test_tex_error_summary_names_the_missing_font():
     summary = pdf_export.tex_error_summary(log)
     assert 'The font "Noto Sans CJK JP Black" cannot be found.' in summary and 'Mac に入っていません' in summary
     assert pdf_export.tex_error_summary('! Undefined control sequence.\nl.3 \\foo\n') == '! Undefined control sequence.'
+
+
+def test_downloads_work_with_relative_upload_folder(client, tmp_path, monkeypatch):  # noqa: F811
+    # 既定の UPLOAD_FOLDER=uploads（相対パス）でも，1件ずつ・ZIP のどちらもダウンロードできる
+    monkeypatch.chdir(tmp_path)
+    llm = FakeLLM(writer=template_writer)
+    llm.template_nodes = {1: ['discriminant_setup'], 2: ['double_root']}
+    exam_id = _setup(client, llm)
+    client.application.config.update(PDF_COMPILER=FakeCompiler(), UPLOAD_FOLDER='uploads')
+    client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': TEMPLATE})
+    client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'classes': ['1-1']})
+    job = client.post(f'/api/learning/exams/{exam_id}/pdf-exports', json={'classes': ['1-1']}).get_json()['job']
+    assert client.get(f'/api/learning/pdf-exports/{job["id"]}/files/0').status_code == 200
+    res = client.get(f'/api/learning/pdf-exports/{job["id"]}/zip')
+    assert res.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(res.data)) as archive:
+        assert len(archive.namelist()) == 4

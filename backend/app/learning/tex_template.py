@@ -243,6 +243,16 @@ def check_latex(body: str) -> List[str]:
     return problems
 
 
+# LLM が JSON の中で改行を二重にエスケープすると，本文に「\n」という2文字が残る（TeX では未定義の命令になる）。
+# \newline・\neq・\noindent など英字が続くものは TeX の命令なので残す
+_LITERAL_ESCAPE = re.compile(r'(?<!\\)\\([nt])(?![A-Za-z])')
+
+
+def clean_generated(text: str) -> str:
+    """生成した TeX に残った「\n」「\t」の2文字を，改行・空白に戻す。"""
+    return _LITERAL_ESCAPE.sub(lambda m: '\n' if m.group(1) == 'n' else ' ', text or '')
+
+
 def fingerprint(section: Optional[Dict[str, Any]]) -> Optional[str]:
     if not section:
         return None
@@ -297,7 +307,7 @@ def build_document(parsed: Dict[str, Any], students: List[Tuple[Optional[str], D
         for d in parsed['daimon']:
             parts.append(f'\n%{"=" * 70}\n\\daimon{{{d["number"]}}}{{{d["title"]}}}')
             for sub in d['subs']:
-                parts.append(contents.get(sub['number']) or sub['tex'])
+                parts.append(clean_generated(contents.get(sub['number']) or '') or sub['tex'])
         pages.append(''.join(parts))
     # 表題の右の枠（\\kaisetsulabel）。個別化した解説とマスター解説を「解説A」「解説B」のように区別がつかない名前にする
     relabel = (f'\\providecommand{{\\kaisetsulabel}}{{}}\\renewcommand{{\\kaisetsulabel}}{{{label}}}\n'

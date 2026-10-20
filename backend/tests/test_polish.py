@@ -11,7 +11,8 @@ from tests.test_tex_template import TEMPLATE, _setup
 
 
 def to_plain_style(text):
-    for polite, plain in (('しましょう。', 'しよう。'), ('します。', 'する。'), ('です。', 'である。'), ('なります。', 'なる。')):
+    for polite, plain in (('しましょう。', 'しよう。'), ('ましょう。', 'よう。'), ('します。', 'する。'), ('です。', 'である。'),
+                          ('なります。', 'なる。')):
         text = text.replace(polite, plain)
     return text
 
@@ -117,3 +118,40 @@ def test_polish_keeps_original_when_math_would_change(client):  # noqa: F811
     # 数式を変えた直しは採用しない（誤字だけはプログラムで直る）
     assert any('$D=m^2+4m-12$ となります' in c for c in contents)
     assert all('m^2+4m-13' not in c and 'とつ' not in c for c in contents)
+
+
+def test_literal_backslash_n_is_turned_back_into_a_newline():
+    from app.learning import tex_template
+    text = 'まず計算する。\\nさらに手順2で $x\\neq 0$ とし，\\newline 次へ。\\\\ \\noindent 以上。'
+    cleaned = tex_template.clean_generated(text)
+    assert cleaned == 'まず計算する。\nさらに手順2で $x\\neq 0$ とし，\\newline 次へ。\\\\ \\noindent 以上。'
+    assert polish.fix_text('下にとつ\\nさらに') == '下に凸\nさらに'
+    # PDF の文書を組み立てるときにも直す（既に保存された解説のため）
+    parsed = tex_template.parse(TEMPLATE)
+    section = tex_template.sections(parsed)['1(1)']
+    bodies = tex_template.step_bodies(section)
+    bodies[0] += '\\nさらに手順2へ進む。'
+    document = tex_template.build_document(parsed, [('1-1-1', {'1(1)': tex_template.assemble(section, bodies)})])
+    assert '\\nさらに' not in document and '\nさらに手順2へ進む。' in document
+
+
+def test_polish_job_fixes_stored_literal_newlines_without_llm(client):  # noqa: F811
+    llm = PolishingLLM()
+    exam_id = _setup(client, llm)
+    client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': TEMPLATE})
+    client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'student_ids': ['1-1-1']})
+    with client.application.app_context():
+        for row in GeneratedExplanation.query.filter_by(kind='individual').all():
+            trace = json.loads(row.trace)
+            trace['steps'][0]['text'] = trace['steps'][0]['text'] + '\\nさらに確かめる。'
+            row.trace = json.dumps(trace, ensure_ascii=False)
+        db.session.commit()
+    plan = client.get(f'/api/learning/exams/{exam_id}/polish-plan?student_ids=1-1-1').get_json()['plan']
+    assert plan['typo_only'] >= 1 and plan['llm_calls'] == 0
+    calls = len(llm.calls)
+    job = client.post(f'/api/learning/exams/{exam_id}/polish-jobs', json={'student_ids': ['1-1-1']}).get_json()['job']
+    assert job['status'] == 'completed' and job['skipped'] >= 1 and len(llm.calls) == calls
+    with client.application.app_context():
+        row = (GeneratedExplanation.query.filter_by(kind='individual')
+               .order_by(GeneratedExplanation.created_at.desc()).first())
+        assert '\\nさらに' not in row.content and '\nさらに確かめる。' in row.content

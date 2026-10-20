@@ -32,6 +32,7 @@ LONG_CAUTION_CHARS = 150
 
 
 def fix_text(text: str) -> str:
+    text = tex_template.clean_generated(text)
     for pattern, replacement in TEXT_FIXES:
         text = pattern.sub(replacement, text)
     return text

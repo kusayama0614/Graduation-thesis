@@ -314,3 +314,33 @@ def test_nested_absolute_values_are_not_solved():
     result = check_relation_step('abs(abs(x^2-2*x)-1)<1/2', 'x>0')
     assert result['status'] == 'unverifiable' and '入れ子' in result['detail'] and _time.time() - start < 2
     assert check_relation_step('abs(x^2-2*x)=1/2', 'x=1+sqrt(6)/2, 1-sqrt(6)/2, 1+sqrt(2)/2, 1-sqrt(2)/2')['status'] == 'ok'
+
+
+def test_inequality_answer_after_auxiliary_equation_is_compared_with_the_inequality():
+    # x^2-4x+1 ≧ 0 → （途中の方程式）x^2-4x+1=0 → x=2±√3 → x ≦ 2-√3，2+√3 ≦ x（答えが2つの式に分かれて抜き出された）
+    items = (('x^2-4*x+1>=0', False), ('x^2-4*x+1=0', False), ('x=2+sqrt(3)', True), ('x=2-sqrt(3)', True),
+             ('x<=2-sqrt(3)', True), ('2+sqrt(3)<=x', False))
+    result = chain.verify_step(1, _relations(*items), {})
+    assert result['ok'], result['feedback']
+    assert [(r['status'], r['previous_expr']) for r in result['relations'][-2:]] == [
+        ('ok', 'x^2-4*x+1>=0'), ('ok', 'x^2-4*x+1>=0')]
+    # 等号の有無を誤った答えは，どの式とも一致しないので誤り
+    wrong = list(items)
+    wrong[4] = ('x<2-sqrt(3)', True)
+    assert not chain.verify_step(1, _relations(*wrong), {})['ok']
+
+
+def test_case_wise_redefinition_is_not_an_error():
+    claims = [{'lhs': 'y', 'rhs': 'x^2-2*x', 'lhs_text': 'y', 'rhs_text': 'x^2-2x'},
+              {'lhs': 'y', 'rhs': '-(x^2-2*x)', 'lhs_text': 'y', 'rhs_text': '-(x^2-2x)'}]
+    result = chain.verify_step(2, {'claims': claims, 'relations': [], 'final_answer': ''}, {})
+    assert result['ok'] and result['claims'][1]['status'] == 'definition' and '場合分け' in result['claims'][1]['detail']
+    # 場合を表す条件があるステップでは，符号違い以外の場合ごとの式も受け付ける
+    claims[1]['rhs'] = '2*x+1'
+    result = chain.verify_step(2, {'claims': claims, 'final_answer': '',
+                                   'relations': [{'expr': '0<x<2', 'text': '0<x<2', 'transformed_from_previous': False}]}, {})
+    assert result['ok']
+    # 場合分けでない値の連鎖の誤りは今までどおり誤り
+    claims = [{'lhs': 'D', 'rhs': '49-8*m', 'lhs_text': 'D', 'rhs_text': ''},
+              {'lhs': 'D', 'rhs': '50-8*m', 'lhs_text': 'D', 'rhs_text': ''}]
+    assert not chain.verify_step(3, {'claims': claims, 'relations': [], 'final_answer': ''}, {})['ok']

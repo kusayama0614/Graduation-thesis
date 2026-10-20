@@ -26,7 +26,8 @@ from app.learning import graph, tex_template
 from app.learning.llm import LLMClient
 from app.learning.profile import confidence_of
 from app.utils.math_verification import (
-    _IDENTIFIER, check_claim, check_relation_step, is_math_expression, judge_answer, solved_values, symbol_name,
+    _IDENTIFIER, check_claim, check_relation_step, is_math_expression, judge_answer, solved_piece_variable, solved_values,
+    symbol_name,
 )
 
 # ---------------------------------------------------------------- 詳しさの決定規則（Chain 2）
@@ -349,6 +350,8 @@ EXTRACTION_RULES = (
     '- lhs・rhs は sympy で解釈できる表記にする（掛け算 *，累乗 ^，平方根 sqrt()，角度は sin(30°) のように°を付ける，'
     '変数は半角英字。θ は t に置き換える）。lhs_text・rhs_text には解説中の元の表記を入れる。\n'
     '- 文字を定義する式（D = b^2 - 4ac など）もそのまま含める。不等式は claims に含めない。\n'
+    '- 場合分けで同じ文字を場合ごとに別の式で表したもの（x ≦ 0, 2 ≦ x のとき y = x^2-2x，0 < x < 2 のとき y = -(x^2-2x)）は，'
+    'どちらも claims に入れてよい（それぞれの場合の式として扱う）。\n'
     '- 文字は，解説中で文字として書かれている記号（D，m，x など）だけを使う。「塔全体の高さ」のように言葉で書かれた量に'
     '自分で文字を割り当ててはいけない。その場合は数値の計算だけを抜き出す'
     '（例:「塔全体の高さ = 14.004 + 1.5 = 15.504」→ lhs「14.004 + 1.5」，rhs「15.504」）。\n'
@@ -357,6 +360,8 @@ EXTRACTION_RULES = (
     '（移項・両辺を割る・因数分解して解くなど）なら transformed_from_previous を true，新しい条件や別の条件を'
     '書き始めたもの（D > 0 という条件を立てる，別の条件を並べる など）なら false にする。'
     'このステップの最初の式が，前のステップの最後の式を変形したものなら true にする。\n'
+    '- 2次不等式を解くときの途中の方程式（「x^2-4x+1=0 の解は x=2±√3」）の後に書いた不等式の答えは，'
+    '元の不等式を変形したものとして transformed_from_previous を true にする。\n'
     '- 複数の解をカンマなどで並べたもの（「x = 1-√6, 1+√6」「x ≦ 1-√6，1+√6 ≦ x」）は，別々の relations に分けず，'
     '「x = 1-sqrt(6), 1+sqrt(6)」のように1つの relation の expr にまとめる。\n'
     "- b' のようなプライム付きの文字は，そのまま b' と書く。\n"
@@ -442,6 +447,47 @@ def merge_solution_lists(relations: List[Dict[str, Any]]) -> List[Dict[str, Any]
     return merged
 
 
+def compare_with_earlier(history: List[str], relations: List[Dict[str, Any]], index: int,
+                         definitions: Dict[str, str]):
+    """変形して得た式（relations[index]）を，それより前の式と解集合で比べる。戻り値: (結果, 使った式の数, 比べた式)。
+
+    - 直前の式だけでなく，それより前の式とも比べる。2次不等式を解くときの「x^2-4x+1=0 の解 x=2±√3」のような
+      途中の方程式の後に「x ≦ 2-√3」と書いても，元の不等式から変形したものとして確かめられる
+    - 「x ≦ 2-√3，2+√3 ≦ x」のように並べた答えが分かれて抜き出されたときは，続く解の一部（文字1つと定数だけの
+      関係式）を順に合わせた和集合で比べる
+    どれとも一致しなければ，直前の式と比べた結果（誤り・検算不能）を返す。
+    """
+    current = relations[index]
+    variable = solved_piece_variable(current['expr'])
+    count = 1
+    if variable:
+        while index + count < len(relations) and solved_piece_variable(relations[index + count]['expr']) == variable:
+            count += 1
+    first = None
+    for used in range(1, count + 1):
+        combined = ', '.join(r['expr'] for r in relations[index:index + used])
+        for target in reversed(history):
+            checked = check_relation_step(target, combined, definitions)
+            if first is None:
+                first = (checked, 1, target)
+            if checked['status'] == 'ok':
+                return checked, used, target
+    return first
+
+
+def _is_case_redefinition(old_value: str, new_value: str, extracted: Dict[str, Any],
+                          definitions: Dict[str, str]) -> bool:
+    """同じ文字の2回目の式が，場合分けの別の場合の式か。
+
+    新しい式が古い式の符号を変えたもの（絶対値を外したとき）か，このステップに場合を表す不等式の条件
+    （0 < x < 2 など）があり，新しい式も文字を含む式であるとき，場合ごとの式とみなす。
+    """
+    if check_claim(f'-({old_value})', new_value, definitions)['status'] == 'ok':
+        return True
+    has_cases = any(re.search(r'[<>≦≧]|\\[lg]eq?', str(r.get('expr', ''))) for r in extracted.get('relations', []))
+    return has_cases and bool(re.search(r'[A-Za-z]', str(new_value).replace('sqrt', '')))
+
+
 def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, str],
                 correct_answer: Optional[str] = None, previous_relation: Optional[str] = None) -> Dict[str, Any]:
     """抜き出した計算を検算する。definitions はこのステップで定義された文字で更新される。
@@ -469,7 +515,13 @@ def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, 
             continue
         if _IDENTIFIER.match(name) and name in definitions:
             checked = check_claim(definitions[name], claim['rhs'], definitions)
-            if checked['status'] == 'ng' and name not in local_names:
+            if checked['status'] == 'ng' and _is_case_redefinition(definitions[name], claim['rhs'], extracted, definitions):
+                # 場合分けで，同じ文字（y など）を場合ごとに別の式で表したもの（y = x^2-2x，0<x<2 では y = -(x^2-2x)）
+                checked = {'status': 'definition', 'true_value': None,
+                           'detail': f'場合分けの別の場合の {claim.get("lhs_text") or name} の式として記録しました'}
+                definitions[name] = str(claim['rhs']).strip()
+                local_names.add(name)
+            elif checked['status'] == 'ng' and name not in local_names:
                 # 前のステップの文字が別の量として使われている可能性があるため，誤りと断定しない
                 checked = {'status': 'unverifiable', 'true_value': None,
                            'detail': f'前のステップの {name} と値が異なるため，別の量として使われている可能性があり検算しませんでした'}
@@ -486,16 +538,30 @@ def verify_step(step_id: int, extracted: Dict[str, Any], definitions: Dict[str, 
         for r in results if r['status'] == 'ng'
     ]
 
-    # 不等式・方程式の変形: 直前の式を変形したものだけ，解集合が一致するかを確かめる
+    # 不等式・方程式の変形: 変形して得た式だけ，それより前の式と解集合が一致するかを確かめる
     relation_results = []
     previous = previous_relation
-    for relation in merge_solution_lists(extracted.get('relations', [])):
+    history = [previous_relation] if previous_relation else []  # このステップでそれまでに書かれた式
+    relations = merge_solution_lists(extracted.get('relations', []))
+    index = 0
+    while index < len(relations):
+        relation = relations[index]
         entry = {**relation, 'status': 'condition', 'detail': '新しい条件のため比較しません',
                  'previous_expr': None, 'previous_solution': None, 'current_solution': None}
-        if relation.get('transformed_from_previous') and previous:
-            entry.update(check_relation_step(previous, relation['expr'], definitions), previous_expr=previous)
+        used = 1
+        if relation.get('transformed_from_previous') and history:
+            checked, used, target = compare_with_earlier(history, relations, index, definitions)
+            entry.update(checked, previous_expr=target)
         relation_results.append(entry)
-        previous = relation['expr']
+        for extra in relations[index + 1:index + used]:  # 合わせて比べた残りの部分（x ≦ 2-√3，2+√3 ≦ x の後半など）
+            relation_results.append({**extra, 'status': entry['status'], 'previous_expr': entry['previous_expr'],
+                                     'previous_solution': entry.get('previous_solution'),
+                                     'current_solution': entry.get('current_solution'),
+                                     'detail': '直前の式と合わせて1つの答えとして比べました'})
+        combined = ', '.join(r['expr'] for r in relations[index:index + used])
+        history.append(combined)
+        previous = combined
+        index += used
     for r in relation_results:
         if r['status'] == 'ng':
             feedback_lines.append(

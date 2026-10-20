@@ -717,6 +717,34 @@ def _relation_solution(text: str, definitions: Optional[Dict[str, str]]):
     return var, solution
 
 
+def solved_piece_variable(text: Any) -> Optional[str]:
+    """「x ≦ 2-√3」「2+√3 ≦ x」「0 < x < 2」「x = 1」のように，文字1つと定数だけの関係式（解の一部）なら
+    その文字の名前を返す。「x ≦ 2-√3，2+√3 ≦ x」のように並べた答えが分かれて抜き出されたとき，合わせて比べるために使う。
+    """
+    raw = _delatex(str(text).strip())
+    if not _is_safe(raw):
+        return None
+    variable: Optional[str] = None
+    try:
+        for part in _expand_plus_minus(_split_top_level(_preprocess(raw))):
+            kind, obj = _parse_item(part)
+            if kind != 'rel':
+                return None
+            for relation in obj:
+                if not isinstance(relation, sp.core.relational.Relational):
+                    return None
+                symbols = relation.free_symbols
+                left, right = relation.lhs, relation.rhs
+                lone = left if isinstance(left, sp.Symbol) and not right.free_symbols else \
+                    right if isinstance(right, sp.Symbol) and not left.free_symbols else None
+                if lone is None or len(symbols) != 1 or (variable and str(lone) != variable):
+                    return None
+                variable = str(lone)
+    except Exception:  # 解釈できないものは「解の一部ではない」として扱う
+        return None
+    return variable
+
+
 def solved_values(text: Any) -> Optional[Tuple[Optional[str], List[str]]]:
     """「x = 1-sqrt(6)」「x = 1-√6, 1+√6」のような解いた形なら (文字, [値, ...])，
     「1+sqrt(6)」のような文字を含まない値だけなら (None, [値])，それ以外は None を返す。

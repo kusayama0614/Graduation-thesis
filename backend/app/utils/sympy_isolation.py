@@ -231,4 +231,7 @@ def _serve() -> None:
 
 
 if __name__ == '__main__':
-    _serve()
+    try:
+        _serve()
+    except KeyboardInterrupt:  # サーバーを Ctrl + C で止めたときに，作業プロセスの Traceback を出さない
+        pass

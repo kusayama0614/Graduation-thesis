@@ -367,3 +367,25 @@ def test_repair_common_explanation_by_recheck(client):  # noqa: F811
     with client.application.app_context():
         latest = GeneratedExplanation.query.filter_by(kind='common').order_by(GeneratedExplanation.created_at.desc()).first()
         assert latest.status == 'ok' and latest.content == original
+
+
+def test_generation_runs_across_problems_and_saves_each_to_its_own_problem(client):  # noqa: F811
+    llm = FakeLLM(writer=correct_writer)
+    exam_id = _setup(client, llm)
+    with client.application.app_context():
+        teacher = _teacher_db_id(client)
+        steps = [{'id': i + 1, **s} for i, s in enumerate(STEPS)]
+        db.session.add(TestProblem(teacher_id=teacher, exam_id=exam_id, number='2(2)', unit='quadratic_functions',
+                                   title='重解（再掲）', problem_text=PROBLEM_TEXT, correct_answer='-1, 3',
+                                   steps=json.dumps(steps, ensure_ascii=False), chain1_status='done'))
+        db.session.commit()
+    both = [_pid(client, exam_id, '2(1)'), _pid(client, exam_id, '2(2)')]
+    job = _job(client, exam_id, classes=['1-1'], problem_ids=both)
+    assert job['status'] == 'completed' and (job['generated'], job['reused'], job['done']) == (4, 2, 6)
+    with client.application.app_context():
+        for problem_id in both:
+            rows = GeneratedExplanation.query.filter_by(problem_id=problem_id, kind='individual').all()
+            assert sorted(r.student_id for r in rows) == ['1-1-1', '1-1-10', '1-1-2']
+    # 指紋がそれぞれの問題のものとして保存されていれば，もう一度実行しても全て省略される
+    job = _job(client, exam_id, classes=['1-1'], problem_ids=both)
+    assert (job['generated'], job['reused'], job['skipped']) == (0, 0, 6)

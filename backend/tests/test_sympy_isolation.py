@@ -72,3 +72,22 @@ def test_diagnostics_dump_and_quiet_polling():
     other = logging.LogRecord('werkzeug', logging.INFO, '', 0, '127.0.0.1 - - "POST /api/learning/exams/x/pdf-exports HTTP/1.1" 202 -',
                               None, None)
     assert not quiet.filter(poll) and quiet.filter(other)
+
+
+def test_inflight_calls_are_listed_while_running():
+    from app.learning.llm import _usage
+    from app.utils import diagnostics
+
+    diagnostics.label('3(2) 1-8-6')
+    try:
+        with diagnostics.timed('Gemini 文章', track=True) as info:
+            listed = diagnostics.inflight()
+            info['detail'] = 'x'
+    finally:
+        diagnostics.label(None)
+    assert listed and listed[0]['label'] == '3(2) 1-8-6' and listed[0]['what'] == 'Gemini 文章'
+    assert diagnostics.inflight() == []
+
+    class Message:
+        usage_metadata = {'input_tokens': 1200, 'output_tokens': 900, 'output_token_details': {'reasoning': 700}}
+    assert _usage(Message()) == '入力 1200・出力 900（うち思考 700）トークン'

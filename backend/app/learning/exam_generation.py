@@ -251,6 +251,7 @@ def _run(app, job_id: str) -> None:
             profiles[student_id] = student_states(profile)
 
     paused = None
+    tasks: List[Dict[str, Any]] = []
     for problem_id in request.get('problem_ids', []):
         if paused:
             break
@@ -322,10 +323,11 @@ def _run(app, job_id: str) -> None:
                                                      GeneratedExplanation.reused_from.is_(None)).all():
             by_signature.setdefault(row.signature, row)
 
-        def save_for(student_id, source_row, result, reused):
+        # 後でまとめて並行に生成するので，この問題の plans と problem_id を引数の既定値で固定する
+        def save_for(student_id, source_row, result, reused, plans=plans, problem_id=problem.id):
             decisions, sig, snapshot = plans[student_id]
             own = with_own_decisions(result, decisions)
-            row = _save(job, problem.id, student_id, own, snapshot, sig,
+            row = _save(job, problem_id, student_id, own, snapshot, sig,
                         reused_from=source_row.id if reused and source_row is not None else None)
             return row
 
@@ -349,46 +351,77 @@ def _run(app, job_id: str) -> None:
                 pending.setdefault(f'{sig}:{student_id}', []).append(student_id)
         db.session.commit()
 
-        def work(student_id):
-            diagnostics.label(f'{label} {student_id}')
-            try:
-                node_states, tendencies = profiles[student_id]
-                with diagnostics.timed('解説の生成（1件）', warn_after=600):
-                    return chain.generate_explanation(llm, problem_input, node_states, tendencies)
-            finally:
-                diagnostics.label(None)
+        for students in pending.values():
+            tasks.append({'problem': problem, 'label': label, 'input': problem_input, 'students': students,
+                          'save_for': save_for})
 
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = {pool.submit(work, students[0]): students for students in pending.values()}
-            for future in as_completed(futures):
-                students = futures[future]
-                if future.cancelled():
+    # 生成が必要な解説を，問題をまたいで並行に作る（1問に生成が1〜2件しかなくても，同時に動ける数を使い切る）
+    if tasks and not paused:
+        paused = _generate_tasks(job, tasks, profiles, llm, workers, errors)
+    _finish(job, errors, paused)
+
+
+def _generate_tasks(job, tasks: List[Dict[str, Any]], profiles, llm, workers: int,
+                    errors: List[Dict[str, Any]]) -> Optional[str]:
+    """使い回せない解説（指紋ごとに1件）を並行に生成して保存する。利用上限に達したら残りを取り消し，その理由を返す。"""
+    from app import db
+
+    in_flight: Dict[Any, Dict[str, Any]] = {}
+    paused = None
+
+    def work(task):
+        student_id = task['students'][0]
+        diagnostics.label(f"{task['label']} {student_id}")
+        try:
+            node_states, tendencies = profiles[student_id]
+            with diagnostics.timed('解説の生成（1件）', warn_after=600):
+                return chain.generate_explanation(llm, task['input'], node_states, tendencies)
+        finally:
+            diagnostics.label(None)
+
+    def show_current():
+        labels = sorted({t['label'] for t in in_flight.values()}, key=number_key)
+        if labels:
+            job.current = '，'.join(labels[:4]) + (' ほか' if len(labels) > 4 else '')
+        db.session.commit()
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {}
+        for task in tasks:
+            future = pool.submit(work, task)
+            futures[future] = task
+        in_flight.update(futures)
+        show_current()
+        for future in as_completed(futures):
+            task = in_flight.pop(future)
+            students, label = task['students'], task['label']
+            if future.cancelled():
+                continue
+            try:
+                result = future.result()
+            except Exception as exc:
+                db.session.rollback()
+                if QUOTA_PATTERN.search(str(exc)):
+                    paused = str(exc)
+                    for other in futures:
+                        other.cancel()
                     continue
-                try:
-                    result = future.result()
-                except Exception as exc:
-                    db.session.rollback()
-                    if QUOTA_PATTERN.search(str(exc)):
-                        paused = str(exc)
-                        for other in futures:
-                            other.cancel()
-                        continue
-                    for student_id in students:
-                        errors.append({'problem': label, 'student_id': student_id, 'error': f'{exc.__class__.__name__}: {exc}'})
-                        job.done += 1
-                    db.session.commit()
-                    continue
-                first = save_for(students[0], None, result, reused=False)
-                job.generated += 1
-                job.done += 1
-                for student_id in students[1:]:
-                    save_for(student_id, first, result, reused=True)
-                    job.reused += 1
+                for student_id in students:
+                    errors.append({'problem': label, 'student_id': student_id, 'error': f'{exc.__class__.__name__}: {exc}'})
                     job.done += 1
                 job.errors = json.dumps(errors, ensure_ascii=False)
-                db.session.commit()
-
-    _finish(job, errors, paused)
+                show_current()
+                continue
+            first = task['save_for'](students[0], None, result, False)
+            job.generated += 1
+            job.done += 1
+            for student_id in students[1:]:
+                task['save_for'](student_id, first, result, True)
+                job.reused += 1
+                job.done += 1
+            job.errors = json.dumps(errors, ensure_ascii=False)
+            show_current()
+    return paused
 
 
 # ---------------------------------------------------------------- 要確認の解説だけを直す
@@ -647,6 +680,7 @@ def job_to_dict(job) -> Dict[str, Any]:
         'request': json.loads(job.request or '{}'), 'total': job.total or 0, 'done': job.done or 0,
         'generated': job.generated or 0, 'reused': job.reused or 0, 'skipped': job.skipped or 0,
         'current': job.current, 'message': job.message, 'errors': json.loads(job.errors or '[]'),
+        'inflight': diagnostics.inflight() if is_running(job.id) else [],
         'created_at': job.created_at.isoformat() if job.created_at else None,
         'updated_at': job.updated_at.isoformat() if job.updated_at else None,
     }

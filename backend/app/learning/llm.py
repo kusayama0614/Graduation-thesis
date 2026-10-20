@@ -53,12 +53,15 @@ class GeminiChatClient:
     def generate_json(self, *, system, user, schema, schema_name, temperature=0.0, thinking_level=None):
         # Gemini では JSON Schema が response_json_schema として送られ，出力がスキーマに制約される
         structured = self._chat(temperature, thinking_level).with_structured_output(schema, method='json_schema')
-        with timed(f'Gemini {schema_name}'):
+        with timed(f'Gemini {schema_name}', track=True) as info:
+            info['detail'] = f'思考 {thinking_level or "既定"}'
             return structured.invoke([('system', system), ('human', user)])
 
     def generate_text(self, *, system, user, temperature=0.3, thinking_level=None):
-        with timed('Gemini 文章'):
-            return message_text(self._chat(temperature, thinking_level).invoke([('system', system), ('human', user)]))
+        with timed('Gemini 文章', track=True) as info:
+            message = self._chat(temperature, thinking_level).invoke([('system', system), ('human', user)])
+            info['detail'] = f'思考 {thinking_level or "既定"}，' + _usage(message)
+            return message_text(message)
 
     def read_image_json(self, *, system, user, image_bytes, mime_type, schema, schema_name, thinking_level=None):
         """画像（スキャンしたページなど）を読み取り，JSON Schema に従った出力を dict で返す。"""
@@ -76,6 +79,14 @@ class GeminiChatClient:
             content.append({'type': 'image_url', 'image_url': {'url': data_url}})
         structured = self._chat(0.0, thinking_level).with_structured_output(schema, method='json_schema')
         return structured.invoke([SystemMessage(content=system), HumanMessage(content=content)])
+
+
+def _usage(message) -> str:
+    """応答のトークン数（入力・出力・うち思考）。遅い原因が思考の長さか，出力の長さかを見分けるため。"""
+    usage = getattr(message, 'usage_metadata', None) or {}
+    details = usage.get('output_token_details') or {}
+    return (f"入力 {usage.get('input_tokens', '?')}・出力 {usage.get('output_tokens', '?')}"
+            f"（うち思考 {details.get('reasoning', 0)}）トークン")
 
 
 def get_llm_client(required: bool = False) -> Optional[LLMClient]:

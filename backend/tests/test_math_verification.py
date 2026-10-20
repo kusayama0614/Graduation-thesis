@@ -252,7 +252,7 @@ def _relations(*items):
 
 
 def test_multiple_solutions_written_together_are_one_solution_set():
-    for written in ('x=1-\\sqrt{6}, 1+\\sqrt{6}', 'x=1-\\sqrt{6},\; 1+\\sqrt{6}', 'x=1\\pm\\sqrt{6}', 'x=1\\pm\\sqrt6'):
+    for written in ('x=1-\\sqrt{6}, 1+\\sqrt{6}', 'x=1-\\sqrt{6},\\; 1+\\sqrt{6}', 'x=1\\pm\\sqrt{6}', 'x=1\\pm\\sqrt6'):
         assert check_relation_step('x^2-2*x-5=0', written)['status'] == 'ok', written
     assert check_relation_step('x^2-2*x-5>=0', 'x\\leqq 1-\\sqrt6,\\quad 1+\\sqrt6\\leqq x')['status'] == 'ok'
     assert judge_answer('x=1+sqrt(6), 1-sqrt(6)', 'x=1\\pm\\sqrt6')['is_correct']
@@ -355,3 +355,13 @@ def test_common_range_and_union_of_earlier_conditions():
     # (i) と (ii) を合わせる → 2/3≦m<2。端点を誤れば誤り
     assert chain.verify_step(4, _relations(('2/3<=m<=4/3', False), ('4/3<m<2', False), ('2/3<=m<2', True)), {})['ok']
     assert not chain.verify_step(4, _relations(('2/3<=m<=4/3', False), ('4/3<m<2', False), ('2/3<m<2', True)), {})['ok']
+
+
+def test_plus_minus_solution_is_not_recorded_as_a_definition():
+    # Python 3.12 以降の sympy では「1±sqrt(6)」が 6*q*r*s*t*± と読まれ，x の定義として後の式に代入されていた
+    assert check_claim('x', '1\\pm\\sqrt6')['status'] == 'unverifiable'
+    claims = [{'lhs': 'x', 'rhs': '1\\pm\\sqrt6', 'lhs_text': 'x', 'rhs_text': ''}]
+    result = chain.verify_step(2, {'claims': claims, 'final_answer': '', 'relations': [
+        {'expr': 'x^2-2x-5\\geqq 0', 'text': '', 'transformed_from_previous': False},
+        {'expr': 'x\\leqq 1-\\sqrt6,\\quad 1+\\sqrt6\\leqq x', 'text': '', 'transformed_from_previous': True}]}, {})
+    assert result['ok'] and result['relations'][1]['status'] == 'ok'

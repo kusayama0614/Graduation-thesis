@@ -237,7 +237,12 @@ def _to_expr(part: str) -> sp.Basic:
         raise _Unparseable(f'解釈失敗: {exc.__class__.__name__}')
 
 
+_SYMBOL_NAME = re.compile(r'^[A-Za-z][A-Za-z0-9_]*$')
+
+
 def _to_expr_inner(part: str) -> sp.Basic:
+    if '±' in part:  # ± は _expand_plus_minus で2つの式に分けてから解釈する（1つの式としては解釈しない）
+        raise _Unparseable('± を含む（2つの値）')
     try:
         unevaluated = parse_expr(
             part, local_dict={}, global_dict=dict(_ALLOWED_NAMES),
@@ -259,6 +264,10 @@ def _to_expr_inner(part: str) -> sp.Basic:
         result = sp.Tuple(*result)
     if not isinstance(result, sp.Basic):
         raise _Unparseable('式ではない')
+    # Python 3.12 以降では，記号（± など）が文字として読まれ，sqrt が s*q*r*t に分かれることがある。
+    # 英字で始まる名前以外の文字が出てきたら，正しく読めていないものとして扱う
+    if any(not _SYMBOL_NAME.match(str(symbol)) for symbol in result.free_symbols):
+        raise _Unparseable('式として読めない記号を含む')
     return result
 
 

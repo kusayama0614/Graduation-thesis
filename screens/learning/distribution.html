@@ -438,7 +438,7 @@
             try {
                 const p = (await L.api('GET', `/learning/exams/${examId()}/polish-plan?${classQuery()}`)).plan;
                 target.textContent = p.groups
-                    ? `整える解説 ${p.explanations} 件（同じ解説の使い回しをまとめて ${p.groups} 件）：誤字だけで Gemini を呼ばずに直るもの ${p.typo_only} 件，文体・注意を直すもの ${p.llm_groups} 件（Gemini ${p.llm_calls} 回）。整えたあとに「PDF を作る」を押し直してください（変わった解説だけ作り直します）。`
+                    ? `整える解説 ${p.explanations} 件（同じ解説の使い回しをまとめて ${p.groups} 件）：誤字・重複した注意だけで Gemini を呼ばずに直るもの ${p.typo_only} 件，文体・長い注意を直すもの ${p.llm_groups} 件（Gemini ${p.llm_calls}〜${p.llm_calls_max ?? p.llm_calls} 回）。整えたあとに「PDF を作る」を押し直してください（変わった解説だけ作り直します）。`
                     : '整える必要がある解説はありません。';
                 document.getElementById('polishButton').disabled = !p.groups;
             } catch (error) {

@@ -5,8 +5,11 @@
 要点を詰め込んだ長い注意は読みにくい。そこで，
 
 1. 決まった誤字（「下にとつ」→「下に凸」など）はプログラムで直す（LLM は呼ばない）
-2. 敬体（です・ます）・重複した注意・長すぎる注意があるステップだけを，解説1件につき1回の LLM 呼び出しでまとめて直す
-3. 直した文章は，数式が1つでも変わっていたら採用しない（検算済みの計算を変えない）。図の印・TeX の形も確かめる
+2. マスター解説や前に書いた注意と同じ趣旨の注意（chui 環境）は，プログラムで削る（LLM は呼ばない）
+3. 敬体（です・ます）・長すぎる注意があるステップだけを，解説1件につき1回の LLM 呼び出しでまとめて直す。
+   数式は ⟦式1⟧ のような印に置き換えて渡し，返ってきた文章に元の数式を戻す（LLM が数式を書き換えられない）。
+   直しきれなかったステップがあれば，そのステップだけもう1回呼ぶ（解説1件につき最大2回）
+4. 直した文章は，数式が1つでも変わっていたら採用しない（検算済みの計算を変えない）。図の印・TeX の形も確かめる
 """
 from __future__ import annotations
 
@@ -25,8 +28,16 @@ TEXT_FIXES = [
 
 _MATH = re.compile(r'\$[^$]+\$|\\\[.*?\\\]|\\begin\{(align|gather|equation)\*?\}.*?\\end\{\1\*?\}', re.S)
 _CHUI = re.compile(r'\\begin\{chui\}(.*?)\\end\{chui\}', re.S)
-_POLITE = re.compile(r'(です|ます|ました|ましょう|ません|でしょう|ください)(?=\s*(?:[。．、，」）)\n]|$))')
-SIMILAR_CAUTION = 0.55   # 注意どうしの文字列の一致度がこれ以上なら「同じ趣旨の注意」とみなす
+# 敬体の語尾。後ろに何が続いても数える（「外します $|x|$」「なります\n」「しますが」なども敬体）
+_POLITE = re.compile(r'でしょう|でした|です|ましょう|ました|ません|まして|ます|ください')
+_MATH_MARK = re.compile(r'⟦式(\d+)⟧')
+# 注意どうしの内容語（2文字の組）の重なり。短い方を基準にこの割合以上なら「同じ趣旨かもしれない」として LLM に確かめさせ，
+# 長い方を基準にしても SAME_CAUTION 以上なら（ほぼ同じ文）プログラムで削る。
+# 文字が似ていても趣旨が違う注意（「接するとき」と「共有点をもたないとき」）があるので，似ているだけでは削らない
+SIMILAR_CAUTION = 0.5
+SAME_CAUTION = 0.85
+_FILLER = re.compile(r'注意|必要|忘れ|気をつけ|間違え|誤り|ミス')
+MAX_POLISH_CALLS = 2
 LONG_CAUTION_SENTENCES = 2
 LONG_CAUTION_CHARS = 150
 
@@ -60,20 +71,56 @@ def template_cautions(template: Optional[Dict[str, Any]]) -> List[str]:
     return [c for segment in template['segments'] if segment['type'] == 'fixed' for c in cautions(segment['tex'])]
 
 
-def _similar(a: str, b: str) -> bool:
-    return bool(a and b) and difflib.SequenceMatcher(None, a, b).ratio() >= SIMILAR_CAUTION
+def _content_pairs(text: str, context: frozenset = frozenset()) -> set:
+    """隣り合う2文字の組のうち，ひらがなだけでないもの（内容を表す組）。問題文にある組（context）は除く。"""
+    text = re.sub(r'[\s、。，．,.:：;；()（）「」『』\[\]{}]', '', _FILLER.sub('', text))
+    pairs = {text[i:i + 2] for i in range(len(text) - 1)}
+    return {p for p in pairs if not re.fullmatch(r'[ぁ-ん]+', p)} - context
 
 
-def style_issues(body: str, known_cautions: List[str]) -> List[str]:
-    """ステップの本文（書き直した TeX）の問題点。known_cautions はマスター解説や前に書いた注意。"""
+def context_pairs(problem: Optional[Dict[str, Any]]) -> frozenset:
+    """問題文の内容語の組。問題の題材（「直線」「放物線」など）が同じだけの注意を，同じ趣旨とみなさないため。"""
+    return frozenset(_content_pairs(plain_text(str((problem or {}).get('problem_text') or ''))))
+
+
+def caution_overlap(a: str, b: str, context: frozenset = frozenset()):
+    """注意どうしの内容語の重なり（短い方を基準，長い方を基準）。"""
+    if not (a and b):
+        return 0.0, 0.0
+    pa, pb = _content_pairs(a, context), _content_pairs(b, context)
+    if not pa or not pb:
+        ratio = difflib.SequenceMatcher(None, a, b).ratio()
+        return ratio, ratio
+    common = len(pa & pb)
+    return common / min(len(pa), len(pb)), common / max(len(pa), len(pb))
+
+
+def _same(a: str, b: str, context: frozenset = frozenset()) -> bool:
+    """ほぼ同じ文の注意（プログラムで削ってよい）。"""
+    return caution_overlap(a, b, context)[1] >= SAME_CAUTION
+
+
+def _similar(a: str, b: str, context: frozenset = frozenset()) -> bool:
+    """同じ趣旨かもしれない注意。例:「$-1$ をかけると不等号の向きが逆になる」と「負の数をかけると不等号の向きが逆になる」。"""
+    return caution_overlap(a, b, context)[0] >= SIMILAR_CAUTION
+
+
+SOFT_MARK = '（確認）'
+
+
+def _issues(body: str, known_cautions: List[str], context: frozenset, soft: bool = True) -> List[str]:
     issues = []
     polite = _POLITE.findall(plain_text(body))
     if polite:
         issues.append(f'敬体（「です」「ます」「しましょう」など）が {len(polite)} か所ある。マスター解説と同じ常体（である調）にする')
     seen = list(known_cautions)
     for caution in cautions(body):
-        if any(_similar(caution, other) for other in seen):
-            issues.append(f'注意「{caution[:40]}…」は，マスター解説や前に書いた注意と同じ趣旨なので削る')
+        if any(_same(caution, other, context) for other in seen):
+            issues.append(f'注意「{caution[:40]}…」は，マスター解説や前に書いた注意と同じなので削る')
+        elif soft and any(_similar(caution, other, context) for other in seen):
+            other = next(o for o in seen if _similar(caution, o, context))
+            issues.append(f'{SOFT_MARK}注意「{caution[:40]}…」は「{other[:40]}…」と似ている。同じ誤りへの注意（言い換え）なら削る。'
+                          '別の場合や別の誤りへの注意なら，そのまま残す')
         sentences = [s for s in re.split(r'[。．]', caution) if s.strip()]
         if len(sentences) > LONG_CAUTION_SENTENCES or len(caution) > LONG_CAUTION_CHARS:
             issues.append(f'注意「{caution[:40]}…」は長すぎる。要点を1つに絞り，2文以内にする')
@@ -81,23 +128,79 @@ def style_issues(body: str, known_cautions: List[str]) -> List[str]:
     return issues
 
 
-def explanation_issues(bodies: List[str], known_cautions: List[str]) -> Dict[int, List[str]]:
-    """ステップの番号（0 から）ごとの問題点。前のステップの注意も「既に書いた注意」として数える。"""
+def style_issues(body: str, known_cautions: List[str], context: frozenset = frozenset(), soft: bool = True) -> List[str]:
+    """ステップの本文（書き直した TeX）の問題点。known_cautions はマスター解説や前に書いた注意。
+
+    SOFT_MARK で始まるものは「似ている注意」で，削るかどうかは LLM に任せる（残しても問題として数えない）。
+    """
+    return _issues(body, known_cautions, context, soft)
+
+
+def hard_issues(body: str, known_cautions: List[str], context: frozenset = frozenset()) -> List[str]:
+    return _issues(body, known_cautions, context, soft=False)
+
+
+def explanation_issues(bodies: List[str], known_cautions: List[str], context: frozenset = frozenset(),
+                       checked: frozenset = frozenset(), soft: bool = True) -> Dict[int, List[str]]:
+    """ステップの番号（0 から）ごとの問題点。前のステップの注意も「既に書いた注意」として数える。
+
+    checked は，似ている注意を既に LLM に確かめさせたステップ（もう一度は確かめない）。
+    """
     issues: Dict[int, List[str]] = {}
     seen = list(known_cautions)
     for index, body in enumerate(bodies):
-        found = style_issues(body, seen)
+        found = style_issues(body, seen, context, soft=soft and index not in checked)
         if found:
             issues[index] = found
         seen.extend(cautions(body))
     return issues
 
 
+def drop_duplicate_cautions(bodies: List[str], known_cautions: List[str],
+                            context: frozenset = frozenset()) -> List[str]:
+    """マスター解説・前の小問・前のステップの注意とほぼ同じ文の注意（chui 環境）を削る（LLM は呼ばない）。"""
+    seen = list(known_cautions)
+    result = []
+    for body in bodies:
+        def replace(match):
+            caution = plain_text(match.group(1))
+            if any(_same(caution, other, context) for other in seen):
+                return ''
+            seen.append(caution)
+            return match.group(0)
+        new = _CHUI.sub(replace, body)
+        if new != body:
+            new = re.sub(r'\n{3,}', '\n\n', new).strip()
+        result.append(new)
+    return result
+
+
+def mask_math(tex: str):
+    """数式を ⟦式1⟧ のような印に置き換える。戻り値: (置き換えた文, 元の数式のリスト)。"""
+    found: List[str] = []
+
+    def replace(match):
+        found.append(match.group(0))
+        return f'⟦式{len(found)}⟧'
+    return _MATH.sub(replace, tex), found
+
+
+def unmask_math(text: str, found: List[str]) -> Optional[str]:
+    """印を元の数式に戻す。知らない印や，同じ印が2回出てくるときは None（採用しない）。"""
+    numbers = [int(n) for n in _MATH_MARK.findall(text)]
+    if len(numbers) != len(set(numbers)) or any(not 1 <= n <= len(found) for n in numbers):
+        return None
+    return _MATH_MARK.sub(lambda m: found[int(m.group(1)) - 1], text)
+
+
 POLISH_SYSTEM = (
-    'あなたは高等学校数学の解答解説の校正者です。指摘された問題だけを直し，内容（解き方・結果・数式）は変えません。'
-    '数式（$...$，\\[...\\]，align* 環境などの中身）と ⟦図1⟧ のような印は，一字も変えずにそのまま残します。'
-    '文は常体（である調）で書き，「です」「ます」「しましょう」は使いません。'
-    '注意（\\begin{chui} ... \\end{chui}）は，既に書かれた注意と同じ趣旨なら削り，長すぎるものは要点を1つに絞って2文以内にします。'
+    'あなたは高等学校数学の解答解説の校正者です。指摘された問題だけを直し，内容（解き方・結果）は変えません。'
+    '数式は ⟦式1⟧ のような印に置き換えてあります。印と ⟦図1⟧ のような印は，一字も変えず，順番も変えずにそのまま残します。'
+    '新しい数式（$...$）は書き足しません。'
+    '文は常体（である調）で書き，「です」「ます」「しましょう」「でしょう」は1つも残しません'
+    '（例:「外します」→「外す」，「になります」→「になる」，「です」→「である」，「注意しましょう」→「注意する」）。'
+    '注意（\\begin{chui} ... \\end{chui}）は，既に書かれた注意と同じ誤りへの注意（言い換え）なら削り，'
+    '別の場合や別の誤りへの注意なら残します。長すぎるものは要点を1つに絞って2文以内にします。'
 )
 
 
@@ -112,9 +215,9 @@ def _schema() -> Dict[str, Any]:
     }
 
 
-def acceptable(old: str, new: str, known_cautions: List[str]) -> bool:
+def acceptable(old: str, new: str, known_cautions: List[str], context: frozenset = frozenset()) -> bool:
     """直した本文を採用してよいか: 数式は増やさず，注意の外の数式は全て残し，図の印と TeX の形を保ち，問題が減っている。"""
-    if not new.strip() or tex_template.check_latex(new):
+    if not new.strip() or tex_template.check_latex(new) or _MATH_MARK.search(new):
         return False
     marks = re.compile(r'⟦図\d+⟧')
     if sorted(marks.findall(old)) != sorted(marks.findall(new)):
@@ -124,8 +227,39 @@ def acceptable(old: str, new: str, known_cautions: List[str]) -> bool:
         return False
     if math_segments(_CHUI.sub('', old)) - new_math:  # 注意の外の数式が消えた
         return False
-    return len(style_issues(new, known_cautions)) < len(style_issues(old, known_cautions)) or \
-        not style_issues(new, known_cautions)
+    before, after = hard_issues(old, known_cautions, context), hard_issues(new, known_cautions, context)
+    return len(after) < len(before) or not after or \
+        len(_POLITE.findall(plain_text(new))) < len(_POLITE.findall(plain_text(old)))
+
+
+def _ask(llm, fixed: List[str], issues: Dict[int, List[str]], known: List[str],
+         context: frozenset) -> List[int]:
+    """issues のあるステップを1回の呼び出しで直し，採用できたものを fixed に書き戻す。戻り値: 直したステップの番号。"""
+    masked = {index: mask_math(fixed[index]) for index in issues}
+    listing = '\n\n'.join(
+        f'### 手順{index + 1}\n指摘:\n' + '\n'.join(f'- {i.replace(SOFT_MARK, "")}' for i in issues[index])
+        + f'\n本文（TeX）:\n{masked[index][0]}'
+        for index in sorted(issues))
+    listed = '\n'.join(f'- {c}' for c in known) or '（なし）'
+    user = (f'既に書かれた注意（マスター解説・前の小問）:\n{listed}\n\n'
+            f'次の手順の本文を，指摘に従って直してください。step には手順の番号を入れます。\n\n{listing}')
+    out = llm.generate_json(system=POLISH_SYSTEM, user=user, schema=_schema(), schema_name='polished_steps',
+                            temperature=0.0)
+    changed = []
+    for item in out.get('steps', []):
+        index = int(item.get('step', 0)) - 1
+        if index not in issues or index in changed:
+            continue
+        text = re.sub(r'^```[a-zA-Z]*\n|\n?```$', '', str(item.get('body', ''))).strip()
+        text = unmask_math(text, masked[index][1])
+        if text is None:
+            continue
+        new = fix_text(text)
+        seen = known + [c for b in fixed[:index] for c in cautions(b)]
+        if acceptable(fixed[index], new, seen, context):
+            fixed[index] = new
+            changed.append(index)
+    return changed
 
 
 def polish(llm, problem: Dict[str, Any], previous: Dict[str, Any],
@@ -133,6 +267,7 @@ def polish(llm, problem: Dict[str, Any], previous: Dict[str, Any],
     """テンプレートで個別化した解説（previous）の文章を整える。
 
     戻り値: {'result': 整えた解説 or None（変更なし）, 'fixed_typos': bool, 'llm_steps': [直したステップの番号]}
+    fixed_typos は LLM を呼ばずに直したもの（誤字・重複した注意の削除）があるか。
     dry_run=True なら LLM を呼ばず，LLM で直す必要があるかだけを返す（'needs_llm'）。
     """
     template = problem.get('template')
@@ -140,34 +275,29 @@ def polish(llm, problem: Dict[str, Any], previous: Dict[str, Any],
         return {'result': None, 'fixed_typos': False, 'llm_steps': [], 'needs_llm': False}
     steps = [dict(s) for s in previous.get('steps', [])]
     known = template_cautions(template) + list(earlier_cautions or [])
+    context = context_pairs(problem)
     bodies = [s.get('text', '') for s in steps]
-    fixed = [fix_text(b) for b in bodies]
+    fixed = drop_duplicate_cautions([fix_text(b) for b in bodies], known, context)
     fixed_typos = fixed != bodies
-    issues = explanation_issues(fixed, known)
+    checked = frozenset(i for i, s in enumerate(steps) if s.get('polish_checked'))
+    issues = explanation_issues(fixed, known, context, checked)
     if dry_run:
         return {'result': None, 'fixed_typos': fixed_typos, 'llm_steps': sorted(issues), 'needs_llm': bool(issues)}
-    changed = []
-    if issues and llm is not None:
-        listing = '\n\n'.join(
-            f'### 手順{index + 1}\n指摘:\n' + '\n'.join(f'- {i}' for i in issues[index]) + f'\n本文（TeX）:\n{fixed[index]}'
-            for index in sorted(issues))
-        context = '\n'.join(f'- {c}' for c in known) or '（なし）'
-        user = (f'既に書かれた注意（マスター解説・前の小問）:\n{context}\n\n'
-                f'次の手順の本文を，指摘に従って直してください。step には手順の番号を入れます。\n\n{listing}')
-        out = llm.generate_json(system=POLISH_SYSTEM, user=user, schema=_schema(), schema_name='polished_steps',
-                                temperature=0.0)
-        for item in out.get('steps', []):
-            index = int(item.get('step', 0)) - 1
-            if index not in issues:
-                continue
-            new = fix_text(re.sub(r'^```[a-zA-Z]*\n|\n?```$', '', str(item.get('body', ''))).strip())
-            seen = known + [c for b in fixed[:index] for c in cautions(b)]
-            if acceptable(fixed[index], new, seen):
-                fixed[index] = new
-                changed.append(index)
-    if not changed and not fixed_typos:
-        return {'result': None, 'fixed_typos': False, 'llm_steps': [], 'needs_llm': bool(issues)}
+    changed: List[int] = []
+    newly_checked = set()
+    calls = 0
+    while issues and llm is not None and calls < MAX_POLISH_CALLS:
+        calls += 1
+        newly_checked.update(i for i, found in issues.items() if any(f.startswith(SOFT_MARK) for f in found))
+        changed.extend(i for i in _ask(llm, fixed, issues, known, context) if i not in changed)
+        # 2回目は，敬体・長い注意などが残ったステップだけ（似ている注意を残したのは LLM の判断として受け入れる）
+        issues = explanation_issues(fixed, known, context, soft=False)
+    changed = [i for i in changed if fixed[i] != bodies[i]]
+    if not changed and not fixed_typos and not newly_checked:
+        return {'result': None, 'fixed_typos': False, 'llm_steps': [], 'needs_llm': bool(issues), 'llm_called': calls > 0}
     for index, (step, body) in enumerate(zip(steps, fixed)):
+        if index in newly_checked:
+            step['polish_checked'] = True
         if body != step.get('text', ''):
             attempts = list(step.get('attempts', []))
             last = dict(attempts[-1]) if attempts else {}
@@ -175,4 +305,5 @@ def polish(llm, problem: Dict[str, Any], previous: Dict[str, Any],
             step.update(text=body, attempts=attempts + [last], attempt_count=len(attempts) + 1)
     content = tex_template.assemble(template, fixed)
     result = {**previous, 'content': content, 'steps': steps}
-    return {'result': result, 'fixed_typos': fixed_typos, 'llm_steps': changed, 'needs_llm': bool(issues)}
+    return {'result': result, 'fixed_typos': fixed_typos, 'llm_steps': sorted(changed), 'needs_llm': bool(issues),
+            'llm_called': calls > 0}

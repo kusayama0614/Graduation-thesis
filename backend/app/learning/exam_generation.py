@@ -542,14 +542,17 @@ def polish_groups(problems, student_ids: List[str], dry_run: bool = True) -> Lis
 
 
 def polish_plan(problems, student_ids: List[str]) -> Dict[str, Any]:
+    from app.learning import polish as polish_module
+
     groups = polish_groups(problems, student_ids)
     llm_groups = sum(1 for g in groups if g['needs_llm'])
     return {'groups': len(groups), 'explanations': sum(len(g['members']) for g in groups),
-            'llm_groups': llm_groups, 'typo_only': len(groups) - llm_groups, 'llm_calls': llm_groups}
+            'llm_groups': llm_groups, 'typo_only': len(groups) - llm_groups, 'llm_calls': llm_groups,
+            'llm_calls_max': llm_groups * polish_module.MAX_POLISH_CALLS}
 
 
 def _run_polish(job, request: Dict[str, Any], llm, errors: List[Dict[str, Any]]) -> None:
-    """文章を整える。誤字だけなら LLM を呼ばずに直し，敬体・注意の重複や長さがある解説は1件につき1回だけ呼ぶ。
+    """文章を整える。誤字・重複した注意だけなら LLM を呼ばずに直し，敬体・長い注意がある解説は1件につき1回（直しきれなければ2回）呼ぶ。
 
     counters: generated = LLM で整えた解説，skipped = 誤字だけプログラムで直した解説，reused = 同じ直しを反映した生徒。
     """
@@ -590,7 +593,7 @@ def _run_polish(job, request: Dict[str, Any], llm, errors: List[Dict[str, Any]])
                 row = _save(job, problem.id, member.student_id, own, snapshot, member.signature,
                             reused_from=first.id if first is not None else None)
                 first = first or row
-            if polished['llm_steps']:
+            if polished.get('llm_called'):
                 job.generated += 1
             else:
                 job.skipped += 1

@@ -42,8 +42,8 @@ class PolishingLLM(FakeLLM):
         steps = []
         for number, body in re.findall(r'### 手順(\d+)\n指摘:\n(?:- .*\n)*本文（TeX）:\n(.*?)(?=\n\n### |\Z)', user, re.S):
             body = re.sub(r'\\begin\{chui\}\n係数の符号に注意する。\n\\end\{chui\}', '', to_plain_style(body)).strip()
-            if self.change_math:
-                body = body.replace('m^2+4m-12', 'm^2+4m-13')
+            if self.change_math:  # 数式は印に置き換えて渡されるので，新しい数式を書き足す形で数式を変える
+                body = body.replace('⟦式1⟧', '$D=m^2+4m-13$')
             steps.append({'step': int(number), 'body': body})
         return {'steps': steps}
 
@@ -52,7 +52,7 @@ def test_checks_find_polite_style_duplicates_and_long_cautions():
     assert polish.fix_text('下にとつな放物線と上に とつ') == '下に凸な放物線と上に凸'
     issues = polish.style_issues('結果を確かめましょう。$x=1$ です。\\begin{chui}\n係数の符号に注意する。\n\\end{chui}',
                                  ['係数の符号に注意する。'])
-    assert any('敬体' in i and '2 か所' in i for i in issues) and any('同じ趣旨' in i for i in issues)
+    assert any('敬体' in i and '2 か所' in i for i in issues) and any('同じなので削る' in i for i in issues)
     long = '\\begin{chui}' + '一つ目である。二つ目である。三つ目である。四つ目である。' + '\\end{chui}'
     assert any('長すぎる' in i for i in polish.style_issues(long, []))
     assert polish.style_issues('$D=b^2-4ac$ を計算する。', []) == []
@@ -115,8 +115,9 @@ def test_polish_keeps_original_when_math_would_change(client):  # noqa: F811
     client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': TEMPLATE})
     client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'student_ids': ['1-1-1']})
     contents = [c for _, _, c, _ in _rows(client)]
-    # 数式を変えた直しは採用しない（誤字だけはプログラムで直る）
+    # 数式を変えた直しは採用しない（誤字だけはプログラムで直る）。直せなかったステップはもう1回だけ頼む
     assert any('$D=m^2+4m-12$ となります' in c for c in contents)
+    assert len([k for k, _ in llm.calls if k == 'polished_steps']) == polish.MAX_POLISH_CALLS
     assert all('m^2+4m-13' not in c and 'とつ' not in c for c in contents)
 
 
@@ -155,3 +156,108 @@ def test_polish_job_fixes_stored_literal_newlines_without_llm(client):  # noqa: 
         row = (GeneratedExplanation.query.filter_by(kind='individual')
                .order_by(GeneratedExplanation.created_at.desc()).first())
         assert '\\nさらに' not in row.content and '\nさらに確かめる。' in row.content
+
+
+def test_polite_endings_are_found_wherever_they_are_followed_by():
+    body = ('絶対値記号をそのまま外します\n$|x-1|=x-1$\n頂点は(1, 1)になります\nグラフは下に凸である。'
+            '\\begin{chui}\n2つの公式を使い分けましょう。符号には注意が必要です。\n\\end{chui}')
+    issues = polish.style_issues(body, [])
+    assert any('敬体' in i and '4 か所' in i for i in issues)
+    assert polish.style_issues('$x$ を代入する。頂点は $(1,\\ 1)$ である。', []) == []
+
+
+def test_cautions_with_the_same_point_are_duplicates_but_different_points_are_not():
+    master = polish.plain_text('両辺に $-1$ をかけると不等号の向きが逆になる。')
+    added = polish.plain_text('負の数をかけると不等号の向きが逆になる。')
+    assert polish._similar(added, master) and not polish._same(added, master)  # 言い換え: LLM に確かめさせる
+    assert polish._same('係数の符号に注意する。', '係数の符号に注意する')  # ほぼ同じ文: プログラムで削る
+    context = polish.context_pairs({'problem_text': '放物線 $y=x^2$ と直線 $y=mx-1$ の共有点について答えよ。'})
+    touch = polish.plain_text('直線と放物線が接するときは判別式 $D=0$ である。')
+    apart = polish.plain_text('直線と放物線が共有点をもたないときは判別式 $D<0$ である。')
+    assert not polish._same(apart, touch, context)  # 似ていても趣旨が違うものはプログラムでは削らない
+    body = ('$-2x>4$ の両辺を $-2$ で割って $x<-2$ である。\n'
+            '\\begin{chui}\n負の数をかけると不等号の向きが逆になる。\n\\end{chui}')
+    assert polish.drop_duplicate_cautions([body], [master]) == [body]
+    issues = polish.style_issues(body, [master])
+    assert len(issues) == 1 and issues[0].startswith(polish.SOFT_MARK) and polish.hard_issues(body, [master]) == []
+    same = body.replace('負の数をかけると', '両辺に $-1$ をかけると')
+    assert polish.drop_duplicate_cautions([same], [master]) == ['$-2x>4$ の両辺を $-2$ で割って $x<-2$ である。']
+
+
+def test_math_is_masked_and_restored_exactly():
+    text, found = polish.mask_math('$x=\\dfrac{1}{2}$ になります。\\[ y=1 \\]')
+    assert text == '⟦式1⟧ になります。⟦式2⟧' and found == ['$x=\\dfrac{1}{2}$', '\\[ y=1 \\]']
+    assert polish.unmask_math('⟦式1⟧ になる。⟦式2⟧', found) == '$x=\\dfrac{1}{2}$ になる。\\[ y=1 \\]'
+    assert polish.unmask_math('⟦式3⟧ になる。', found) is None
+    assert polish.unmask_math('⟦式1⟧ と ⟦式1⟧', found) is None
+
+
+class WholeStepLLM:
+    """手順のほぼ全部が敬体のとき: 数式の印を残したまま常体に直す（数式そのものは見えない）。"""
+
+    def __init__(self):
+        self.users = []
+
+    def generate_json(self, *, system, user, schema, schema_name, temperature=0.0, thinking_level=None):
+        self.users.append(user)
+        steps = []
+        for number, body in re.findall(r'### 手順(\d+)\n指摘:\n(?:- .*\n)*本文（TeX）:\n(.*?)(?=\n\n### |\Z)', user, re.S):
+            steps.append({'step': int(number), 'body': body.replace('外します', '外す').replace('になります', 'になる')})
+        return {'steps': steps}
+
+
+def test_polish_rewrites_whole_polite_steps_without_touching_math():
+    from app.learning import tex_template
+    section = tex_template.sections(tex_template.parse(TEMPLATE))['1(1)']
+    bodies = tex_template.step_bodies(section)
+    bodies[0] = '絶対値記号をそのまま外します。\n\\[ |x-1| = x-1 \\]\n頂点は $(1,\\ 1)$ になります。'
+    previous = {'format': 'latex', 'content': '', 'steps': [{'text': b, 'attempts': []} for b in bodies]}
+    llm = WholeStepLLM()
+    out = polish.polish(llm, {'template': section, 'problem_text': ''}, previous)
+    assert out['llm_steps'] == [0] and len(llm.users) == 1
+    assert '|x-1|' not in llm.users[0]  # 数式は LLM に渡さない
+    text = out['result']['steps'][0]['text']
+    assert text == '絶対値記号をそのまま外す。\n\\[ |x-1| = x-1 \\]\n頂点は $(1,\\ 1)$ になる。'
+
+
+class CautionJudgeLLM:
+    """似ている注意を確かめさせると，言い換えなら削る。"""
+
+    def __init__(self):
+        self.users = []
+
+    def generate_json(self, *, system, user, schema, schema_name, temperature=0.0, thinking_level=None):
+        self.users.append(user)
+        steps = []
+        for number, body in re.findall(r'### 手順(\d+)\n指摘:\n(?:- .*\n)*本文（TeX）:\n(.*?)(?=\n\n### |\Z)', user, re.S):
+            body = re.sub(r'\\begin\{chui\}\n負の数.*?\\end\{chui\}', '', body, flags=re.S).strip()
+            steps.append({'step': int(number), 'body': body})
+        return {'steps': steps}
+
+
+def test_reworded_duplicate_caution_is_judged_once_by_the_llm():
+    from app.learning import tex_template
+    section = tex_template.sections(tex_template.parse(TEMPLATE))['1(1)']
+    bodies = tex_template.step_bodies(section)
+    bodies[0] = '$-m>2$ より $m<-2$ である。\n\\begin{chui}\n負の数をかけると，符号の向きが逆になる。\n\\end{chui}'
+    previous = {'format': 'latex', 'content': '', 'steps': [{'text': b, 'attempts': []} for b in bodies]}
+    problem = {'template': section, 'problem_text': ''}
+    llm = CautionJudgeLLM()
+    out = polish.polish(llm, problem, previous, earlier_cautions=['$-1$ をかけると，符号の向きが逆になる。'])
+    assert len(llm.users) == 1 and out['llm_steps'] == [0]
+    assert out['result']['steps'][0]['text'] == '$-m>2$ より $m<-2$ である。'
+
+    # LLM が「別の注意」として残した場合も，同じ解説をもう一度確かめさせない（API の呼び出しを増やさない）
+    keep = KeepLLM()
+    out = polish.polish(keep, problem, previous, earlier_cautions=['$-1$ をかけると，符号の向きが逆になる。'])
+    assert len(keep.users) == 1 and out['result']['steps'][0]['polish_checked']
+    again = polish.polish(None, problem, out['result'], earlier_cautions=['$-1$ をかけると，符号の向きが逆になる。'],
+                          dry_run=True)
+    assert not again['needs_llm']
+
+
+class KeepLLM(CautionJudgeLLM):
+    def generate_json(self, *, system, user, schema, schema_name, temperature=0.0, thinking_level=None):
+        self.users.append(user)
+        return {'steps': [{'step': int(n), 'body': b} for n, b in
+                          re.findall(r'### 手順(\d+)\n指摘:\n(?:- .*\n)*本文（TeX）:\n(.*?)(?=\n\n### |\Z)', user, re.S)]}

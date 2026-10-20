@@ -26,7 +26,7 @@ from app.learning import graph, polish, tex_template
 from app.learning.llm import LLMClient
 from app.learning.profile import confidence_of
 from app.utils.math_verification import (
-    _IDENTIFIER, check_claim, check_relation_step, is_math_expression, judge_answer, solved_piece_variable, solved_values,
+    _IDENTIFIER, check_claim, check_relation_combination, check_relation_step, is_math_expression, judge_answer, solved_piece_variable, solved_values,
     symbol_name,
 )
 
@@ -459,6 +459,8 @@ def compare_with_earlier(history: List[str], relations: List[Dict[str, Any]], in
       途中の方程式の後に「x ≦ 2-√3」と書いても，元の不等式から変形したものとして確かめられる
     - 「x ≦ 2-√3，2+√3 ≦ x」のように並べた答えが分かれて抜き出されたときは，続く解の一部（文字1つと定数だけの
       関係式）を順に合わせた和集合で比べる
+    - それでも一致しなければ，前の2つの式の共通範囲（「1<m<2 と m>4/3 から 4/3<m<2」）と，合わせた範囲
+      （「(i) と (ii) を合わせて」）とも比べる
     どれとも一致しなければ，直前の式と比べた結果（誤り・検算不能）を返す。
     """
     current = relations[index]
@@ -476,6 +478,15 @@ def compare_with_earlier(history: List[str], relations: List[Dict[str, Any]], in
                 first = (checked, 1, target)
             if checked['status'] == 'ok':
                 return checked, used, target
+    # 前の2つの式の共通範囲（連立不等式）または合わせた範囲（場合分けのまとめ）と一致するか
+    combined = ', '.join(r['expr'] for r in relations[index:index + count])
+    recent = [h for h in reversed(history)][:6]
+    for i, a in enumerate(recent):
+        for b in recent[i + 1:]:
+            for mode, word in (('and', 'かつ'), ('or', 'または')):
+                checked = check_relation_combination([b, a], combined, mode, definitions)
+                if checked['status'] == 'ok':
+                    return checked, count, f'{b} {word} {a}'
     return first
 
 

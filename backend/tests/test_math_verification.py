@@ -344,3 +344,14 @@ def test_case_wise_redefinition_is_not_an_error():
     claims = [{'lhs': 'D', 'rhs': '49-8*m', 'lhs_text': 'D', 'rhs_text': ''},
               {'lhs': 'D', 'rhs': '50-8*m', 'lhs_text': 'D', 'rhs_text': ''}]
     assert not chain.verify_step(3, {'claims': claims, 'relations': [], 'final_answer': ''}, {})['ok']
+
+
+def test_common_range_and_union_of_earlier_conditions():
+    # (ii) 1<m<2 と m>4/3 の共通範囲 → 4/3<m<2
+    items = (('-9*m^2+27*m-18>0', False), ('m^2-3*m+2<0', True), ('(m-1)*(m-2)<0', True), ('1<m<2', True),
+             ('m>4/3', False), ('4/3<m<2', True))
+    result = chain.verify_step(3, _relations(*items), {})
+    assert result['ok'] and result['relations'][-1]['previous_expr'] == '1<m<2 かつ m>4/3'
+    # (i) と (ii) を合わせる → 2/3≦m<2。端点を誤れば誤り
+    assert chain.verify_step(4, _relations(('2/3<=m<=4/3', False), ('4/3<m<2', False), ('2/3<=m<2', True)), {})['ok']
+    assert not chain.verify_step(4, _relations(('2/3<=m<=4/3', False), ('4/3<m<2', False), ('2/3<m<2', True)), {})['ok']

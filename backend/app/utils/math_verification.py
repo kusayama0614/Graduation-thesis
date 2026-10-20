@@ -800,6 +800,32 @@ def _check_relation_step_direct(previous: Any, current: Any, definitions: Option
     }
 
 
+def _check_relation_combination_direct(previous_list: List[Any], current: Any, mode: str,
+                                      definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """変形して得た式が，前の式どうしの共通範囲（mode='and'）または合わせた範囲（mode='or'）と一致するか。
+
+    「1 < m < 2 と m > 4/3 の共通範囲は 4/3 < m < 2」「(i) と (ii) を合わせて 2/3 ≦ m < 2」のような変形を確かめる。
+    """
+    try:
+        sets = [_relation_solution(text, definitions) for text in previous_list]
+        cur_var, cur_set = _relation_solution(current, definitions)
+    except _Unverifiable as exc:
+        return {'status': 'unverifiable', 'detail': str(exc), 'previous_solution': None, 'current_solution': None}
+    if any(var != cur_var for var, _ in sets):
+        return {'status': 'unverifiable', 'detail': '式の文字が異なります', 'previous_solution': None, 'current_solution': None}
+    combined = sets[0][1]
+    for _, solution in sets[1:]:
+        combined = combined.intersect(solution) if mode == 'and' else combined.union(solution)
+    same = combined == cur_set or combined.symmetric_difference(cur_set) == sp.S.EmptySet
+    word = '共通範囲' if mode == 'and' else '合わせた範囲'
+    return {
+        'status': 'ok' if same else 'ng',
+        'detail': f'前の式の{word}と解集合が一致します' if same else f'前の式の{word}と解集合が一致しません',
+        'previous_solution': _format_solution(cur_var, combined),
+        'current_solution': _format_solution(cur_var, cur_set),
+    }
+
+
 def _format_solution(var: sp.Symbol, solution) -> str:
     """解集合を「m < 49/8」「m = -6, 2」のような読みやすい形にする。"""
     if solution == sp.S.EmptySet:
@@ -855,6 +881,18 @@ def check_relation_step(previous: Any, current: Any, definitions: Optional[Dict[
     try:
         return run_isolated('check_relation_step', [_plain(previous), _plain(current),
                                                     {str(k): _plain(v) for k, v in (definitions or {}).items()}])
+    except TimeLimitExceeded as exc:
+        return {'status': 'unverifiable', 'detail': f'解集合を求めるのに時間がかかりすぎたため判定しませんでした（{exc}）',
+                'previous_solution': None, 'current_solution': None}
+
+
+def check_relation_combination(previous_list: List[Any], current: Any, mode: str,
+                               definitions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """前の式どうしの共通範囲・合わせた範囲との比較（_check_relation_combination_direct を時間を区切って実行する）。"""
+    from app.utils.sympy_isolation import TimeLimitExceeded, run_isolated
+    try:
+        return run_isolated('check_relation_combination', [[_plain(p) for p in previous_list], _plain(current), mode,
+                                                           {str(k): _plain(v) for k, v in (definitions or {}).items()}])
     except TimeLimitExceeded as exc:
         return {'status': 'unverifiable', 'detail': f'解集合を求めるのに時間がかかりすぎたため判定しませんでした（{exc}）',
                 'previous_solution': None, 'current_solution': None}

@@ -39,6 +39,7 @@ def _functions():
         'judge_answer': mv._judge_answer_direct,
         'check_claim': mv._check_claim_direct,
         'check_relation_step': mv._check_relation_step_direct,
+        'check_relation_combination': mv._check_relation_combination_direct,
     }
 
 

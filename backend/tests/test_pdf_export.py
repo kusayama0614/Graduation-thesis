@@ -89,7 +89,7 @@ def test_pdf_export_reports_compile_errors(client, tmp_path):  # noqa: F811
     client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': TEMPLATE})
     job = client.post(f'/api/learning/exams/{exam_id}/pdf-exports', json={'student_ids': ['1-1-1']}).get_json()['job']
     assert job['status'] == 'failed' and 'Undefined control sequence' in job['message']
-    assert any('個別化した解説がない問題' in e['error'] for e in job['errors'])
+    assert any(e.get('skipped') and 'B（マスター解説）だけを作りました' in e['error'] for e in job['errors'])
 
 
 def test_tex_error_summary_names_the_missing_font():
@@ -115,3 +115,35 @@ def test_downloads_work_with_relative_upload_folder(client, tmp_path, monkeypatc
     assert res.status_code == 200
     with zipfile.ZipFile(io.BytesIO(res.data)) as archive:
         assert len(archive.namelist()) == 4
+
+
+def test_students_without_explanations_get_only_the_master(client, tmp_path):  # noqa: F811
+    from app import db
+    from app.models import GeneratedExplanation
+
+    llm = FakeLLM(writer=template_writer)
+    llm.template_nodes = {1: ['discriminant_setup'], 2: ['double_root']}
+    exam_id = _setup(client, llm)
+    compiler = FakeCompiler()
+    client.application.config.update(PDF_COMPILER=compiler, UPLOAD_FOLDER=str(tmp_path / 'uploads'))
+    client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': TEMPLATE})
+    client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'classes': ['1-1']})
+    with client.application.app_context():  # 1-1-2 の解説がない（生成が途中で止まった）
+        GeneratedExplanation.query.filter_by(student_id='1-1-2').delete()
+        db.session.commit()
+
+    job = client.post(f'/api/learning/exams/{exam_id}/pdf-exports', json={'classes': ['1-1']}).get_json()['job']
+    assert job['status'] == 'completed' and job['total'] == 3 and job['done'] == 3
+    by_file = {(f['student_id'], f['kind']): f for f in job['files']}
+    skipped = by_file[('1-1-2', 'A')]
+    assert skipped['skipped'] and not skipped['ready'] and 'A（個別化した解説）は作らず' in skipped['reason']
+    assert by_file[('1-1-2', 'B')]['ready'] and by_file[('1-1-1', 'A')]['ready']
+
+    res = client.get(f"/api/learning/pdf-exports/{job['id']}/zip")
+    names = zipfile.ZipFile(io.BytesIO(res.data)).namelist()
+    assert '1年1組2番_解答解説B.pdf' in names and '1年1組2番_解答解説A.pdf' not in names
+    assert pdf_export.SKIPPED_NOTE_NAME in names
+    note = zipfile.ZipFile(io.BytesIO(res.data)).read(pdf_export.SKIPPED_NOTE_NAME).decode('utf-8')
+    assert '1年1組2番（1-1-2）' in note
+    only_b = client.get(f"/api/learning/pdf-exports/{job['id']}/zip?kind=B")
+    assert pdf_export.SKIPPED_NOTE_NAME not in zipfile.ZipFile(io.BytesIO(only_b.data)).namelist()

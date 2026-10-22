@@ -587,7 +587,7 @@
                         const flag = s.insufficient
                             ? ` <span class="badge badge-incomplete" title="${L.escapeHtml(evidence.rule || '')}">※ 記録が少ない（根拠の十分なステップ ${evidence.ratio === null || evidence.ratio === undefined ? '—' : Math.round(evidence.ratio * 100) + '%'}）</span>` : '';
                         const state = (s.ready ? '<span class="badge badge-ok">配布できます</span>'
-                            : [s.missing ? `<span class="badge badge-unmarked">解説なし ${s.missing} 問</span>` : '',
+                            : [s.missing ? `<span class="badge badge-unmarked">解説なし ${s.missing} 問（PDF は B のみ）</span>` : '',
                                pending ? `<span class="badge badge-needs_review">要確認 ${pending} 問</span>` : ''].join(' ')) + flag;
                         return `<tr><td>${L.escapeHtml(s.student_id)}</td><td>${state}</td>
                             <td class="nowrap"><a class="button button-light button-small" target="_blank" href="${bookletUrl({ student_ids: s.student_id })}">この生徒だけ</a>
@@ -629,6 +629,9 @@
         }
 
         function pdfLink(file) {
+            if (file.skipped) {
+                return `<span class="muted" title="${L.escapeHtml(file.reason || '')}">作っていません（個別化した解説が生成されていないため，B のみ）</span>`;
+            }
             return file.ready
                 ? `<a href="${L.API_BASE_URL}/learning/pdf-exports/${pdfJob.id}/files/${file.index}" download="${L.escapeHtml(file.filename)}">${L.escapeHtml(file.filename)}</a>`
                 : `<span class="muted">${L.escapeHtml(file.filename)}（作れませんでした）</span>`;
@@ -644,7 +647,8 @@
             const byStudent = {};
             job.files.forEach((f) => { (byStudent[f.student_id] = byStudent[f.student_id] || {})[f.kind] = f; });
             const failures = job.errors.filter((e) => !e.warning);
-            const warnings = job.errors.filter((e) => e.warning);
+            const warnings = job.errors.filter((e) => e.warning && !e.skipped);
+            const skippedA = job.files.filter((f) => f.kind === 'A' && f.skipped);
             const flagged = job.files.filter((f) => f.kind === 'A' && f.insufficient).length;
             document.getElementById('pdfArea').innerHTML = `
                 <div style="margin-top: 8px;">${active ? 'PDF を作っています…' : (job.status === 'completed' ? 'PDF ができました。' : 'PDF を作れませんでした。')}
@@ -656,6 +660,9 @@
                     <a class="button button-light" href="${base}?kind=A" download="${L.escapeHtml(zipName('A'))}">A だけ</a>
                     <a class="button button-light" href="${base}?kind=B" download="${L.escapeHtml(zipName('B'))}">B だけ</a></div>` : ''}
                 ${flagged ? `<p class="muted">※ 付き（記録が少ない）: ${flagged} 人</p>` : ''}
+                ${skippedA.length ? `<div class="notice notice-warn">個別化した解説が生成されていない問題がある ${skippedA.length} 人（${skippedA.map((f) => L.escapeHtml(f.student_id)).join('，')}）は，
+                    A（個別化した解説）を作らず，B（マスター解説）だけを作りました。ZIP には，このことを書いた教員用のテキストファイルを入れています。
+                    A も作るときは，「足りない解説を作る」で解説を作ってから「PDF を作る」を押し直してください。</div>` : ''}
                 ${warnings.length ? `<details><summary>注意 ${warnings.length} 件</summary><ul class="reasons">${warnings.map((e) => `<li>${L.escapeHtml(e.file)}：${L.escapeHtml(e.error)}</li>`).join('')}</ul></details>` : ''}
                 ${failures.length ? `<details open><summary>作れなかったもの ${failures.length} 件</summary><ul class="reasons">${failures.map((e) => `<li>${L.escapeHtml(e.file)}：${L.escapeHtml(e.error)}</li>`).join('')}</ul></details>` : ''}
                 ${Object.keys(byStudent).length ? `<details${active ? '' : ' open'}><summary>生徒ごとの PDF</summary><div class="table-wrap"><table><thead><tr><th>生徒</th><th>A</th><th>B</th></tr></thead><tbody>

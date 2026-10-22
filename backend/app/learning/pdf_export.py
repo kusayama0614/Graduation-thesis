@@ -224,9 +224,18 @@ def plan_documents(exam, problems, latest_individual: Dict[Tuple[str, str], Any]
                 missing.append(problem.number)
         evidence = personalization_evidence(traces, settings['min_evidence'], settings['min_ratio'])
         stem_a = file_stem(sid, 'A') + ('※' if evidence['insufficient'] else '')
-        documents.append({'student_id': sid, 'kind': 'A', 'filename': f'{stem_a}.pdf', 'insufficient': evidence['insufficient'],
-                          'evidence': evidence, 'missing': missing,
-                          'tex': tex_template.build_document(parsed, [(sid, contents)], label=KIND_LABELS['A'])})
+        if missing:
+            # 個別化した解説がない問題がある生徒は A（個別化）を作らず，B（マスター）だけを作る。
+            # A の一部がマスター解説のままだと，個別化した解説として配れない（比較にも使えない）ため
+            documents.append({'student_id': sid, 'kind': 'A', 'filename': f'{file_stem(sid, "A")}.pdf',
+                              'insufficient': False, 'evidence': evidence, 'missing': missing, 'tex': None,
+                              'skipped': True,
+                              'reason': f'個別化した解説が生成されていない問題があるため，A（個別化した解説）は作らず，'
+                                        f'B（マスター解説）だけを作りました（解説のない問題: {", ".join(missing)}）'})
+        else:
+            documents.append({'student_id': sid, 'kind': 'A', 'filename': f'{stem_a}.pdf',
+                              'insufficient': evidence['insufficient'], 'evidence': evidence, 'missing': [],
+                              'tex': tex_template.build_document(parsed, [(sid, contents)], label=KIND_LABELS['A'])})
         documents.append({'student_id': sid, 'kind': 'B', 'filename': f'{file_stem(sid, "B")}.pdf', 'insufficient': False,
                           'evidence': None, 'missing': [],
                           'tex': tex_template.build_document(parsed, [(sid, {})], label=KIND_LABELS['B'])})
@@ -273,19 +282,23 @@ def _run(app, job_id: str) -> None:
     cache_dir = os.path.abspath(os.path.join(export_dir(app.config.get('UPLOAD_FOLDER') or 'uploads', job.exam_id), 'cache'))
     files: List[Dict[str, Any]] = []
     errors: List[Dict[str, Any]] = []
+    results: Dict[int, Dict[str, Any]] = {}
     for document in documents:
-        if document['missing']:
+        if document.get('skipped'):
             errors.append({'student_id': document['student_id'], 'file': document['filename'], 'warning': True,
-                           'error': f'個別化した解説がない問題があります（{", ".join(document["missing"])}）。'
-                                    'その問題はテンプレートのまま載せました'})
-    job.total = len(documents)
+                           'skipped': True, 'error': document['reason']})
+            results[id(document)] = {**{k: document[k] for k in ('student_id', 'kind', 'filename', 'insufficient', 'evidence')},
+                                     'path': None, 'skipped': True, 'reason': document['reason']}
+    to_compile = [d for d in documents if not d.get('skipped')]
+    job.total = len(to_compile)
+    files = [results[id(d)] for d in documents if id(d) in results]
+    job.files = json.dumps(files, ensure_ascii=False)
     job.errors = json.dumps(errors, ensure_ascii=False)
     db.session.commit()
 
     workers = max(1, int(app.config.get('PDF_EXPORT_CONCURRENCY') or os.getenv('PDF_EXPORT_CONCURRENCY', 2)))
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(cached_pdf, d['tex'], cache_dir, compiler): d for d in documents}
-        results: Dict[int, Dict[str, Any]] = {}
+        futures = {pool.submit(cached_pdf, d['tex'], cache_dir, compiler): d for d in to_compile}
         for future in as_completed(futures):
             document = futures[future]
             entry = {k: document[k] for k in ('student_id', 'kind', 'filename', 'insufficient', 'evidence')}
@@ -307,12 +320,28 @@ def _run(app, job_id: str) -> None:
     db.session.commit()
 
 
-def zip_files(files: List[Dict[str, Any]], target: str) -> str:
-    """書き出した PDF を1つの ZIP にまとめる（ファイル名は日本語のまま）。"""
+SKIPPED_NOTE_NAME = '教員用_解答解説Aを作らなかった生徒.txt'
+
+
+def skipped_note(files: List[Dict[str, Any]]) -> Optional[str]:
+    """A を作らなかった生徒の一覧（教員用。ZIP に入れて，B だけの生徒がいることを明記する）。"""
+    skipped = [f for f in files if f.get('skipped')]
+    if not skipped:
+        return None
+    lines = ['次の生徒は，個別化した解説が生成されていない問題があるため，解答解説A（個別化した解説）を作らず，',
+             '解答解説B（マスター解説）だけを作りました。', '']
+    lines += [f'{file_stem(f["student_id"], "A").split("_")[0]}（{f["student_id"]}）: {f.get("reason", "")}' for f in skipped]
+    return '\n'.join(lines) + '\n'
+
+
+def zip_files(files: List[Dict[str, Any]], target: str, note: Optional[str] = None) -> str:
+    """書き出した PDF を1つの ZIP にまとめる（ファイル名は日本語のまま）。note があれば教員用の説明を入れる。"""
     with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         for entry in files:
             if entry.get('path') and os.path.exists(entry['path']):
                 archive.write(entry['path'], arcname=entry['filename'])
+        if note:
+            archive.writestr(SKIPPED_NOTE_NAME, note)
     return target
 
 
@@ -323,7 +352,8 @@ def job_to_dict(job) -> Dict[str, Any]:
         'request': json.loads(job.request or '{}'), 'total': job.total or 0, 'done': job.done or 0,
         'message': job.message, 'errors': json.loads(job.errors or '[]'),
         'files': [{'index': i, 'student_id': f['student_id'], 'kind': f['kind'], 'filename': f['filename'],
-                   'insufficient': f['insufficient'], 'evidence': f.get('evidence'), 'ready': bool(f.get('path'))}
+                   'insufficient': f['insufficient'], 'evidence': f.get('evidence'), 'ready': bool(f.get('path')),
+                   'skipped': bool(f.get('skipped')), 'reason': f.get('reason')}
                   for i, f in enumerate(files)],
         'created_at': job.created_at.isoformat() if job.created_at else None,
     }

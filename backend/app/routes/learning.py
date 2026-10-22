@@ -1495,15 +1495,18 @@ def download_pdf_zip(job_id):
     job = _get_pdf_job(job_id)
     if job is None:
         return make_error_response('LEARNING_JOB_NOT_FOUND', 'Job not found', 404)
-    files = [f for f in json.loads(job.files or '[]') if f.get('path')]
+    all_files = json.loads(job.files or '[]')
+    files = [f for f in all_files if f.get('path')]
     kind = request.args.get('kind')
     if kind in ('A', 'B'):
         files = [f for f in files if f['kind'] == kind]
+    # A を作らなかった生徒がいれば，教員用の説明を ZIP に入れる（B だけの生徒がいることを明記する）
+    note = pdf_export.skipped_note(all_files) if kind in (None, '', 'A') else None
     if not files:
         return make_error_response('LEARNING_FILE_NOT_FOUND', 'ダウンロードできる PDF がありません', 404)
     directory = os.path.abspath(pdf_export.export_dir(current_app.config.get('UPLOAD_FOLDER') or 'uploads', job.exam_id))
     os.makedirs(directory, exist_ok=True)
-    target = pdf_export.zip_files(files, os.path.join(directory, f'{job.id}{"_" + kind if kind else ""}.zip'))
+    target = pdf_export.zip_files(files, os.path.join(directory, f'{job.id}{"_" + kind if kind else ""}.zip'), note)
     classes = json.loads(job.request or '{}').get('classes') or []
     label = '・'.join(f'{c.split("-")[0]}年{c.split("-")[1]}組' for c in classes if re.match(r'^\d+-\d+$', c)) or '解答解説'
     return _attachment(target, f'{label}_解答解説{kind or ""}.zip', 'application/zip',

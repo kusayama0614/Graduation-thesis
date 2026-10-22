@@ -223,6 +223,9 @@ def _run(app, job_id: str) -> None:
     if job is None:
         return
     request = json.loads(job.request or '{}')
+    # 研究協力不可の生徒は，ジョブを作ったあとに登録された場合も（続きから生成を含めて）作らない
+    from app.learning import exclusions
+    request['student_ids'] = exclusions.without_excluded(job.teacher_id, request.get('student_ids', []))
     errors: List[Dict[str, Any]] = []
     job.status, job.done, job.generated, job.reused, job.skipped, job.message = 'running', 0, 0, 0, 0, None
     db.session.commit()

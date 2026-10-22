@@ -389,3 +389,37 @@ def test_generation_runs_across_problems_and_saves_each_to_its_own_problem(clien
     # 指紋がそれぞれの問題のものとして保存されていれば，もう一度実行しても全て省略される
     job = _job(client, exam_id, classes=['1-1'], problem_ids=both)
     assert (job['generated'], job['reused'], job['skipped']) == (0, 0, 6)
+
+
+def test_research_exclusion_skips_and_removes_students(client):  # noqa: F811
+    from app.learning.exclusions import parse_student_id
+
+    assert parse_student_id('1年8組15番') == '1-8-15' and parse_student_id('１年１０組３８番') == '1-10-38'
+    assert parse_student_id('1-10-38') == '1-10-38' and parse_student_id('山田') is None
+
+    llm = FakeLLM(writer=correct_writer)
+    exam_id = _setup(client, llm)
+    only = [_pid(client, exam_id, '2(1)')]
+    _job(client, exam_id, classes=['1-1'], problem_ids=only)
+    rows = {sid: (rid, src) for rid, sid, src, _ in _individual_rows(client)}
+    assert rows['1-1-2'][1] == rows['1-1-1'][0]  # 1-1-2 は 1-1-1 の解説を使い回している
+
+    bad = client.post('/api/learning/exclusions', json={'students': '山田'})
+    assert bad.status_code == 400
+    res = client.post('/api/learning/exclusions', json={'students': '1年1組1番\n1年8組15番'})
+    body = res.get_json()
+    assert res.status_code == 200 and body['student_ids'] == ['1-1-1', '1-8-15'] and body['deleted_explanations'] == 1
+    rows = {sid: (rid, src) for rid, sid, src, _ in _individual_rows(client)}
+    assert '1-1-1' not in rows and rows['1-1-2'][1] is None  # 使い回していた生徒の解説が新しい元になる
+
+    # 登録した生徒は生成・冊子の対象にならない
+    job = _job(client, exam_id, classes=['1-1'], problem_ids=only)
+    assert '1-1-1' not in job['request']['student_ids'] and job['total'] == 2
+    assert '1-1-1' not in {sid for _, sid, _, _ in _individual_rows(client)}
+    booklet = client.get(f'/api/learning/exams/{exam_id}/booklet?classes=1-1').get_json()['students']
+    assert [s['student_id'] for s in booklet] == ['1-1-2', '1-1-10']
+
+    # 登録を外すと，次の生成から対象に戻る
+    assert client.delete('/api/learning/exclusions/1-1-1').get_json()['student_ids'] == ['1-8-15']
+    job = _job(client, exam_id, classes=['1-1'], problem_ids=only)
+    assert '1-1-1' in job['request']['student_ids']

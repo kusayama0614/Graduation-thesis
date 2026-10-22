@@ -261,8 +261,9 @@ def _run(app, job_id: str) -> None:
                 latest_common[row.problem_id] = row
         settings = {'min_evidence': int(app.config.get('PERSONALIZATION_MIN_EVIDENCE') or MIN_EVIDENCE),
                     'min_ratio': float(app.config.get('PERSONALIZATION_MIN_RATIO') or MIN_EVIDENCED_RATIO)}
+        from app.learning import exclusions  # 研究協力不可の生徒の PDF は作らない
         documents = plan_documents(exam, problems, latest_individual, latest_common,
-                                   request.get('student_ids', []), settings)
+                                   exclusions.without_excluded(job.teacher_id, request.get('student_ids', [])), settings)
     except Exception as exc:
         db.session.rollback()
         job.status, job.message = 'failed', str(exc)

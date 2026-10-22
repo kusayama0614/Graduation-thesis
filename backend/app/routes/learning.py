@@ -13,7 +13,7 @@ from sqlalchemy.exc import OperationalError
 from flask import Blueprint, current_app, request, send_file
 
 from app import db
-from app.learning import exam_generation, exam_import, pdf_export, tex_template
+from app.learning import exam_generation, exam_import, exclusions, pdf_export, tex_template
 from app.learning import explanation as chain
 from app.learning import graph
 from app.learning.jobs import job_to_dict, problem_to_chain_input, start_job
@@ -23,7 +23,7 @@ from app.learning.profile import (
 )
 from app.models import (
     AnswerSheet, ExamGenerationJob, ExamImport, PdfExportJob, ExerciseRecord, ExplanationEmbedding, GeneratedExplanation,
-    GenerationJob, LearnerProfile, TestProblem,
+    GenerationJob, LearnerProfile, ResearchExclusion, TestProblem,
 )
 from app.routes.analysis import _resolve_teacher_ids
 from app.routes.auth import login_required
@@ -524,7 +524,7 @@ def generate(problem_id):
                        .order_by(LearnerProfile.student_id.asc()).all()]
     if not isinstance(student_ids, list) or not all(isinstance(s, str) and s.strip() for s in student_ids):
         return make_error_response('LEARNING_INVALID_STUDENTS', 'student_ids は生徒IDの配列です', 400)
-    student_ids = list(dict.fromkeys(s.strip() for s in student_ids))
+    student_ids = exclusions.without_excluded(teacher_db_id, dict.fromkeys(s.strip() for s in student_ids))
     if len(student_ids) > MAX_STUDENTS_PER_JOB:
         return make_error_response('LEARNING_INVALID_STUDENTS', f'一度に生成できるのは {MAX_STUDENTS_PER_JOB} 人までです', 400)
     include_master = bool(payload.get('include_master', False))
@@ -939,8 +939,71 @@ def _select_students(source):
         selected = [sid for sid in known if exam_generation.class_of(sid) in wanted]
     else:
         selected = list(known)
-    selected = sorted(dict.fromkeys(selected), key=exam_generation.number_key)
+    # 研究協力不可の生徒は，解説の生成・配布の対象から外す
+    excluded = exclusions.excluded_ids(_teacher_db_id())
+    selected = sorted((sid for sid in dict.fromkeys(selected) if sid not in excluded), key=exam_generation.number_key)
     return selected, known
+
+
+# ==================== 研究協力不可の生徒 ====================
+
+@learning_bp.route('/exclusions', methods=['GET'])
+@login_required
+def list_exclusions():
+    rows = ResearchExclusion.query.filter_by(teacher_id=_teacher_db_id()).all()
+    ids = sorted((r.student_id for r in rows), key=exam_generation.number_key)
+    return make_success_response({'student_ids': ids})
+
+
+@learning_bp.route('/exclusions', methods=['POST'])
+@login_required
+def add_exclusions():
+    """研究協力不可の生徒を登録する。body: {students: ["1-8-15" | "1年8組15番", ...], delete_existing?: bool（既定 true）}
+
+    登録した生徒の解説は以後作らない。delete_existing なら，既に作った解説も消す。
+    """
+    payload = request.get_json(silent=True) or {}
+    raw = payload.get('students')
+    if isinstance(raw, str):
+        raw = re.split(r'[,，、\n]+', raw)
+    if not isinstance(raw, list):
+        return make_error_response('LEARNING_INVALID_STUDENTS', '生徒を「1-8-15」か「1年8組15番」の形で入力してください', 400)
+    parsed, invalid = [], []
+    for item in raw:
+        if not str(item or '').strip():
+            continue
+        sid = exclusions.parse_student_id(item)
+        (parsed if sid else invalid).append(sid or str(item).strip())
+    if invalid:
+        return make_error_response('LEARNING_INVALID_STUDENTS',
+                                   f'読み取れない生徒があります: {"，".join(invalid)}（「1-8-15」か「1年8組15番」の形で入力してください）', 400)
+    if not parsed:
+        return make_error_response('LEARNING_INVALID_STUDENTS', '生徒を入力してください', 400)
+    teacher = _teacher_db_id()
+    existing = exclusions.excluded_ids(teacher)
+    added = []
+    for sid in dict.fromkeys(parsed):
+        if sid not in existing:
+            db.session.add(ResearchExclusion(teacher_id=teacher, student_id=sid))
+            added.append(sid)
+    db.session.commit()
+    deleted = 0
+    if payload.get('delete_existing', True):
+        for sid in dict.fromkeys(parsed):
+            deleted += exclusions.delete_explanations(teacher, sid)
+    ids = sorted(exclusions.excluded_ids(teacher), key=exam_generation.number_key)
+    return make_success_response({'student_ids': ids, 'added': added, 'deleted_explanations': deleted})
+
+
+@learning_bp.route('/exclusions/<student_id>', methods=['DELETE'])
+@login_required
+def remove_exclusion(student_id):
+    """研究協力不可の登録を外す（以後は解説を作る対象に戻る）。"""
+    teacher = _teacher_db_id()
+    ResearchExclusion.query.filter_by(teacher_id=teacher, student_id=student_id).delete()
+    db.session.commit()
+    ids = sorted(exclusions.excluded_ids(teacher), key=exam_generation.number_key)
+    return make_success_response({'student_ids': ids})
 
 
 def _current_model_name():

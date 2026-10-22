@@ -148,6 +148,21 @@ class LearnerProfile(db.Model):
         return f'<LearnerProfile {self.student_id}>'
 
 
+class ResearchExclusion(db.Model):
+    """研究協力不可の生徒。この生徒の解答解説は生成・配布しない（生徒IDだけを持ち，氏名は扱わない）。"""
+
+    __tablename__ = 'research_exclusions'
+    __table_args__ = (db.UniqueConstraint('teacher_id', 'student_id', name='uq_research_exclusion_student'),)
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(64), nullable=False, index=True)  # Firebase 利用時は Firestore の教師IDのため外部キーにしない
+    student_id = db.Column(db.String(100), nullable=False)  # 匿名化した生徒ID（例: 1-8-15）
+    created_at = db.Column(db.DateTime, default=utc_now)
+
+    def __repr__(self):
+        return f'<ResearchExclusion {self.student_id}>'
+
+
 class ExerciseRecord(db.Model):
     """演習ごとの記録（3.2節 表2）。演習プリントの小問1つにつき1行。"""
 

@@ -31,6 +31,19 @@
             <div id="planArea"></div>
         </section>
 
+        <section class="card" id="exclusionCard">
+            <h2>研究協力不可の生徒</h2>
+            <p class="card-lead">ここに登録した生徒の解答解説は作りません（解説の生成・文章を整える・要確認の手直し・冊子・TeX・PDF の対象から外します）。「1-8-15」か「1年8組15番」の形で，複数のときは改行か読点で区切って入力してください。</p>
+            <div id="exclusionArea"></div>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; margin-top: 8px;">
+                <textarea id="exclusionInput" rows="2" style="min-width: 240px; flex: 1;" placeholder="1年8組15番&#10;1年10組38番"></textarea>
+                <div>
+                    <label class="checkbox"><input type="checkbox" id="exclusionDelete" checked> 既に作った解説も削除する</label>
+                    <div class="button-row" style="margin-top: 6px;"><button class="button" onclick="addExclusions()">登録する</button></div>
+                </div>
+            </div>
+        </section>
+
         <section class="card hidden" id="templateCard">
             <h2>テンプレート（マスター解説の TeX）</h2>
             <p class="card-lead">教員が作ったマスター解説の TeX を読み込むと，個別の解説はその体裁（答・考え方・手順・注意・図）のまま，各「手順」の本文だけを生徒に合わせて書き直します。テンプレートの手順がそのまま解答ステップになり，前提知識ノードだけを Gemini が付けます（③ で直せます）。比較用のマスター解説は，テンプレートそのものになります。</p>
@@ -123,11 +136,60 @@
                 document.getElementById('examSelect').addEventListener('change', onSelectionChange);
                 document.getElementById('classSelect').addEventListener('change', onSelectionChange);
                 ['optReuse'].forEach((id) => document.getElementById(id).addEventListener('change', () => clearPlan()));
+                await loadExclusions();
                 await onSelectionChange();
             } catch (error) {
                 L.toast(error.message, 'error');
             }
         });
+
+        function renderExclusions(ids) {
+            document.getElementById('exclusionArea').innerHTML = ids.length
+                ? `<p>登録済み ${ids.length} 人：${ids.map((sid) => `<span class="badge badge-unmarked">${L.escapeHtml(sid)}
+                    <a href="#" onclick="removeExclusion('${L.escapeHtml(sid)}'); return false;" title="登録を外す">×</a></span>`).join(' ')}</p>`
+                : '<p class="muted">登録されている生徒はいません。</p>';
+        }
+
+        async function loadExclusions() {
+            renderExclusions((await L.api('GET', '/learning/exclusions')).student_ids || []);
+        }
+
+        async function addExclusions() {
+            const text = document.getElementById('exclusionInput').value.trim();
+            if (!text) {
+                L.toast('生徒を入力してください', 'error');
+                return;
+            }
+            const remove = document.getElementById('exclusionDelete').checked;
+            if (remove && !window.confirm('入力した生徒を研究協力不可として登録し，その生徒の既に作った解説を削除します。よろしいですか？')) {
+                return;
+            }
+            try {
+                const payload = await L.api('POST', '/learning/exclusions', { students: text, delete_existing: remove });
+                renderExclusions(payload.student_ids || []);
+                document.getElementById('exclusionInput').value = '';
+                L.toast(`登録しました${remove ? `（解説を ${payload.deleted_explanations} 件削除）` : ''}`, 'ok');
+                if (examId()) {
+                    await onSelectionChange();
+                }
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
+
+        async function removeExclusion(studentId) {
+            if (!window.confirm(`${studentId} の研究協力不可の登録を外しますか？ 外すと，次の生成から解説を作る対象に戻ります。`)) {
+                return;
+            }
+            try {
+                renderExclusions((await L.api('DELETE', `/learning/exclusions/${encodeURIComponent(studentId)}`)).student_ids || []);
+                if (examId()) {
+                    await onSelectionChange();
+                }
+            } catch (error) {
+                L.toast(error.message, 'error');
+            }
+        }
 
         function remember(key, value) {
             try {

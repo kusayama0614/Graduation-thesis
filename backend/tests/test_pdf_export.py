@@ -147,3 +147,26 @@ def test_students_without_explanations_get_only_the_master(client, tmp_path):  #
     assert '1年1組2番（1-1-2）' in note
     only_b = client.get(f"/api/learning/pdf-exports/{job['id']}/zip?kind=B")
     assert pdf_export.SKIPPED_NOTE_NAME not in zipfile.ZipFile(io.BytesIO(only_b.data)).namelist()
+
+
+def test_students_missing_only_some_explanations_still_get_a(client, tmp_path):  # noqa: F811
+    from app import db
+    from app.models import GeneratedExplanation, TestProblem
+
+    llm = FakeLLM(writer=template_writer)
+    llm.template_nodes = {1: ['discriminant_setup'], 2: ['double_root']}
+    exam_id = _setup(client, llm)
+    client.application.config.update(PDF_COMPILER=FakeCompiler(), UPLOAD_FOLDER=str(tmp_path / 'uploads'))
+    client.post(f'/api/learning/exam-imports/{exam_id}/template', json={'tex': TEMPLATE})
+    client.post(f'/api/learning/exams/{exam_id}/generation-jobs', json={'classes': ['1-1']})
+    with client.application.app_context():  # 1-1-2 の 1(2) だけ解説がない
+        problem = TestProblem.query.filter_by(exam_id=exam_id, number='1(2)').first()
+        GeneratedExplanation.query.filter_by(student_id='1-1-2', problem_id=problem.id).delete()
+        db.session.commit()
+
+    job = client.post(f'/api/learning/exams/{exam_id}/pdf-exports', json={'classes': ['1-1']}).get_json()['job']
+    by_file = {(f['student_id'], f['kind']): f for f in job['files']}
+    assert by_file[('1-1-2', 'A')]['ready'] and not by_file[('1-1-2', 'A')]['skipped']
+    assert any(e['student_id'] == '1-1-2' and 'テンプレートのまま' in e['error'] for e in job['errors'])
+    res = client.get(f"/api/learning/pdf-exports/{job['id']}/zip")
+    assert pdf_export.SKIPPED_NOTE_NAME not in zipfile.ZipFile(io.BytesIO(res.data)).namelist()

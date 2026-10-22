@@ -224,17 +224,17 @@ def plan_documents(exam, problems, latest_individual: Dict[Tuple[str, str], Any]
                 missing.append(problem.number)
         evidence = personalization_evidence(traces, settings['min_evidence'], settings['min_ratio'])
         stem_a = file_stem(sid, 'A') + ('※' if evidence['insufficient'] else '')
-        if missing:
-            # 個別化した解説がない問題がある生徒は A（個別化）を作らず，B（マスター）だけを作る。
-            # A の一部がマスター解説のままだと，個別化した解説として配れない（比較にも使えない）ため
+        if missing and not traces:
+            # 個別化した解説が1問もない生徒は A（個別化）を作らず，B（マスター）だけを作る
             documents.append({'student_id': sid, 'kind': 'A', 'filename': f'{file_stem(sid, "A")}.pdf',
                               'insufficient': False, 'evidence': evidence, 'missing': missing, 'tex': None,
                               'skipped': True,
-                              'reason': f'個別化した解説が生成されていない問題があるため，A（個別化した解説）は作らず，'
-                                        f'B（マスター解説）だけを作りました（解説のない問題: {", ".join(missing)}）'})
+                              'reason': '個別化した解説が1問も生成されていないため，A（個別化した解説）は作らず，'
+                                        'B（マスター解説）だけを作りました'})
         else:
+            # 一部の問題だけ解説がないときは，その問題をテンプレートのまま載せて A を作る（注意として知らせる）
             documents.append({'student_id': sid, 'kind': 'A', 'filename': f'{stem_a}.pdf',
-                              'insufficient': evidence['insufficient'], 'evidence': evidence, 'missing': [],
+                              'insufficient': evidence['insufficient'], 'evidence': evidence, 'missing': missing,
                               'tex': tex_template.build_document(parsed, [(sid, contents)], label=KIND_LABELS['A'])})
         documents.append({'student_id': sid, 'kind': 'B', 'filename': f'{file_stem(sid, "B")}.pdf', 'insufficient': False,
                           'evidence': None, 'missing': [],
@@ -284,6 +284,10 @@ def _run(app, job_id: str) -> None:
     errors: List[Dict[str, Any]] = []
     results: Dict[int, Dict[str, Any]] = {}
     for document in documents:
+        if document['missing'] and not document.get('skipped'):
+            errors.append({'student_id': document['student_id'], 'file': document['filename'], 'warning': True,
+                           'error': f'個別化した解説がない問題があります（{", ".join(document["missing"])}）。'
+                                    'その問題はテンプレートのまま載せました'})
         if document.get('skipped'):
             errors.append({'student_id': document['student_id'], 'file': document['filename'], 'warning': True,
                            'skipped': True, 'error': document['reason']})
@@ -328,7 +332,7 @@ def skipped_note(files: List[Dict[str, Any]]) -> Optional[str]:
     skipped = [f for f in files if f.get('skipped')]
     if not skipped:
         return None
-    lines = ['次の生徒は，個別化した解説が生成されていない問題があるため，解答解説A（個別化した解説）を作らず，',
+    lines = ['次の生徒は，個別化した解説が1問も生成されていないため，解答解説A（個別化した解説）を作らず，',
              '解答解説B（マスター解説）だけを作りました。', '']
     lines += [f'{file_stem(f["student_id"], "A").split("_")[0]}（{f["student_id"]}）: {f.get("reason", "")}' for f in skipped]
     return '\n'.join(lines) + '\n'

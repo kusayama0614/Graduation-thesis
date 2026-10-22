@@ -238,6 +238,7 @@ def _run(app, job_id: str) -> None:
     model_name = getattr(llm, 'model_name', None)
     workers = max(1, int(app.config.get('EXPLANATION_CONCURRENCY') or os.getenv('EXPLANATION_CONCURRENCY', 3)))
     reuse = request.get('reuse', True)
+    only_missing = bool(request.get('only_missing'))  # 解説がまだない問題だけを作る
     if request.get('mode') == 'repair':
         _run_repair(job, request, llm, errors)
         return
@@ -274,7 +275,7 @@ def _run(app, job_id: str) -> None:
             else:
                 sig = common_signature(problem_input, model_name)
                 existing = latest.get(('common', None))
-                if existing is not None and existing.signature == sig:
+                if existing is not None and (existing.signature == sig or only_missing):
                     job.skipped += len(profiles)
                 else:
                     try:
@@ -296,7 +297,7 @@ def _run(app, job_id: str) -> None:
             continue
 
         # マスター解説（比較用）
-        if request.get('include_master'):
+        if request.get('include_master') and not only_missing:
             master_sig = master_signature(problem_input, model_name)
             existing = latest.get(('master', None))
             if existing is None or existing.signature != master_sig:
@@ -338,7 +339,7 @@ def _run(app, job_id: str) -> None:
         pending: Dict[str, List[str]] = {}
         for student_id, (decisions, sig, snapshot) in plans.items():
             current = latest.get(('individual', student_id))
-            if current is not None and current.signature == sig:
+            if current is not None and (current.signature == sig or only_missing):
                 job.skipped += 1
                 job.done += 1
                 continue

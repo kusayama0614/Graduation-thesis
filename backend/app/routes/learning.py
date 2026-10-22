@@ -1015,6 +1015,8 @@ def _exam_job_options(payload):
     return {
         'include_master': bool(payload.get('include_master', False)),
         'reuse': bool(payload.get('reuse', True)),
+        # 解説がまだない問題だけを作る（既にある解説は，判断が変わっていても作り直さない）
+        'only_missing': bool(payload.get('only_missing', False)),
     }
 
 

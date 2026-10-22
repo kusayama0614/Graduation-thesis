@@ -27,6 +27,7 @@
             <div class="button-row">
                 <button class="button button-light" id="planButton" onclick="loadPlan()">見積もる（Gemini は呼びません）</button>
                 <button class="button" id="startButton" onclick="startGeneration()" disabled>解説を生成する</button>
+                <button class="button button-light" id="missingButton" onclick="startMissing()" disabled>解説がない生徒の分だけ作る</button>
             </div>
             <div id="planArea"></div>
         </section>
@@ -265,6 +266,7 @@
             stopPolling();
             const ready = Boolean(examId());
             document.getElementById('startButton').disabled = !ready;
+            document.getElementById('missingButton').disabled = !ready;
             document.getElementById('planButton').disabled = !ready;
             ['templateCard', 'jobCard', 'summaryCard', 'reviewCard', 'distributeCard'].forEach((id) =>
                 document.getElementById(id).classList.toggle('hidden', !ready));
@@ -372,6 +374,34 @@
                         <tbody>${rows}</tbody></table></div>`;
             } catch (error) {
                 area.innerHTML = `<div class="notice notice-error">${L.escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        async function startMissing() {
+            const button = document.getElementById('missingButton');
+            button.disabled = true;
+            try {
+                const students = (await L.api('GET', `/learning/exams/${examId()}/booklet?${classQuery()}`)).students || [];
+                const missing = students.filter((s) => s.missing);
+                if (!missing.length) {
+                    L.toast('解説がない生徒はいません', 'ok');
+                    return;
+                }
+                const total = missing.reduce((sum, s) => sum + s.missing, 0);
+                if (!window.confirm(`解説がない生徒 ${missing.length} 人（${missing.map((s) => s.student_id).join('，')}）の，解説のない問題 計 ${total} 問分だけを作ります。できている解説は作り直しません。よろしいですか？`)) {
+                    return;
+                }
+                const payload = await L.api('POST', `/learning/exams/${examId()}/generation-jobs`, {
+                    student_ids: missing.map((s) => s.student_id),
+                    only_missing: true,
+                    reuse: document.getElementById('optReuse').checked,
+                });
+                showJob(payload.job);
+                L.toast(`解説がない ${missing.length} 人の分を作り始めました`, 'ok');
+            } catch (error) {
+                L.toast(error.message, 'error');
+            } finally {
+                button.disabled = !examId();
             }
         }
 
@@ -578,8 +608,8 @@
             document.getElementById('studentArea').innerHTML = students.length
                 ? `<p class="muted">配布できる生徒 ${ready} / ${students.length} 人（全問の解説があり，要確認のものは確認済み）</p>
                     ${missingStudents ? `<div class="notice notice-warn">解説のない問題がある生徒が ${missingStudents} 人います（生成が途中で止まったか，失敗した分です）。
-                        下のボタンで，足りない解説だけを作ります（できている解説は作り直しません）。
-                        <div class="button-row"><button class="button" onclick="startGeneration()">足りない解説を作る（このクラス）</button></div></div>` : ''}
+                        下のボタンで，その生徒の解説のない問題だけを作ります（できている解説は作り直しません）。
+                        <div class="button-row"><button class="button" onclick="startMissing()">解説がない生徒の分だけ作る</button></div></div>` : ''}
                     <div class="table-wrap"><table><thead><tr><th>生徒ID</th><th>状態</th><th></th></tr></thead><tbody>
                     ${students.map((s) => {
                         const pending = s.items.filter((i) => i.explanation_id && !i.ready).length;
@@ -662,7 +692,7 @@
                 ${flagged ? `<p class="muted">※ 付き（記録が少ない）: ${flagged} 人</p>` : ''}
                 ${skippedA.length ? `<div class="notice notice-warn">個別化した解説が1問も生成されていない ${skippedA.length} 人（${skippedA.map((f) => L.escapeHtml(f.student_id)).join('，')}）は，
                     A（個別化した解説）を作らず，B（マスター解説）だけを作りました。ZIP には，このことを書いた教員用のテキストファイルを入れています。
-                    A も作るときは，「足りない解説を作る」で解説を作ってから「PDF を作る」を押し直してください。</div>` : ''}
+                    A も作るときは，「解説がない生徒の分だけ作る」で解説を作ってから「PDF を作る」を押し直してください。</div>` : ''}
                 ${warnings.length ? `<details><summary>注意 ${warnings.length} 件</summary><ul class="reasons">${warnings.map((e) => `<li>${L.escapeHtml(e.file)}：${L.escapeHtml(e.error)}</li>`).join('')}</ul></details>` : ''}
                 ${failures.length ? `<details open><summary>作れなかったもの ${failures.length} 件</summary><ul class="reasons">${failures.map((e) => `<li>${L.escapeHtml(e.file)}：${L.escapeHtml(e.error)}</li>`).join('')}</ul></details>` : ''}
                 ${Object.keys(byStudent).length ? `<details${active ? '' : ' open'}><summary>生徒ごとの PDF</summary><div class="table-wrap"><table><thead><tr><th>生徒</th><th>A</th><th>B</th></tr></thead><tbody>

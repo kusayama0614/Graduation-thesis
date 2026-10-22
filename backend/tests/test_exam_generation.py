@@ -423,3 +423,20 @@ def test_research_exclusion_skips_and_removes_students(client):  # noqa: F811
     assert client.delete('/api/learning/exclusions/1-1-1').get_json()['student_ids'] == ['1-8-15']
     job = _job(client, exam_id, classes=['1-1'], problem_ids=only)
     assert '1-1-1' in job['request']['student_ids']
+
+
+def test_only_missing_generates_just_the_absent_explanations(client):  # noqa: F811
+    llm = FakeLLM(writer=correct_writer)
+    exam_id = _setup(client, llm)
+    only = [_pid(client, exam_id, '2(1)')]
+    _job(client, exam_id, classes=['1-1'], problem_ids=only, reuse=False)
+    with client.application.app_context():
+        GeneratedExplanation.query.filter_by(student_id='1-1-1').delete()
+        db.session.commit()
+    _set_profile(client, '1-1-10', WEAK)  # 判断が変わったが，解説はあるので作り直さない
+    before = {sid: rid for rid, sid, _, _ in _individual_rows(client)}
+
+    job = _job(client, exam_id, student_ids=['1-1-1', '1-1-10'], problem_ids=only, only_missing=True)
+    assert job['request']['only_missing'] and (job['skipped'], job['done']) == (1, 2)
+    after = {sid: rid for rid, sid, _, _ in _individual_rows(client)}
+    assert '1-1-1' in after and after['1-1-10'] == before['1-1-10']
